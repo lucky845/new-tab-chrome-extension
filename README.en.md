@@ -1,6 +1,6 @@
 # Infinity-Next Tab - A Modern, Feature-Rich New Tab Page for Your Browser
 
-![Plugin Screenshot](https://raw.githubusercontent.com/your-username/your-repo-name/main/screenshot.png) <!-- Please replace this with the link to your screenshot -->
+![Plugin Screenshot](img/preview.png)
 
 Infinity-Next Tab is a Chrome extension designed to reinvent your new tab experience with a beautiful design and powerful features. It boasts an iOS-style glassmorphism interface, dynamic wallpapers, customizable speed dials, and a robust search bar integrated with multiple search engines, bringing you a browsing experience that is both efficient and visually pleasing.
 

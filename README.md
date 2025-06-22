@@ -1,6 +1,6 @@
 # Infinity-Next Tab - 一款现代化、功能丰富的浏览器新标签页
 
-![插件截图](https://raw.githubusercontent.com/your-username/your-repo-name/main/screenshot.png) <!-- 请将此处的链接替换为您的截图链接 -->
+![插件截图](img/preview.png)
 
 Infinity-Next Tab 是一款旨在通过美观的设计和强大的功能，重塑您浏览器新标签页体验的Chrome插件。它拥有iOS风格的毛玻璃质感界面、动态壁纸、可自定义的快速拨号以及集成了多种搜索引擎的强大搜索栏，为您带来既高效又赏心悦目的浏览体验。
 
