@@ -24,7 +24,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.package.outputs.zip_name }}
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
           release_name: Release ${{ github.ref_name }}
           body: |
             这是 ${{ github.ref_name }} 版本的正式发布。
