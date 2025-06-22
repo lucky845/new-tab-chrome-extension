@@ -22,45 +22,245 @@ body {
 }
 
 .main-container {
+    padding-top: 15vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    gap: 60px;
     width: 100%;
-    padding: 20px;
-    background: rgba(0, 0, 0, 0.2);
 }
 
 .search-container {
     width: 100%;
     max-width: 600px;
-    margin-bottom: 60px;
+    display: flex;
+    justify-content: center;
+}
+
+.search-bar {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
 }
 
 .search-input {
     width: 100%;
-    padding: 15px 25px;
-    font-size: 18px;
+    padding: 18px 25px 18px 25px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 50px;
-    border: none;
-    background: rgba(255, 255, 255, 0.9);
-    color: #333;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    outline: none;
-    transition: background 0.3s ease;
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+    font-size: 18px !important;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+#search-input {
+    padding-left: 65px;
+    padding-right: 95px;
+}
+
+.search-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .search-input:focus {
-    background: white;
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* 覆盖浏览器自动填充的默认样式 */
+.search-input:-webkit-autofill,
+.search-input:-webkit-autofill:hover,
+.search-input:-webkit-autofill:focus,
+.search-input:-webkit-autofill:active {
+    -webkit-text-fill-color: #fff !important; /* 强制文字颜色为白色 */
+    box-shadow: 0 0 0px 1000px rgba(0, 0, 0, 0.2) inset !important; /* 使用 inset box-shadow 覆盖背景色 */
+    transition: background-color 5000s ease-in-out 0s; /* 延迟浏览器样式的应用 */
+    font-size: 18px !important; /* 强制字体大小一致 */
+    caret-color: #fff; /* 确保光标颜色也是白色 */
+}
+
+/* 搜索引擎选择器 */
+.search-engine-selector {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+
+.selected-engine {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.selected-engine:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.selected-engine svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.selected-engine .arrow-down {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #fff;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+}
+
+.search-engine-selector.open .arrow-down {
+    transform: rotate(180deg);
+}
+
+.selected-engine span {
+    display: none;
+}
+
+/* 下拉菜单 */
+.search-engine-dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    width: 160px;
+    background: rgba(30, 30, 30, 0.7);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    padding: 8px;
+    z-index: 20;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.search-engine-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.search-engine-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-engine-item svg {
+    width: 20px;
+    height: 20px;
+}
+
+.search-engine-item span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* 搜索历史下拉框 */
+.search-history-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 100%;
+    background: rgba(30, 30, 30, 0.7);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    padding: 8px;
+    z-index: 15; /* 比搜索引擎下拉框低，比其他内容高 */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.history-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.history-text {
+    flex-grow: 1;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.delete-history-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    margin-left: 15px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    font-size: 22px;
+    line-height: 1;
+}
+
+.delete-history-btn:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.clear-history-container {
+    padding: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: center;
+}
+
+.clear-all-history-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.clear-all-history-btn:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .sites-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 20px;
     width: 100%;
     max-width: 800px;
+    margin: 0 auto;
     padding-bottom: 80px;
 }
 
@@ -143,6 +343,11 @@ body {
 .control-btn:hover {
     background: rgba(0, 0, 0, 0.4);
     transform: scale(1.1);
+}
+
+/* 通用工具类 */
+.u-hidden {
+    display: none !important;
 }
 
 /* 设置面板 */
@@ -484,4 +689,68 @@ body {
     color: white;
     font-size: 28px;
     cursor: pointer;
+}
+
+.search-submit-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: background-color 0.2s ease;
+}
+
+.search-submit-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* 当搜索框激活时，让图标更明显 */
+.search-bar:focus-within .search-submit-btn,
+.search-bar:focus-within .clear-search-btn.visible {
+    color: #fff; /* 完全不透明的白色 */
+    opacity: 1;
+}
+
+.search-submit-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.2s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.clear-search-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.clear-search-btn:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
 } 

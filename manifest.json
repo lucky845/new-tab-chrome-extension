@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "新标签页",
-    "version": "1.7.0",
+    "version": "1.0.1",
     "description": "一款功能丰富、高度可定制的新标签页，提供高清壁纸、快捷网站访问和搜索功能。",
     "chrome_url_overrides": {
         "newtab": "newtab.html"

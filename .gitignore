@@ -21,4 +21,36 @@
 .Network Trash Folder
 .Trash
 Temporary Items
-.apdisk 
+.apdisk
+
+# 操作系统生成的文件
+.DS_Store?
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 编辑器和IDE配置文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 依赖包
+node_modules/
+dist/
+build/
+coverage/
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 压缩包
+*.zip
+*.rar
+*.gz
+*.7z 

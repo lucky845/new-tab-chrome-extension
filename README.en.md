@@ -1,32 +1,72 @@
-# Enhanced New Tab
+# Infinity-Next Tab - A Modern, Feature-Rich New Tab Page for Your Browser
 
-This is a feature-rich and highly customizable Chrome new tab extension designed to provide you with a beautiful and efficient start page.
+![Plugin Screenshot](https://raw.githubusercontent.com/your-username/your-repo-name/main/screenshot.png) <!-- Please replace this with the link to your screenshot -->
+
+Infinity-Next Tab is a Chrome extension designed to reinvent your new tab experience with a beautiful design and powerful features. It boasts an iOS-style glassmorphism interface, dynamic wallpapers, customizable speed dials, and a robust search bar integrated with multiple search engines, bringing you a browsing experience that is both efficient and visually pleasing.
 
 ## ✨ Key Features
 
--   **HD Dynamic Wallpapers**:
-    -   Automatically loads high-quality landscape wallpapers from Pexels every time you open a new tab.
-    -   Features a powerful built-in wallpaper library that supports browsing by category or searching by keyword.
-    -   Remembers your wallpaper choice, so every new tab greets you with your favorite scenery.
-    -   Easily change to a new wallpaper anytime by clicking the button in the bottom-right corner.
--   **Quick Site Access**:
-    -   A customizable grid of website icons in the center of the homepage for quick access to your frequently used sites.
--   **Integrated Search Bar**:
-    -   An elegant search bar in the middle of the page allows you to start searching quickly without extra navigation.
--   **Highly Customizable**:
-    -   Securely manage your Pexels API key through the settings panel.
-    -   The API key input field features a show/hide toggle to protect your privacy.
--   **Modern Design**:
-    -   Adopts an iOS-like glassmorphism design style, with all panels featuring elegant translucency and blur effects.
+- **🌌 Dynamic HD Wallpapers**:
+    - Uses Bing's daily wallpaper by default, automatically updated every day.
+    - Supports Pexels API integration, allowing you to easily search, browse, and set millions of high-quality professional photos as your background.
+    - A powerful wallpaper library that supports browsing by category, searching by keyword, and pagination.
+    - Remembers your wallpaper choice, so you see your favorite scenery every time you open a new tab.
+
+- **🔍 Enhanced Search Experience**:
+    - Integrated with multiple mainstream search engines (Baidu, Google, Bing, Sogou, DuckDuckGo) for one-click switching.
+    - Remembers the last search engine you used.
+    - Search history feature for quick access to your previous searches.
+    - Supports one-click clearing of the input field and all search history.
+
+- **🎨 Modern Design**:
+    - Inspired by iOS design, all components feature elegant glassmorphism and rounded corners.
+    - Smooth animations and transition effects.
+    - Carefully selected icons and layout for both aesthetics and usability.
+
+- **⚙️ Convenient Settings**:
+    - A separate, beautifully designed settings panel for managing your Pexels API key.
+    - All configurations are stored locally in your browser for security and reliability.
 
 ## 🚀 Installation and Usage
 
+### Install from the Chrome Web Store (Recommended)
+
+> *The project will be published to the Chrome Web Store once it's ready.*
+
+1.  Visit the [plugin's Chrome Web Store page]() <!-- This will be replaced with the store link -->.
+2.  Click "Add to Chrome".
+3.  Once installed, open a new tab to start the experience.
+
+### Install from Local Source
+
 1.  Download or clone this repository to your local machine.
-2.  Open Chrome browser and navigate to `chrome://extensions/`.
-3.  Enable "Developer mode" in the top-right corner.
-4.  Click "Load unpacked" and select the project's folder.
-5.  On first use, the extension will guide you to enter your Pexels API key in the settings panel.
+2.  Open Chrome and navigate to the `chrome://extensions/` page.
+3.  In the top right corner, toggle on "Developer mode".
+4.  Click the "Load unpacked" button in the top left.
+5.  In the file selection dialog, choose the repository folder you just downloaded.
+6.  The plugin is now installed!
+
+## 🔧 Local Development
+
+If you'd like to contribute to this project or develop it further, please follow these steps:
+
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/your-username/your-repo-name.git
+    cd your-repo-name
+    ```
+
+2.  **Load the Extension**:
+    - Follow the steps in "Install from Local Source" to load the repository folder into Chrome.
+
+3.  **Modify the Code**:
+    - Directly edit files like `main.js`, `style.css`, or `newtab.html`.
+    - On the `chrome://extensions/` page, click the "Reload" button (a circular arrow icon) on the plugin's card. Your changes will take effect immediately.
+
+## 🤝 Contributing
+
+We warmly welcome all forms of contributions! If you have any great ideas, feature suggestions, or have found a bug, please feel free to let us know via [Issues](https://github.com/your-username/your-repo-name/issues).
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./LICENSE). 
+This project is open-sourced under the [MIT License](./LICENSE). 
