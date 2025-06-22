@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Infinity 新标签页 (仿)",
-    "version": "1.0.0",
-    "description": "一款模仿 Infinity 新标签页的扩展程序，提供美观的起始页。",
+    "name": "新标签页",
+    "version": "1.7.0",
+    "description": "一款功能丰富、高度可定制的新标签页，提供高清壁纸、快捷网站访问和搜索功能。",
     "chrome_url_overrides": {
         "newtab": "newtab.html"
     },
