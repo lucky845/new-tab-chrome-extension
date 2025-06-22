@@ -8,24 +8,26 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 授予创建 Release 的权限
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Build and package the extension
-        # 将所有必要的文件打包到以版本号命名的zip文件中
-        run: zip -r extension-v${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
+        id: package
+        run: |
+          zip -r extension-v${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
+          echo "zip_name=extension-v${{ github.ref_name }}.zip" >> $GITHUB_OUTPUT
 
       - name: Create Release and Upload Asset
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 这是由 GitHub 自动提供的
+        uses: softprops/action-gh-release@v2
         with:
+          files: ${{ steps.package.outputs.zip_name }}
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref_name }}
           body: |
             这是 ${{ github.ref_name }} 版本的正式发布。
-            打包好的 `extension-v${{ github.ref_name }}.zip` 文件已准备就绪，可用于提交到 Chrome Web Store。
-          files: extension-v${{ github.ref_name }}.zip
+            打包好的 `${{ steps.package.outputs.zip_name }}` 文件已准备就绪，可用于提交到 Chrome Web Store。
           draft: false
           prerelease: false 
