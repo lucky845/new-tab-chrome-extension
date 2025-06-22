@@ -1075,4 +1075,27 @@ body {
 }
 .tooltip-text a:hover {
     text-decoration: underline;
+}
+
+.quick-access-item.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  z-index: 1000;
+}
+
+.quick-access-item.drag-over {
+  border: 2px dashed #4CAF50;
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.quick-access-item.drag-placeholder {
+  background-color: rgba(76, 175, 80, 0.2);
+  border: 2px dashed #4CAF50;
+  opacity: 0.7;
+}
+
+/* 确保拖拽时不影响其他功能 */
+.quick-access-item.dragging .edit-btn,
+.quick-access-item.dragging .delete-btn {
+  display: none;
 } 

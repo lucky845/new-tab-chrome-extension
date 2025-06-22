@@ -896,6 +896,7 @@ function renderQuickAccess(sites) {
         item.className = 'quick-access-item';
         item.target = '_blank';
         item.dataset.index = index;
+        item.draggable = true; // 启用拖拽
 
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
@@ -956,6 +957,8 @@ function renderQuickAccess(sites) {
         item.appendChild(deleteBtn);
 
         quickAccessGrid.appendChild(item);
+        // 添加拖拽事件监听器
+        setupDragAndDrop(item, index);
     });
 
     const addButton = document.createElement('div');
@@ -964,3 +967,101 @@ function renderQuickAccess(sites) {
     addButton.title = '添加快捷方式';
     quickAccessGrid.appendChild(addButton);
 } 
+// 拖拽功能实现
+function setupDragAndDrop(item, index) {
+    let draggedItem = null;
+    let placeholder = null;
+
+    item.addEventListener('dragstart', (e) => {
+        if (isDeleteMode) return; // 删除模式下禁用拖拽
+        
+        draggedItem = item;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', item.outerHTML);
+        
+        // 清除长按定时器
+        clearLongPressTimer();
+    });
+
+    item.addEventListener('dragend', (e) => {
+        item.classList.remove('dragging');
+        if (placeholder) {
+            placeholder.remove();
+            placeholder = null;
+        }
+        draggedItem = null;
+    });
+
+    item.addEventListener('dragover', (e) => {
+        if (isDeleteMode || !draggedItem || draggedItem === item) return;
+        
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        
+        if (e.clientY < midY) {
+            item.parentNode.insertBefore(placeholder || createPlaceholder(), item);
+        } else {
+            item.parentNode.insertBefore(placeholder || createPlaceholder(), item.nextSibling);
+        }
+    });
+
+    item.addEventListener('dragenter', (e) => {
+        if (isDeleteMode || !draggedItem || draggedItem === item) return;
+        e.preventDefault();
+        item.classList.add('drag-over');
+    });
+
+    item.addEventListener('dragleave', (e) => {
+        if (isDeleteMode) return;
+        item.classList.remove('drag-over');
+    });
+
+    item.addEventListener('drop', async (e) => {
+        if (isDeleteMode || !draggedItem) return;
+        
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        
+        if (placeholder) {
+            placeholder.remove();
+            placeholder = null;
+        }
+        
+        // 更新数据顺序
+        await updateSitesOrder();
+    });
+}
+
+function createPlaceholder() {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'quick-access-item drag-placeholder';
+    placeholder.style.width = '80px';
+    placeholder.style.height = '80px';
+    placeholder.style.margin = '10px';
+    placeholder.style.borderRadius = '12px';
+    placeholder.style.display = 'inline-block';
+    return placeholder;
+}
+
+async function updateSitesOrder() {
+    const quickAccessGrid = document.getElementById('quick-access-grid');
+    const items = Array.from(quickAccessGrid.querySelectorAll('.quick-access-item:not(.drag-placeholder)'));
+    
+    const newOrder = items.map(item => {
+        const index = parseInt(item.dataset.index, 10);
+        return index;
+    });
+    
+    const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+    const sites = data.quickAccessSites;
+    
+    // 根据新顺序重新排列数组
+    const reorderedSites = newOrder.map(index => sites[index]);
+    
+    await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: reorderedSites }, resolve));
+    renderQuickAccess(reorderedSites);
+}

@@ -16,8 +16,8 @@
         <button id="settings-btn" class="control-btn" title="设置">
             <svg t="1750566206378" width="24" height="24" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="9777" width="200" height="200"><path d="M637.461333 81.344a213.333333 213.333333 0 0 1 184.746667 106.666667L947.690667 405.333333a213.333333 213.333333 0 0 1 0 213.333334L822.186667 835.989333a213.333333 213.333333 0 0 1-184.746667 106.666667H386.56a213.333333 213.333333 0 0 1-184.746667-106.666667L76.309333 618.666667a213.333333 213.333333 0 0 1 0-213.333334L201.813333 188.010667a213.333333 213.333333 0 0 1 184.746667-106.666667z m0 85.333333H386.56a128 128 0 0 0-110.848 64L150.186667 448a128 128 0 0 0 0 128l125.482666 217.322667a128 128 0 0 0 110.848 64H637.44a128 128 0 0 0 110.848-64L873.813333 576a128 128 0 0 0 0-128l-125.482666-217.322667a128 128 0 0 0-110.848-64zM519.850667 362.666667c30.741333 0 53.888 4.992 75.285333 16.426666a120.192 120.192 0 0 1 49.749333 49.770667c11.456 21.397333 16.448 44.544 16.448 75.285333v15.701334c0 30.741333-4.992 53.888-16.426666 75.285333a120.192 120.192 0 0 1-49.770667 49.749333c-21.397333 11.456-44.544 16.448-75.285333 16.448h-15.701334c-30.741333 0-53.888-4.992-75.285333-16.426666a120.192 120.192 0 0 1-49.749333-49.770667c-11.456-21.397333-16.448-44.544-16.448-75.285333v-15.701334c0-30.741333 4.992-53.888 16.426666-75.285333a120.192 120.192 0 0 1 49.770667-49.749333c21.397333-11.456 44.544-16.448 75.285333-16.448z m0 85.333333h-15.701334c-17.514667 0-26.986667 2.048-35.029333 6.357333-6.485333 3.456-11.306667 8.277333-14.762667 14.762667-4.309333 8.042667-6.357333 17.493333-6.357333 35.029333v15.701334c0 17.514667 2.048 26.986667 6.357333 35.029333 3.456 6.485333 8.277333 11.306667 14.762667 14.762667 8.042667 4.309333 17.493333 6.357333 35.029333 6.357333h15.701334c17.514667 0 26.986667-2.048 35.029333-6.357333 6.485333-3.456 11.306667-8.277333 14.762667-14.762667 4.309333-8.042667 6.357333-17.493333 6.357333-35.029333v-15.701334c0-17.514667-2.048-26.986667-6.357333-35.029333a34.88 34.88 0 0 0-14.762667-14.762667c-8.042667-4.309333-17.493333-6.357333-35.029333-6.357333z" fill="#ffffff" p-id="9778"></path></svg>
         </button>
-    </div>
-
+        </div>
+        
     <main class="main-container">
         <div class="content-wrapper">
             <div class="search-container">
@@ -45,7 +45,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <div id="quick-access-grid" class="quick-access-grid">
                 <!-- Quick access items will be populated by JS -->
             </div>
@@ -55,7 +55,7 @@
     <div class="bottom-controls">
         <button id="change-wallpaper-btn" class="control-btn" title="更换壁纸">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        </button>
+                        </button>
     </div>
 
     <script src="main.js"></script>
@@ -92,9 +92,9 @@
                 </div>
             </div>
             <button id="close-wallpaper-panel-btn" class="close-panel-btn">✕</button>
+            </div>
         </div>
-    </div>
-
+        
     <!-- 设置面板 (默认隐藏) -->
     <div id="settings-panel" class="settings-panel hidden">
         <div class="settings-content">
@@ -105,7 +105,7 @@
                     <input type="password" id="api-key-input" placeholder="在此输入您的密钥">
                     <button id="toggle-api-key-visibility" class="visibility-toggle">
                         <!-- SVG for 'eye-off' will be here -->
-                    </button>
+            </button>
                 </div>
                 <p class="api-key-description">
                     从 <a href="https://www.pexels.com/zh-cn/api/documentation/#authorization" target="_blank">Pexels API 文档</a> 获取您的免费密钥。
@@ -117,7 +117,7 @@
             </div>
         </div>
     </div>
-
+    
     <!-- 添加/编辑快捷方式面板 (默认隐藏) -->
     <div id="add-quick-access-panel" class="settings-panel hidden">
         <div class="settings-content">
