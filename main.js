@@ -1,4 +1,3 @@
-
 // 常用快捷访问
 const defaultSites = [
     { name: 'Google', url: 'https://www.google.com', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.75 8.36,4.73 12.19,4.73C14.03,4.73 15.6,5.33 16.8,6.39L18.83,4.54C16.94,2.83 14.7,2 12.19,2C6.92,2 2.71,6.23 2.71,12C2.71,17.77 6.92,22 12.19,22C17.6,22 21.54,18.33 21.54,12.29C21.54,11.84 21.49,11.45 21.35,11.1Z" /></svg>' },
@@ -42,6 +41,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const historyItemsContainer = document.getElementById('history-items-container');
     const clearHistoryContainer = document.getElementById('clear-history-container');
     const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
+    
+    // Quick Access Modal elements
+    const addQuickAccessPanel = document.getElementById('add-quick-access-panel');
+    const qaUrlInput = document.getElementById('qa-url-input');
+    const qaNameInput = document.getElementById('qa-name-input');
+    const qaIconInput = document.getElementById('qa-icon-input');
+    const saveQaBtn = document.getElementById('save-qa-btn');
+    const cancelQaBtn = document.getElementById('cancel-qa-btn');
+    const qaUrlError = document.getElementById('qa-url-error');
+    const qaNameError = document.getElementById('qa-name-error');
+    const qaIconPreviewContainer = document.getElementById('qa-icon-preview-container');
+    const qaIconPreview = document.getElementById('qa-icon-preview');
+    const qaPanelTitle = document.getElementById('qa-panel-title');
+    const qaEditIndexInput = document.getElementById('qa-edit-index');
 
     // 常量
     const WALLPAPERS_PER_PAGE = 18;
@@ -655,31 +668,256 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    initializeQuickAccess();
+    initializeQuickAccess(); // This now handles loading and rendering
+    
+    // Event listener for the cancel button in the new quick access modal
+    cancelQaBtn.addEventListener('click', () => {
+        addQuickAccessPanel.classList.add('hidden');
+    });
+
+    // Event listener for clicking outside the modal to close it
+    addQuickAccessPanel.addEventListener('click', (e) => {
+        if (e.target === addQuickAccessPanel) {
+            addQuickAccessPanel.classList.add('hidden');
+        }
+    });
+    
+    // Event listener for the save button
+    saveQaBtn.addEventListener('click', async () => {
+        let url = qaUrlInput.value.trim();
+        const name = qaNameInput.value.trim();
+        const icon = qaIconInput.value.trim();
+        const editIndex = parseInt(qaEditIndexInput.value, 10);
+
+        if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+        }
+
+        const newSite = { name, url, icon: icon || null };
+        
+        const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+        const sites = data.quickAccessSites;
+
+        if (editIndex > -1) {
+            sites[editIndex] = newSite; // Update existing
+        } else {
+            sites.push(newSite); // Add new
+        }
+        
+        await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
+        renderQuickAccess(sites);
+        addQuickAccessPanel.classList.add('hidden');
+    });
+
+    const quickAccessGrid = document.getElementById('quick-access-grid');
+
+    const validateQuickAccessForm = () => {
+        const url = qaUrlInput.value.trim();
+        const name = qaNameInput.value.trim();
+        let isUrlValid = false;
+        let isNameValid = false;
+
+        // URL Validation
+        if (url.length === 0) {
+            qaUrlInput.classList.remove('invalid');
+            qaUrlError.classList.add('hidden');
+        } else {
+            const urlPattern = /^(https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(:\d+)?(\/[-a-z\d%_.~+]*)*(\?.*)?(#[-a-z\d_]*)?$/i;
+            if (urlPattern.test(url)) {
+                qaUrlInput.classList.remove('invalid');
+                qaUrlError.classList.add('hidden');
+                isUrlValid = true;
+            } else {
+                qaUrlInput.classList.add('invalid');
+                qaUrlError.textContent = '请输入有效的网址。';
+                qaUrlError.classList.remove('hidden');
+            }
+        }
+
+        // Name Validation
+        if (name.length === 0) {
+            qaNameInput.classList.remove('invalid');
+            qaNameError.classList.add('hidden');
+        } else {
+            if (name.length >= 2 && name.length <= 10) {
+                qaNameInput.classList.remove('invalid');
+                qaNameError.classList.add('hidden');
+                isNameValid = true;
+            } else {
+                qaNameInput.classList.add('invalid');
+                qaNameError.textContent = '名称长度应在 2 到 10 个字符之间。';
+                qaNameError.classList.remove('hidden');
+            }
+        }
+        
+        saveQaBtn.disabled = !(isUrlValid && isNameValid);
+    };
+
+    qaUrlInput.addEventListener('input', validateQuickAccessForm);
+    qaNameInput.addEventListener('input', validateQuickAccessForm);
+
+    qaIconInput.addEventListener('input', () => {
+        const input = qaIconInput.value.trim();
+        if (input.startsWith('<svg')) {
+            qaIconPreview.innerHTML = input;
+            qaIconPreviewContainer.classList.remove('hidden');
+        } else if (input.match(/\.(jpeg|jpg|gif|png|svg)$/) || input.startsWith('http')) {
+            qaIconPreview.innerHTML = `<img src="${input}" alt="Icon Preview">`;
+            qaIconPreviewContainer.classList.remove('hidden');
+        } else {
+            qaIconPreviewContainer.classList.add('hidden');
+            qaIconPreview.innerHTML = '';
+        }
+    });
+
+    quickAccessGrid.addEventListener('click', async (e) => {
+        const item = e.target.closest('.quick-access-item');
+
+        if (isDeleteMode) {
+            e.preventDefault(); // Prevent navigation when in delete mode
+            
+            const index = parseInt(item.dataset.index, 10);
+            const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+            const sites = data.quickAccessSites;
+
+            if (e.target.classList.contains('edit-btn')) {
+                const siteToEdit = sites[index];
+
+                qaPanelTitle.textContent = '编辑快捷方式';
+                qaEditIndexInput.value = index;
+                qaUrlInput.value = siteToEdit.url;
+                qaNameInput.value = siteToEdit.name;
+                qaIconInput.value = siteToEdit.icon || '';
+                
+                qaIconInput.dispatchEvent(new Event('input')); // Trigger preview
+                validateQuickAccessForm();
+
+                addQuickAccessPanel.classList.remove('hidden');
+                exitDeleteMode();
+
+            } else if (e.target.classList.contains('delete-btn')) {
+                const confirmDelete = window.confirm(`您确定要删除 "${sites[index].name}" 吗？`);
+                if (confirmDelete) {
+                    sites.splice(index, 1);
+                    await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
+                    renderQuickAccess(sites); // Re-render
+                    // After deleting, we might want to stay in delete mode if there are other items
+                    // Or exit if it was the last one. For simplicity, we'll exit.
+                    exitDeleteMode();
+                }
+            }
+        } else if (e.target.closest('.add-quick-access-btn')) {
+            qaPanelTitle.textContent = '添加快捷方式';
+            qaEditIndexInput.value = '-1';
+            
+            // Reset form for new entry
+            qaUrlInput.value = '';
+            qaNameInput.value = '';
+            qaIconInput.value = '';
+            qaIconPreviewContainer.classList.add('hidden');
+            qaUrlInput.classList.remove('invalid');
+            qaNameInput.classList.remove('invalid');
+            qaUrlError.classList.add('hidden');
+            qaNameError.classList.add('hidden');
+            validateQuickAccessForm();
+
+            addQuickAccessPanel.classList.remove('hidden');
+        }
+    });
+
+    let isDeleteMode = false;
+    let longPressTimer = null;
+
+    const enterDeleteMode = () => {
+        if (isDeleteMode) return;
+        isDeleteMode = true;
+        quickAccessGrid.classList.add('delete-mode');
+    };
+
+    const exitDeleteMode = () => {
+        if (!isDeleteMode) return;
+        isDeleteMode = false;
+        quickAccessGrid.classList.remove('delete-mode');
+    };
+
+    const clearLongPressTimer = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    quickAccessGrid.addEventListener('mousedown', (e) => {
+        if (isDeleteMode) return;
+        const item = e.target.closest('.quick-access-item');
+        if (item && !item.classList.contains('add-quick-access-btn')) {
+            // 设置为1.5秒长按
+            longPressTimer = setTimeout(enterDeleteMode, 1500);
+        }
+    });
+
+    quickAccessGrid.addEventListener('mouseup', clearLongPressTimer);
+    quickAccessGrid.addEventListener('mouseleave', clearLongPressTimer);
+    quickAccessGrid.addEventListener('dragstart', clearLongPressTimer);
+    quickAccessGrid.addEventListener('contextmenu', clearLongPressTimer);
+
+    document.addEventListener('click', (e) => {
+        if (isDeleteMode && !e.target.closest('.quick-access-grid')) {
+            exitDeleteMode();
+        }
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+        if (isDeleteMode && e.key === 'Escape') {
+            exitDeleteMode();
+        }
+    });
 });
 
-const initializeQuickAccess = () => {
-    const quickAccessGrid = document.getElementById('quick-access-grid');
-    quickAccessGrid.innerHTML = ''; // Clear any existing items to prevent duplication
+async function initializeQuickAccess() {
+    const data = await new Promise(resolve => chrome.storage.local.get('quickAccessSites', resolve));
+    
+    if (data.quickAccessSites) {
+        renderQuickAccess(data.quickAccessSites);
+    } else {
+        // First time run: use default sites and save them
+        await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: defaultSites }, resolve));
+        renderQuickAccess(defaultSites);
+    }
+}
 
-    defaultSites.forEach(site => {
+function renderQuickAccess(sites) {
+    const quickAccessGrid = document.getElementById('quick-access-grid');
+    quickAccessGrid.innerHTML = '';
+
+    sites.forEach((site, index) => {
         const item = document.createElement('a');
         item.href = site.url;
         item.className = 'quick-access-item';
         item.target = '_blank';
+        item.dataset.index = index;
 
         const iconWrapper = document.createElement('div');
-        iconWrapper.className = 'icon-wrapper'; // Use a wrapper for easier replacement
+        iconWrapper.className = 'icon-wrapper';
+        
+        const customIcon = site.icon; // Can be SVG code or a URL
 
-        if (site.icon) {
-            // If a custom SVG icon is provided, use it directly
-            iconWrapper.innerHTML = site.icon;
-            const svg = iconWrapper.querySelector('svg');
-            if (svg) {
-                svg.classList.add('icon');
+        if (customIcon) {
+            if (customIcon.trim().startsWith('<svg')) {
+                iconWrapper.innerHTML = customIcon;
+                const svg = iconWrapper.querySelector('svg');
+                if (svg) {
+                    svg.classList.add('icon');
+                }
+            } else { // Assume it's a URL
+                const icon = document.createElement('img');
+                icon.src = customIcon;
+                icon.className = 'icon';
+                icon.alt = `${site.name} Icon`;
+                iconWrapper.appendChild(icon);
             }
         } else {
-            // Otherwise, fetch from the favicon service
+            // Fallback to favicon service
             const icon = document.createElement('img');
             icon.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
             icon.className = 'icon';
@@ -689,13 +927,12 @@ const initializeQuickAccess = () => {
                 const fallback = document.createElement('div');
                 fallback.className = 'fallback-icon';
                 const firstChar = site.name.charAt(0);
-                // Check if it's a CJK character to display it correctly
                 if (/\p{Script=Han}/u.test(firstChar)) {
                     fallback.textContent = firstChar;
                 } else {
                     fallback.textContent = firstChar.toUpperCase();
                 }
-                iconWrapper.innerHTML = ''; // Clear the failed image
+                iconWrapper.innerHTML = '';
                 iconWrapper.appendChild(fallback);
             };
             iconWrapper.appendChild(icon);
@@ -707,6 +944,23 @@ const initializeQuickAccess = () => {
 
         item.appendChild(iconWrapper);
         item.appendChild(name);
+
+        const editBtn = document.createElement('div');
+        editBtn.className = 'edit-btn';
+        editBtn.innerHTML = '&#9998;'; // Pencil icon
+        item.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '&times;';
+        item.appendChild(deleteBtn);
+
         quickAccessGrid.appendChild(item);
     });
+
+    const addButton = document.createElement('div');
+    addButton.className = 'add-quick-access-btn';
+    addButton.textContent = '+';
+    addButton.title = '添加快捷方式';
+    quickAccessGrid.appendChild(addButton);
 } 

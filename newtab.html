@@ -117,5 +117,46 @@
             </div>
         </div>
     </div>
+
+    <!-- 添加/编辑快捷方式面板 (默认隐藏) -->
+    <div id="add-quick-access-panel" class="settings-panel hidden">
+        <div class="settings-content">
+            <h2 id="qa-panel-title">添加快捷方式</h2>
+            <input type="hidden" id="qa-edit-index" value="-1">
+            <div class="setting-item">
+                <label for="qa-url-input">链接地址 (URL)</label>
+                <input type="text" id="qa-url-input" placeholder="例如: https://www.cursor.com">
+                <p id="qa-url-error" class="error-message hidden"></p>
+            </div>
+            <div class="setting-item">
+                <label for="qa-name-input">标签名称</label>
+                <input type="text" id="qa-name-input" placeholder="例如: Cursor">
+                <p id="qa-name-error" class="error-message hidden"></p>
+            </div>
+            <div class="setting-item">
+                <div class="label-with-tooltip">
+                    <label for="qa-icon-input">自定义图标 (选填)</label>
+                    <div class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <div class="tooltip-text">
+                            推荐前往 <a href="https://www.iconfont.cn/" target="_blank" rel="noopener noreferrer">iconfont.cn</a> 获取SVG代码。
+                        </div>
+                    </div>
+                </div>
+                <div class="icon-input-wrapper">
+                    <textarea id="qa-icon-input" rows="3" placeholder="粘贴图片URL或SVG代码"></textarea>
+                    <div id="qa-icon-preview-container" class="icon-preview-container hidden">
+                        <span class="preview-label">预览:</span>
+                        <div id="qa-icon-preview" class="icon-preview"></div>
+                    </div>
+                </div>
+                <p class="api-key-description">如果留空，将自动获取网站图标。</p>
+            </div>
+            <div class="settings-actions">
+                <button id="save-qa-btn" class="settings-btn">保存</button>
+                <button id="cancel-qa-btn" class="settings-btn secondary">取消</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

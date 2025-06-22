@@ -427,15 +427,92 @@ body {
     position: relative;
 }
 
-.setting-item input {
+.setting-item input[type="text"],
+.setting-item input[type="password"],
+.setting-item textarea {
     width: 100%;
-    padding: 12px 40px 12px 15px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 12px 15px;
     background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
     color: white;
     font-size: 16px;
+    box-sizing: border-box;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.setting-item textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit; /* Ensure it uses the same font */
+}
+
+.setting-item input[type="text"]:focus,
+.setting-item input[type="password"]:focus,
+.setting-item textarea:focus {
     outline: none;
+    border-color: rgba(80, 150, 255, 0.8);
+}
+
+.setting-item input.invalid,
+.setting-item textarea.invalid {
+    border-color: #ff6b6b; /* A soft but clear red for errors */
+}
+
+.icon-input-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.icon-input-wrapper textarea {
+  flex-grow: 1;
+}
+
+.icon-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-preview {
+  width: 48px;
+  height: 48px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.icon-preview img,
+.icon-preview svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.preview-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.error-message {
+    color: #ff8a8a;
+    font-size: 13px;
+    margin-top: 6px;
+    min-height: 1.2em; /* Reserve space to prevent layout shifts */
+}
+
+.error-message.hidden {
+    visibility: hidden;
+}
+
+.setting-item input::placeholder,
+.setting-item textarea::placeholder {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .visibility-toggle {
@@ -455,10 +532,6 @@ body {
 
 .visibility-toggle:hover {
     color: white;
-}
-
-.setting-item input::placeholder {
-    color: rgba(255, 255, 255, 0.6);
 }
 
 .api-key-description {
@@ -789,6 +862,7 @@ body {
 }
 
 .quick-access-item {
+    position: relative; /* Required for absolute positioning of the delete button */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -802,6 +876,64 @@ body {
     text-decoration: none;
     transition: background-color 0.3s ease, transform 0.2s ease;
     aspect-ratio: 1 / 1; /* Make items square-ish */
+}
+
+.quick-access-item .delete-btn {
+    display: none;
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 24px;
+    height: 24px;
+    background-color: #f44336;
+    color: white;
+    border-radius: 50%;
+    border: 2px solid white;
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.quick-access-item .edit-btn {
+    display: none;
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 24px;
+    height: 24px;
+    background-color: #4CAF50; /* Green for edit */
+    color: white;
+    border-radius: 50%;
+    border: 2px solid white;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Delete Mode Activated */
+.quick-access-grid.delete-mode .quick-access-item .delete-btn,
+.quick-access-grid.delete-mode .quick-access-item .edit-btn {
+    display: block;
+}
+
+@keyframes wiggle {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(-2deg); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(2deg); }
+    100% { transform: rotate(0deg); }
+}
+
+.quick-access-grid.delete-mode .quick-access-item:not(.add-quick-access-btn) {
+    animation: wiggle 0.3s ease-in-out infinite;
 }
 
 .quick-access-item:hover {
@@ -852,4 +984,95 @@ body {
 .footer-icons {
     position: absolute;
     bottom: 20px;
+}
+
+.add-quick-access-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px dashed rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    aspect-ratio: 1 / 1;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 40px;
+    font-weight: 200;
+    line-height: 1;
+}
+
+.add-quick-access-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: translateY(-4px);
+}
+
+.label-with-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px; /* Add some space below the label */
+}
+
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  font-style: italic;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 220px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  position: absolute;
+  z-index: 1;
+  bottom: 150%; /* Position above the icon */
+  left: 50%;
+  margin-left: -110px; /* Use half of the width to center */
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 13px;
+}
+
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%; /* At the bottom of the tooltip */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip-text a {
+    color: #82c2ff;
+    text-decoration: none;
+}
+.tooltip-text a:hover {
+    text-decoration: underline;
 } 
