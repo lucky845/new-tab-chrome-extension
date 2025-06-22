@@ -19,34 +19,36 @@
     </div>
 
     <main class="main-container">
-        <div class="search-container">
-            <div class="search-bar">
-                <div id="search-engine-selector" class="search-engine-selector">
-                    <div id="selected-engine" class="selected-engine">
-                        <!-- 当前搜索引擎图标和名称将在这里显示 -->
+        <div class="content-wrapper">
+            <div class="search-container">
+                <div class="search-bar">
+                    <div id="search-engine-selector" class="search-engine-selector">
+                        <div id="selected-engine" class="selected-engine">
+                            <!-- 当前搜索引擎图标和名称将在这里显示 -->
+                        </div>
+                        <div id="search-engine-dropdown" class="search-engine-dropdown u-hidden">
+                            <!-- 搜索引擎列表将动态插入 -->
+                        </div>
                     </div>
-                    <div id="search-engine-dropdown" class="search-engine-dropdown u-hidden">
-                        <!-- 搜索引擎列表将动态插入 -->
-                    </div>
-                </div>
-                <input type="text" id="search-input" class="search-input" placeholder="搜索..." autocomplete="off">
-                <button class="clear-search-btn" id="clear-search-btn" title="清空"></button>
-                <button type="submit" class="search-submit-btn" id="search-submit-btn" title="搜索"></button>
+                    <input type="text" id="search-input" class="search-input" placeholder="搜索..." autocomplete="off">
+                    <button class="clear-search-btn" id="clear-search-btn" title="清空"></button>
+                    <button type="submit" class="search-submit-btn" id="search-submit-btn" title="搜索"></button>
 
-                <!-- 搜索历史下拉框 -->
-                <div class="search-history-dropdown u-hidden" id="search-history-dropdown">
-                    <!-- 历史记录项将由JS动态生成 -->
-                    <div id="history-items-container"></div>
-                    <!-- 清空按钮容器 -->
-                    <div id="clear-history-container" class="clear-history-container">
-                        <button id="clear-all-history-btn" class="clear-all-history-btn">清空搜索记录</button>
+                    <!-- 搜索历史下拉框 -->
+                    <div class="search-history-dropdown u-hidden" id="search-history-dropdown">
+                        <!-- 历史记录项将由JS动态生成 -->
+                        <div id="history-items-container"></div>
+                        <!-- 清空按钮容器 -->
+                        <div id="clear-history-container" class="clear-history-container">
+                            <button id="clear-all-history-btn" class="clear-all-history-btn">清空搜索记录</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div id="sites-grid" class="sites-grid">
-            <!-- Site items will be dynamically inserted here -->
+            <div id="quick-access-grid" class="quick-access-grid">
+                <!-- Quick access items will be populated by JS -->
+            </div>
         </div>
     </main>
 

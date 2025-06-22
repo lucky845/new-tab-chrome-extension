@@ -1,3 +1,18 @@
+:root {
+  --search-bar-height: 54px;
+  --border-radius-large: 20px;
+  --border-radius-small: 16px;
+  --transition-fast: 0.2s ease;
+  --transition-medium: 0.3s ease;
+}
+
+body, html {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,9 +20,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     color: white;
-    overflow: hidden;
 }
 
 .wallpaper-container {
@@ -22,19 +35,29 @@ body {
 }
 
 .main-container {
-    padding-top: 15vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    z-index: 10;
+}
+
+.content-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 60px;
-    width: 100%;
+    gap: 40px; /* 控制搜索框和快捷访问网格之间的距离 */
 }
 
 .search-container {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     max-width: 600px;
-    display: flex;
-    justify-content: center;
 }
 
 .search-bar {
@@ -753,4 +776,80 @@ body {
 .clear-search-btn:hover {
     color: #fff;
     background-color: rgba(255, 255, 255, 0.1);
+}
+
+.quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 680px; /* Limit max width for better layout on large screens */
+    margin-top: 40px;
+    padding: 0 20px;
+}
+
+.quick-access-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-decoration: none;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    aspect-ratio: 1 / 1; /* Make items square-ish */
+}
+
+.quick-access-item:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-4px);
+}
+
+.quick-access-item .icon-wrapper {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-access-item .icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.quick-access-item .fallback-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+.quick-access-item .name {
+    color: white;
+    font-size: 14px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    font-weight: 500;
+}
+
+.footer-icons {
+    position: absolute;
+    bottom: 20px;
 } 

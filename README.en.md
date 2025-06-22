@@ -1,8 +1,8 @@
-# Infinity-Next Tab - A Modern, Feature-Rich New Tab Page for Your Browser
+# New Tab - A Modern, Feature-Rich New Tab Page for Your Browser
 
 ![Plugin Screenshot](img/preview.png)
 
-Infinity-Next Tab is a Chrome extension designed to reinvent your new tab experience with a beautiful design and powerful features. It boasts an iOS-style glassmorphism interface, dynamic wallpapers, customizable speed dials, and a robust search bar integrated with multiple search engines, bringing you a browsing experience that is both efficient and visually pleasing.
+New Tab is a Chrome extension designed to reinvent your new tab experience with a beautiful design and powerful features. It boasts an iOS-style glassmorphism interface, dynamic wallpapers, customizable speed dials, and a robust search bar integrated with multiple search engines, bringing you a browsing experience that is both efficient and visually pleasing.
 
 ## ✨ Key Features
 
@@ -52,8 +52,8 @@ If you'd like to contribute to this project or develop it further, please follow
 
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
+    git clone https://github.com/lucky845/new-tab-chrome-plugin.git
+    cd new-tab-chrome-plugin
     ```
 
 2.  **Load the Extension**:

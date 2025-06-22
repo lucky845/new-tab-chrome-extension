@@ -1,8 +1,8 @@
-# Infinity-Next Tab - 一款现代化、功能丰富的浏览器新标签页
+# New Tab - 一款现代化、功能丰富的浏览器新标签页
 
 ![插件截图](img/preview.png)
 
-Infinity-Next Tab 是一款旨在通过美观的设计和强大的功能，重塑您浏览器新标签页体验的Chrome插件。它拥有iOS风格的毛玻璃质感界面、动态壁纸、可自定义的快速拨号以及集成了多种搜索引擎的强大搜索栏，为您带来既高效又赏心悦目的浏览体验。
+New Tab 是一款旨在通过美观的设计和强大的功能，重塑您浏览器新标签页体验的Chrome插件。它拥有iOS风格的毛玻璃质感界面、动态壁纸、可自定义的快速拨号以及集成了多种搜索引擎的强大搜索栏，为您带来既高效又赏心悦目的浏览体验。
 
 ## ✨ 主要功能
 
@@ -52,8 +52,8 @@ Infinity-Next Tab 是一款旨在通过美观的设计和强大的功能，重�
 
 1.  **克隆仓库**:
     ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
+    git clone https://github.com/lucky845/new-tab-chrome-plugin.git
+    cd new-tab-chrome-plugin
     ```
 
 2.  **加载插件**:
