@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Infinity 新标签页 (仿)",
+    "version": "1.0.0",
+    "description": "一款模仿 Infinity 新标签页的扩展程序，提供美观的起始页。",
+    "chrome_url_overrides": {
+        "newtab": "newtab.html"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "https://api.pexels.com/"
+    ],
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "action": {
+        "default_title": "新标签页"
+    }
+} 

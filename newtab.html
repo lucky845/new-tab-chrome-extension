@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新标签页</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="wallpaper" class="wallpaper-container"></div>
+
+    <div class="top-right-controls">
+        <button id="wallpaper-settings-btn" class="control-btn" title="壁纸设置">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </button>
+        <button id="settings-btn" class="control-btn" title="设置">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+    </div>
+
+    <main class="main-container">
+        <div class="search-container">
+            <input type="text" id="search-input" class="search-input" placeholder="搜索或输入网址">
+        </div>
+
+        <div id="sites-grid" class="sites-grid">
+            <!-- 网站图标将通过 JavaScript 动态插入 -->
+        </div>
+    </main>
+
+    <div class="bottom-controls">
+        <button id="change-wallpaper-btn" class="control-btn" title="更换壁纸">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
+    </div>
+
+    <script src="main.js"></script>
+
+    <!-- 壁纸设置面板 -->
+    <div id="wallpaper-panel" class="settings-panel hidden">
+        <div class="wallpaper-content settings-content">
+            <div id="wallpaper-categories-sidebar" class="wallpaper-categories-sidebar">
+                <!-- 分类将动态插入 -->
+            </div>
+            <div class="wallpaper-main">
+                 <div class="wallpaper-header">
+                    <h2>壁纸库</h2>
+                    <div class="wallpaper-search-box">
+                        <input type="text" id="wallpaper-search-input" placeholder="搜索壁纸，例如 'Forest'">
+                        <button id="wallpaper-search-btn">搜索</button>
+                    </div>
+                </div>
+                <div id="wallpaper-grid" class="wallpaper-grid">
+                    <!-- 壁纸缩略图将显示在这里 -->
+                </div>
+                <div id="wallpaper-pagination" class="wallpaper-pagination">
+                    <div id="pagination-buttons" class="pagination-buttons">
+                        <!-- 页码按钮将动态插入 -->
+                    </div>
+                    <div class="pagination-info">
+                        <span id="total-results-info"></span>
+                        <div class="jump-to-page">
+                            <span>跳至</span>
+                            <input type="number" id="jump-to-page-input" min="1">
+                            <span>页</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button id="close-wallpaper-panel-btn" class="close-panel-btn">✕</button>
+        </div>
+    </div>
+
+    <!-- 设置面板 (默认隐藏) -->
+    <div id="settings-panel" class="settings-panel hidden">
+        <div class="settings-content">
+            <h2>设置</h2>
+            <div class="setting-item">
+                <label for="api-key-input">Pexels API 密钥</label>
+                <div class="input-with-icon">
+                    <input type="password" id="api-key-input" placeholder="在此输入您的密钥">
+                    <button id="toggle-api-key-visibility" class="visibility-toggle">
+                        <!-- SVG for 'eye-off' will be here -->
+                    </button>
+                </div>
+                <p class="api-key-description">
+                    从 <a href="https://www.pexels.com/zh-cn/api/documentation/#authorization" target="_blank">Pexels API 文档</a> 获取您的免费密钥。
+                </p>
+            </div>
+            <div class="settings-actions">
+                <button id="save-settings-btn" class="settings-btn">保存</button>
+                <button id="close-settings-btn" class="settings-btn secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
