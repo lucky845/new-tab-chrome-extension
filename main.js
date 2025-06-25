@@ -213,12 +213,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const img = document.createElement('img');
             img.src = photo.src.medium;
             img.alt = photo.alt;
-            img.addEventListener('click', () => {
-                wallpaperContainer.style.backgroundImage = `url('${photo.src.large2x}')`;
-                // 保存被选中壁纸的ID
-                chrome.storage.local.set({ savedWallpaperId: photo.id }, () => {
-                    console.log(`已保存壁纸ID: ${photo.id}`);
+            img.addEventListener('click', async () => {
+                const wallpaperUrl = photo.src.large2x;
+                wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
+                
+                // 保存被选中壁纸的完整信息到缓存
+                await new Promise(resolve => {
+                    chrome.storage.local.set({
+                        savedWallpaperId: photo.id,
+                        savedWallpaperUrl: wallpaperUrl,
+                        savedWallpaperData: {
+                            id: photo.id,
+                            url: wallpaperUrl,
+                            photographer: photo.photographer,
+                            alt: photo.alt
+                        }
+                    }, resolve);
                 });
+                
+                console.log(`已保存并缓存壁纸 (ID: ${photo.id})`);
                 closeWallpaperPanel();
             });
             wallpaperGrid.appendChild(img);
@@ -303,17 +316,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
     
-        // 1. 尝试加载已保存的壁纸
-        const result = await new Promise(resolve => chrome.storage.local.get('savedWallpaperId', resolve));
-        if (result.savedWallpaperId) {
+        // 1. 尝试加载已缓存的壁纸
+        const result = await new Promise(resolve => chrome.storage.local.get(['savedWallpaperId', 'savedWallpaperUrl', 'savedWallpaperData'], resolve));
+        
+        if (result.savedWallpaperUrl) {
+            // 优先使用缓存的URL，避免网络请求
+            wallpaperContainer.style.backgroundImage = `url('${result.savedWallpaperUrl}')`;
+            console.log('使用缓存的壁纸URL');
+            
+            // 异步验证壁纸是否仍然有效
+            if (result.savedWallpaperId) {
+                setTimeout(async () => {
+                    const isValid = await validateWallpaperById(result.savedWallpaperId, apiKey);
+                    if (!isValid) {
+                        console.log('缓存的壁纸已失效，获取新壁纸');
+                        await fetchRandomWallpaper(apiKey, true);
+                    }
+                }, 100);
+            }
+            return;
+        }
+        
+        // 2. 如果有ID但没有URL，尝试获取URL
+        if (result.savedWallpaperId && !result.savedWallpaperUrl) {
             const success = await fetchWallpaperById(result.savedWallpaperId, apiKey);
             if (success) {
-                return; // 成功加载，函数结束
+                return;
             }
         }
     
-        // 2. 如果没有保存的壁纸或加载失败，则获取随机壁纸
-        await fetchRandomWallpaper(apiKey, true); // 首次加载，获取并保存
+        // 3. 如果没有保存的壁纸或加载失败，则获取随机壁纸
+        await fetchRandomWallpaper(apiKey, true);
+    };
+    
+    // 验证壁纸是否仍然有效
+    const validateWallpaperById = async (id, apiKey) => {
+        const url = `https://api.pexels.com/v1/photos/${id}`;
+        try {
+            const response = await fetch(url, { headers: { Authorization: apiKey } });
+            return response.ok;
+        } catch (error) {
+            console.error('验证壁纸时网络错误:', error);
+            return false;
+        }
     };
     
     const fetchWallpaperById = async (id, apiKey) => {
@@ -322,12 +367,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             const response = await fetch(url, { headers: { Authorization: apiKey } });
             if (!response.ok) {
                 console.error(`获取已保存壁纸(ID: ${id})失败，状态: ${response.status}。将移除该ID。`);
-                await new Promise(resolve => chrome.storage.local.remove('savedWallpaperId', resolve));
+                await new Promise(resolve => chrome.storage.local.remove(['savedWallpaperId', 'savedWallpaperUrl', 'savedWallpaperData'], resolve));
                 return false;
             }
             const photo = await response.json();
-            wallpaperContainer.style.backgroundImage = `url('${photo.src.large2x}')`;
-            console.log(`成功加载已保存的壁纸 (ID: ${id})`);
+            const wallpaperUrl = photo.src.large2x;
+            wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
+            
+            // 保存壁纸信息到缓存
+            await new Promise(resolve => {
+                chrome.storage.local.set({
+                    savedWallpaperId: photo.id,
+                    savedWallpaperUrl: wallpaperUrl,
+                    savedWallpaperData: {
+                        id: photo.id,
+                        url: wallpaperUrl,
+                        photographer: photo.photographer,
+                        alt: photo.alt
+                    }
+                }, resolve);
+            });
+            
+            console.log(`成功加载并缓存壁纸 (ID: ${id})`);
             return true;
         } catch (error) {
             console.error('获取已保存壁纸时网络错误:', error);
@@ -355,12 +416,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await response.json();
             if (data.photos && data.photos.length > 0) {
                 const photo = data.photos[0];
-                wallpaperContainer.style.backgroundImage = `url('${photo.src.large2x}')`;
+                const wallpaperUrl = photo.src.large2x;
+                wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
+                
                 if (shouldSave) {
                     await new Promise(resolve => {
-                        chrome.storage.local.set({ savedWallpaperId: photo.id }, resolve);
-                        console.log(`获取并已保存新的随机壁纸ID: ${photo.id}`);
+                        chrome.storage.local.set({
+                            savedWallpaperId: photo.id,
+                            savedWallpaperUrl: wallpaperUrl,
+                            savedWallpaperData: {
+                                id: photo.id,
+                                url: wallpaperUrl,
+                                photographer: photo.photographer,
+                                alt: photo.alt
+                            }
+                        }, resolve);
                     });
+                    console.log(`获取并已保存新的随机壁纸 (ID: ${photo.id})`);
                 }
             } else {
                 throw new Error('Pexels API 未返回照片。');
@@ -651,6 +723,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadSearchEngine();
     await loadApiKey(); // 确保在获取壁纸前加载API Key
+    
+    // 添加调试信息
+    console.log('开始初始化壁纸...');
+    const cachedData = await new Promise(resolve => chrome.storage.local.get(['savedWallpaperId', 'savedWallpaperUrl', 'savedWallpaperData'], resolve));
+    console.log('缓存的壁纸数据:', cachedData);
+    
     fetchAndSetWallpaper();
     initVisibilityToggle();
     renderCategories();

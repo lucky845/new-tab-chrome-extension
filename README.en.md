@@ -11,6 +11,7 @@ New Tab is a Chrome extension designed to reinvent your new tab experience with 
     - Supports Pexels API integration, allowing you to easily search, browse, and set millions of high-quality professional photos as your background.
     - A powerful wallpaper library that supports browsing by category, searching by keyword, and pagination.
     - Remembers your wallpaper choice, so you see your favorite scenery every time you open a new tab.
+    - **Smart wallpaper caching**: Wallpaper URL and related info are cached locally, so you won't see a gray/white flash on first load.
 
 - **🔍 Enhanced Search Experience**:
     - Integrated with multiple mainstream search engines (Baidu, Google, Bing, Sogou, DuckDuckGo) for one-click switching.
@@ -45,6 +46,22 @@ New Tab is a Chrome extension designed to reinvent your new tab experience with 
 4.  Click the "Load unpacked" button in the top left.
 5.  In the file selection dialog, choose the repository folder you just downloaded.
 6.  The plugin is now installed!
+
+### Test Wallpaper Caching Feature
+
+1. **First Setup**:
+   - After installing the extension, enter your Pexels API key in the settings.
+   - Choose a wallpaper or use the random wallpaper feature.
+   - Close and reopen a new tab, and observe that the wallpaper appears instantly (no gray/white flash).
+
+2. **Verify Caching**:
+   - Open the browser developer tools (F12).
+   - Check the console output; you should see a message like "Using cached wallpaper URL".
+   - Cached data includes: wallpaper ID, URL, photographer info, etc.
+
+3. **Cache Expiry Handling**:
+   - If the cached wallpaper becomes invalid, the system will automatically fetch a new wallpaper.
+   - The console will display relevant log information.
 
 ## 🔧 Local Development
 
