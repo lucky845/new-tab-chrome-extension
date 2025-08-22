@@ -1077,25 +1077,227 @@ body {
     text-decoration: underline;
 }
 
-.quick-access-item.dragging {
-  opacity: 0.5;
-  transform: rotate(5deg);
-  z-index: 1000;
+
+
+@keyframes item-float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
 }
 
-.quick-access-item.drag-over {
-  border: 2px dashed #4CAF50;
-  background-color: rgba(76, 175, 80, 0.1);
+/* 占位符动画 */
+@keyframes placeholder-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
 }
 
-.quick-access-item.drag-placeholder {
-  background-color: rgba(76, 175, 80, 0.2);
-  border: 2px dashed #4CAF50;
-  opacity: 0.7;
+/* 触摸优化 */
+@media (hover: none) and (pointer: coarse) {
+  .quick-access-item {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .quick-access-item:active {
+    transform: scale(0.95);
+  }
 }
 
-/* 确保拖拽时不影响其他功能 */
-.quick-access-item.dragging .edit-btn,
-.quick-access-item.dragging .delete-btn {
-  display: none;
-} 
+
+  font-size: 12px;
+}
+
+/* SortableJS拖拽样式 */
+.sortable-ghost {
+    opacity: 0.3;
+    background: rgba(76, 175, 80, 0.1);
+    border: 2px dashed #4CAF50;
+}
+
+.sortable-chosen {
+    transform: rotate(5deg) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+.sortable-drag {
+    opacity: 0.8;
+    transform: rotate(5deg) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(15px);
+    border: 2px solid rgba(76, 175, 80, 0.5);
+}
+
+/* 拖拽时的网格样式 */
+.quick-access-grid.sortable-drag-active {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 20px;
+    padding: 10px;
+    transition: background 0.3s ease;
+}
+
+/* 分页容器样式 */
+.quick-access-pagination {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 页面指示器样式 */
+.page-indicators {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+    margin-top: 30px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 10px 0;
+}
+
+.page-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.page-btn.active {
+    background: rgba(76, 175, 80, 0.8);
+    color: white;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.page-btn.prev-btn,
+.page-btn.next-btn {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* 空状态样式 */
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+}
+
+/* 分页动画 */
+.quick-access-pagination .quick-access-grid {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 页面翻转提示动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+}
+
+/* 翻页箭头脉冲动画 */
+@keyframes arrowPulse {
+    0% {
+        transform: translateY(-50%) scale(1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        transform: translateY(-50%) scale(1.05);
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    }
+    100% {
+        transform: translateY(-50%) scale(1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* 跨页拖拽通知动画 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* 触摸滑动提示 */
+.swipe-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.swipe-hint.show {
+    opacity: 1;
+}

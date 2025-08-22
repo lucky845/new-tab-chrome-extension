@@ -1,3 +1,8 @@
+
+
+// 全局变量
+let pagination = null;
+
 // 常用快捷访问
 const defaultSites = [
     { name: 'Google', url: 'https://www.google.com', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.75 8.36,4.73 12.19,4.73C14.03,4.73 15.6,5.33 16.8,6.39L18.83,4.54C16.94,2.83 14.7,2 12.19,2C6.92,2 2.71,6.23 2.71,12C2.71,17.77 6.92,22 12.19,22C17.6,22 21.54,18.33 21.54,12.29C21.54,11.84 21.49,11.45 21.35,11.1Z" /></svg>' },
@@ -78,6 +83,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastActiveCategoryQuery = 'Nature'; // 记住上次选择的分类
     let totalPages = 1;
     let totalWallpapers = 0;
+    
+
+    
     const wallpaperCategories = [
         { name: '自然', query: 'Nature' },
         { name: '城市', query: 'Cityscape' },
@@ -783,7 +791,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
+        
+        // 重新渲染分页
+        if (pagination) {
+            pagination.setItems(sites);
+        } else {
         renderQuickAccess(sites);
+        }
+        
         addQuickAccessPanel.classList.add('hidden');
     });
 
@@ -851,8 +866,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     quickAccessGrid.addEventListener('click', async (e) => {
         const item = e.target.closest('.quick-access-item');
 
-        if (isDeleteMode) {
-            e.preventDefault(); // Prevent navigation when in delete mode
+        if (e.target.classList.contains('edit-btn') || e.target.classList.contains('delete-btn')) {
+            e.preventDefault(); // Prevent navigation when clicking edit/delete buttons
+            
+            // 检查item是否存在，避免null错误
+            if (!item) return;
             
             const index = parseInt(item.dataset.index, 10);
             const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
@@ -878,10 +896,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (confirmDelete) {
                     sites.splice(index, 1);
                     await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
-                    renderQuickAccess(sites); // Re-render
-                    // After deleting, we might want to stay in delete mode if there are other items
-                    // Or exit if it was the last one. For simplicity, we'll exit.
-                    exitDeleteMode();
+                
+                // 重新渲染分页
+                if (pagination) {
+                    pagination.setItems(sites);
+                } else {
+                    renderQuickAccess(sites);
+                }
                 }
             }
         } else if (e.target.closest('.add-quick-access-btn')) {
@@ -903,53 +924,135 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    let isDeleteMode = false;
-    let longPressTimer = null;
 
-    const enterDeleteMode = () => {
-        if (isDeleteMode) return;
-        isDeleteMode = true;
-        quickAccessGrid.classList.add('delete-mode');
-    };
 
-    const exitDeleteMode = () => {
-        if (!isDeleteMode) return;
-        isDeleteMode = false;
-        quickAccessGrid.classList.remove('delete-mode');
-    };
 
-    const clearLongPressTimer = () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
+
+    
+    
+
+
+    // 右键菜单功能
+    function showContextMenu(e, item) {
+        e.preventDefault();
+        
+        // 移除现有的右键菜单
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
         }
-    };
+        
+        // 创建右键菜单
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            min-width: 120px;
+            font-size: 14px;
+            color: #000000;
+        `;
+        
+        // 获取项目信息
+        const index = parseInt(item.dataset.index, 10);
+        const siteName = item.querySelector('.name').textContent;
+        
+        // 编辑选项
+        const editOption = document.createElement('div');
+        editOption.textContent = '编辑';
+        editOption.style.cssText = `
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        `;
+        editOption.onmouseover = () => editOption.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+        editOption.onmouseout = () => editOption.style.backgroundColor = 'transparent';
+        editOption.onclick = async () => {
+            const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+            const sites = data.quickAccessSites;
+            const siteToEdit = sites[index];
 
-    quickAccessGrid.addEventListener('mousedown', (e) => {
-        if (isDeleteMode) return;
+            qaPanelTitle.textContent = '编辑快捷方式';
+            qaEditIndexInput.value = index;
+            qaUrlInput.value = siteToEdit.url;
+            qaNameInput.value = siteToEdit.name;
+            qaIconInput.value = siteToEdit.icon || '';
+            
+            qaIconInput.dispatchEvent(new Event('input'));
+            validateQuickAccessForm();
+            addQuickAccessPanel.classList.remove('hidden');
+            menu.remove();
+        };
+        
+        // 删除选项
+        const deleteOption = document.createElement('div');
+        deleteOption.textContent = '删除';
+        deleteOption.style.cssText = `
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: #e74c3c;
+        `;
+        deleteOption.onmouseover = () => deleteOption.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+        deleteOption.onmouseout = () => deleteOption.style.backgroundColor = 'transparent';
+        deleteOption.onclick = async () => {
+            const confirmDelete = window.confirm(`您确定要删除 "${siteName}" 吗？`);
+            if (confirmDelete) {
+                const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+                const sites = data.quickAccessSites;
+                sites.splice(index, 1);
+                await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
+                renderQuickAccess(sites);
+            }
+            menu.remove();
+        };
+        
+        // 添加选项到菜单
+        menu.appendChild(editOption);
+        menu.appendChild(deleteOption);
+        
+        // 设置菜单位置
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        
+        // 添加到页面
+        document.body.appendChild(menu);
+        
+        // 点击其他地方关闭菜单
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        // 延迟添加事件监听器，避免立即触发
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 100);
+    }
+
+
+
+    // 添加右键菜单事件监听器
+    quickAccessGrid.addEventListener('contextmenu', (e) => {
         const item = e.target.closest('.quick-access-item');
         if (item && !item.classList.contains('add-quick-access-btn')) {
-            // 设置为1.5秒长按
-            longPressTimer = setTimeout(enterDeleteMode, 1500);
+            showContextMenu(e, item);
         }
     });
 
-    quickAccessGrid.addEventListener('mouseup', clearLongPressTimer);
-    quickAccessGrid.addEventListener('mouseleave', clearLongPressTimer);
-    quickAccessGrid.addEventListener('dragstart', clearLongPressTimer);
-    quickAccessGrid.addEventListener('contextmenu', clearLongPressTimer);
 
-    document.addEventListener('click', (e) => {
-        if (isDeleteMode && !e.target.closest('.quick-access-grid')) {
-            exitDeleteMode();
-        }
-    }, true);
 
-    document.addEventListener('keydown', (e) => {
-        if (isDeleteMode && e.key === 'Escape') {
-            exitDeleteMode();
-        }
-    });
+
+
+
 });
 
 async function initializeQuickAccess() {
@@ -962,9 +1065,71 @@ async function initializeQuickAccess() {
         await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: defaultSites }, resolve));
         renderQuickAccess(defaultSites);
     }
+    
+    // 添加调试信息
+    console.log('快捷访问初始化完成');
 }
 
 function renderQuickAccess(sites) {
+    const quickAccessGrid = document.getElementById('quick-access-grid');
+    
+    console.log('=== 开始渲染快捷访问 ===');
+    console.log('快捷访问项目数量:', sites.length);
+    console.log('AdvancedPagination类状态:', typeof AdvancedPagination);
+    console.log('pagination实例状态:', pagination);
+    
+    // 检查AdvancedPagination类是否可用
+    if (typeof AdvancedPagination === 'undefined') {
+        console.warn('AdvancedPagination类未加载，使用传统渲染方式');
+        renderTraditionalQuickAccess(sites);
+        return;
+    }
+    
+    // 如果分页实例不存在，创建新的分页实例
+    if (!pagination) {
+        try {
+            console.log('创建新的高级分页实例...');
+            pagination = new AdvancedPagination(quickAccessGrid, {
+                itemsPerPage: 10, // 每页显示10个项目（2行5列）
+                enableCrossPageDrag: false, // 关闭跨页面拖拽
+                groupName: 'quick-access-group', // 拖拽组名（保留但无效）
+                onPageChange: (page) => {
+                    console.log('页面切换:', page);
+                },
+                onItemMove: async (newOrder) => {
+                    // 保存新的排序
+                    try {
+                        await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: newOrder }, resolve));
+                        console.log('分页排序已保存:', newOrder.map(site => site.name));
+                    } catch (error) {
+                        console.error('保存分页排序失败:', error);
+                    }
+                },
+                // 已关闭跨页面移动回调
+            });
+            console.log('高级分页实例创建成功:', pagination);
+        } catch (error) {
+            console.error('创建高级分页实例失败:', error);
+            renderTraditionalQuickAccess(sites);
+            return;
+        }
+    } else {
+        console.log('使用现有高级分页实例:', pagination);
+    }
+    
+    // 设置项目数据
+    try {
+        console.log('设置分页项目数据...');
+        pagination.setItems(sites);
+        console.log('高级分页快捷访问渲染完成，共', sites.length, '个项目');
+    } catch (error) {
+        console.error('高级分页渲染失败:', error);
+        renderTraditionalQuickAccess(sites);
+    }
+}
+
+// 传统渲染方式（备用方案）
+function renderTraditionalQuickAccess(sites) {
     const quickAccessGrid = document.getElementById('quick-access-grid');
     quickAccessGrid.innerHTML = '';
 
@@ -974,12 +1139,11 @@ function renderQuickAccess(sites) {
         item.className = 'quick-access-item';
         item.target = '_blank';
         item.dataset.index = index;
-        item.draggable = true; // 启用拖拽
 
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
         
-        const customIcon = site.icon; // Can be SVG code or a URL
+        const customIcon = site.icon;
 
         if (customIcon) {
             if (customIcon.trim().startsWith('<svg')) {
@@ -988,7 +1152,7 @@ function renderQuickAccess(sites) {
                 if (svg) {
                     svg.classList.add('icon');
                 }
-            } else { // Assume it's a URL
+            } else {
                 const icon = document.createElement('img');
                 icon.src = customIcon;
                 icon.className = 'icon';
@@ -996,7 +1160,6 @@ function renderQuickAccess(sites) {
                 iconWrapper.appendChild(icon);
             }
         } else {
-            // Fallback to favicon service
             const icon = document.createElement('img');
             icon.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
             icon.className = 'icon';
@@ -1023,20 +1186,7 @@ function renderQuickAccess(sites) {
 
         item.appendChild(iconWrapper);
         item.appendChild(name);
-
-        const editBtn = document.createElement('div');
-        editBtn.className = 'edit-btn';
-        editBtn.innerHTML = '&#9998;'; // Pencil icon
-        item.appendChild(editBtn);
-
-        const deleteBtn = document.createElement('div');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '&times;';
-        item.appendChild(deleteBtn);
-
         quickAccessGrid.appendChild(item);
-        // 添加拖拽事件监听器
-        setupDragAndDrop(item, index);
     });
 
     const addButton = document.createElement('div');
@@ -1044,102 +1194,12 @@ function renderQuickAccess(sites) {
     addButton.textContent = '+';
     addButton.title = '添加快捷方式';
     quickAccessGrid.appendChild(addButton);
-} 
-// 拖拽功能实现
-function setupDragAndDrop(item, index) {
-    let draggedItem = null;
-    let placeholder = null;
-
-    item.addEventListener('dragstart', (e) => {
-        if (isDeleteMode) return; // 删除模式下禁用拖拽
-        
-        draggedItem = item;
-        item.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', item.outerHTML);
-        
-        // 清除长按定时器
-        clearLongPressTimer();
-    });
-
-    item.addEventListener('dragend', (e) => {
-        item.classList.remove('dragging');
-        if (placeholder) {
-            placeholder.remove();
-            placeholder = null;
-        }
-        draggedItem = null;
-    });
-
-    item.addEventListener('dragover', (e) => {
-        if (isDeleteMode || !draggedItem || draggedItem === item) return;
-        
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        
-        const rect = item.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        
-        if (e.clientY < midY) {
-            item.parentNode.insertBefore(placeholder || createPlaceholder(), item);
-        } else {
-            item.parentNode.insertBefore(placeholder || createPlaceholder(), item.nextSibling);
-        }
-    });
-
-    item.addEventListener('dragenter', (e) => {
-        if (isDeleteMode || !draggedItem || draggedItem === item) return;
-        e.preventDefault();
-        item.classList.add('drag-over');
-    });
-
-    item.addEventListener('dragleave', (e) => {
-        if (isDeleteMode) return;
-        item.classList.remove('drag-over');
-    });
-
-    item.addEventListener('drop', async (e) => {
-        if (isDeleteMode || !draggedItem) return;
-        
-        e.preventDefault();
-        item.classList.remove('drag-over');
-        
-        if (placeholder) {
-            placeholder.remove();
-            placeholder = null;
-        }
-        
-        // 更新数据顺序
-        await updateSitesOrder();
-    });
+    
+    console.log('传统快捷访问渲染完成，共', sites.length, '个项目');
 }
 
-function createPlaceholder() {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'quick-access-item drag-placeholder';
-    placeholder.style.width = '80px';
-    placeholder.style.height = '80px';
-    placeholder.style.margin = '10px';
-    placeholder.style.borderRadius = '12px';
-    placeholder.style.display = 'inline-block';
-    return placeholder;
-}
+ 
 
-async function updateSitesOrder() {
-    const quickAccessGrid = document.getElementById('quick-access-grid');
-    const items = Array.from(quickAccessGrid.querySelectorAll('.quick-access-item:not(.drag-placeholder)'));
-    
-    const newOrder = items.map(item => {
-        const index = parseInt(item.dataset.index, 10);
-        return index;
-    });
-    
-    const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
-    const sites = data.quickAccessSites;
-    
-    // 根据新顺序重新排列数组
-    const reorderedSites = newOrder.map(index => sites[index]);
-    
-    await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: reorderedSites }, resolve));
-    renderQuickAccess(reorderedSites);
-}
+
+
+
