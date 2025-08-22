@@ -6,6 +6,80 @@
   --transition-medium: 0.3s ease;
 }
 
+/* 删除确认弹窗样式 */
+.delete-confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.delete-confirm-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px) saturate(180%);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 320px;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.delete-confirm-header h3 {
+    margin: 0 0 16px 0;
+    color: #e74c3c;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.delete-confirm-body p {
+    margin: 0 0 24px 0;
+    color: #333;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.delete-confirm-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.delete-confirm-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.delete-confirm-btn.cancel-btn {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.delete-confirm-btn.cancel-btn:hover {
+    background: #e9ecef;
+}
+
+.delete-confirm-btn.delete-btn {
+    background: #e74c3c;
+    color: white;
+}
+
+.delete-confirm-btn.delete-btn:hover {
+    background: #c0392b;
+}
+
 body, html {
   height: 100%;
   margin: 0;
@@ -134,6 +208,7 @@ body {
     width: 22px;
     height: 22px;
     flex-shrink: 0;
+    fill: #ffffff;
 }
 
 .selected-engine .arrow-down {
@@ -186,6 +261,7 @@ body {
 .search-engine-item svg {
     width: 20px;
     height: 20px;
+    fill: #ffffff;
 }
 
 .search-engine-item span {
@@ -404,6 +480,8 @@ body {
     width: 100%;
     max-width: 500px;
     color: white;
+    box-sizing: border-box;
+    margin: 0 auto;
 }
 
 .settings-content h2 {
@@ -853,7 +931,7 @@ body {
 
 .quick-access-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    grid-template-columns: repeat(5, 1fr); /* 固定5列布局 */
     gap: 20px;
     width: 100%;
     max-width: 680px; /* Limit max width for better layout on large screens */
@@ -988,24 +1066,58 @@ body {
 
 .add-quick-access-btn {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 15px 10px;
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.1);
-    border: 1px dashed rgba(255, 255, 255, 0.4);
+    border: 2px dashed rgba(255, 255, 255, 0.4);
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.2s ease;
     aspect-ratio: 1 / 1;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 40px;
-    font-weight: 200;
+    font-size: 48px;
+    font-weight: 300;
     line-height: 1;
+    text-decoration: none;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    min-height: 110px; /* 确保最小高度与快捷访问项目一致 */
+    min-width: 110px;  /* 确保最小宽度与快捷访问项目一致 */
+}
+
+/* 添加按钮的图标包装器，与快捷访问项目保持一致 */
+.add-quick-access-btn .icon-wrapper {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 300;
+}
+
+/* 添加按钮的名称，与快捷访问项目保持一致 */
+.add-quick-access-btn .name {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    font-weight: 500;
 }
 
 .add-quick-access-btn:hover {
     background: rgba(255, 255, 255, 0.2);
     color: white;
     transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.7);
 }
 
 .label-with-tooltip {
@@ -1299,5 +1411,39 @@ body {
 }
 
 .swipe-hint.show {
+    opacity: 1;
+}
+
+/* 壁纸加载状态样式 */
+.wallpaper-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
     opacity: 1;
 }

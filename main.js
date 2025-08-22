@@ -1,21 +1,22 @@
+// 全局应用实例
+let app = null;
 
 
-// 全局变量
-let pagination = null;
-
-// 常用快捷访问
-const defaultSites = [
-    { name: 'Google', url: 'https://www.google.com', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.75 8.36,4.73 12.19,4.73C14.03,4.73 15.6,5.33 16.8,6.39L18.83,4.54C16.94,2.83 14.7,2 12.19,2C6.92,2 2.71,6.23 2.71,12C2.71,17.77 6.92,22 12.19,22C17.6,22 21.54,18.33 21.54,12.29C21.54,11.84 21.49,11.45 21.35,11.1Z" /></svg>' },
-    { name: 'YouTube', url: 'https://www.youtube.com', icon: '<svg t="1750573150870" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="17200" width="200" height="200"><path d="M960 509.2c0-2.2 0-4.7-0.1-7.6-0.1-8.1-0.3-17.2-0.5-26.9-0.8-27.9-2.2-55.7-4.4-81.9-3-36.1-7.4-66.2-13.4-88.8-12.8-47.9-50.4-85.6-98.3-98.5-28.3-7.6-83.7-12.3-161.7-15.2-37.1-1.4-76.8-2.3-116.5-2.8-13.9-0.2-26.8-0.3-38.4-0.4H497.3c-11.6 0.1-24.5 0.2-38.4 0.4-39.7 0.5-79.4 1.4-116.5 2.8-78 3-133.5 7.7-161.7 15.2-47.8 12.8-85.5 50.5-98.3 98.5-6.1 22.6-10.4 52.7-13.4 88.8-2.2 26.2-3.6 54-4.4 81.9-0.3 9.7-0.4 18.8-0.5 26.9 0 2.9-0.1 5.4-0.1 7.6v5.6c0 2.2 0 4.7 0.1 7.6 0.1 8.1 0.3 17.2 0.5 26.9 0.8 27.9 2.2 55.7 4.4 81.9 3 36.1 7.4 66.2 13.4 88.8 12.8 47.9 50.4 85.7 98.3 98.5 28.2 7.6 83.7 12.3 161.7 15.2 37.1 1.4 76.8 2.3 116.5 2.8 13.9 0.2 26.8 0.3 38.4 0.4H526.7c11.6-0.1 24.5-0.2 38.4-0.4 39.7-0.5 79.4-1.4 116.5-2.8 78-3 133.5-7.7 161.7-15.2 47.9-12.8 85.5-50.5 98.3-98.5 6.1-22.6 10.4-52.7 13.4-88.8 2.2-26.2 3.6-54 4.4-81.9 0.3-9.7 0.4-18.8 0.5-26.9 0-2.9 0.1-5.4 0.1-7.6V512v-2.8z m-72 5.2c0 2.1 0 4.4-0.1 7.1-0.1 7.8-0.3 16.4-0.5 25.7-0.7 26.6-2.1 53.2-4.2 77.9-2.7 32.2-6.5 58.6-11.2 76.3-6.2 23.1-24.4 41.4-47.4 47.5-21 5.6-73.9 10.1-145.8 12.8-36.4 1.4-75.6 2.3-114.7 2.8-13.7 0.2-26.4 0.3-37.8 0.3h-28.6c-11.4-0.1-24.1-0.2-37.8-0.3-39.1-0.5-78.2-1.4-114.7-2.8-71.9-2.8-124.9-7.2-145.8-12.8-23-6.2-41.2-24.4-47.4-47.5-4.7-17.7-8.5-44.1-11.2-76.3-2.1-24.7-3.4-51.3-4.2-77.9-0.3-9.3-0.4-18-0.5-25.7 0-2.7-0.1-5.1-0.1-7.1v-3-1.8c0-2.1 0-4.4 0.1-7.1 0.1-7.8 0.3-16.4 0.5-25.7 0.7-26.6 2.1-53.2 4.2-77.9 2.7-32.2 6.5-58.6 11.2-76.3 6.2-23.1 24.4-41.4 47.4-47.5 21-5.6 73.9-10.1 145.8-12.8 36.4-1.4 75.6-2.3 114.7-2.8 13.7-0.2 26.4-0.3 37.8-0.3h28.6c11.4 0.1 24.1 0.2 37.8 0.3 39.1 0.5 78.2 1.4 114.7 2.8 71.9 2.8 124.9 7.2 145.8 12.8 23 6.2 41.2 24.4 47.4 47.5 4.7 17.7 8.5 44.1 11.2 76.3 2.1 24.7 3.4 51.3 4.2 77.9 0.3 9.3 0.4 18 0.5 25.7 0 2.7 0.1 5.1 0.1 7.1v4.8z" p-id="17201" fill="#ffffff"></path><path d="M423 646l232-135-232-133z" p-id="17202" fill="#ffffff"></path></svg>' },
-    { name: 'GitHub', url: 'https://www.github.com', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.83,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z" /></svg>' },
-    { name: 'Bilibili', url: 'https://www.bilibili.com', icon: '<svg t="1750573104242" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="16161" width="200" height="200"><path d="M306.005333 117.632L444.330667 256h135.296l138.368-138.325333a42.666667 42.666667 0 1 1 60.373333 60.373333l-78.037333 77.952L789.333333 256A149.333333 149.333333 0 0 1 938.666667 405.333333v341.333334a149.333333 149.333333 0 0 1-149.333334 149.333333h-554.666666A149.333333 149.333333 0 0 1 85.333333 746.666667v-341.333334A149.333333 149.333333 0 0 1 234.666667 256h88.96L245.632 177.962667a42.666667 42.666667 0 0 1 60.373333-60.373334zM789.333333 341.333333h-554.666666a64 64 0 0 0-63.701334 57.856L170.666667 405.333333v341.333334a64 64 0 0 0 57.856 63.701333L234.666667 810.666667h554.666666a64 64 0 0 0 63.701334-57.813334L853.333333 746.666667v-341.333334A64 64 0 0 0 789.333333 341.333333zM341.333333 469.333333a42.666667 42.666667 0 0 1 42.666667 42.666667v85.333333a42.666667 42.666667 0 1 1-85.333333 0v-85.333333a42.666667 42.666667 0 0 1 42.666666-42.666667z m341.333334 0a42.666667 42.666667 0 0 1 42.666666 42.666667v85.333333a42.666667 42.666667 0 1 1-85.333333 0v-85.333333a42.666667 42.666667 0 0 1 42.666667-42.666667z" p-id="16162" fill="#ffffff"></path></svg>' },
-    { name: '知乎', url: 'https://www.zhihu.com', icon: '<svg t="1750573074129" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15126" width="200" height="200"><path d="M544.949 561.422s0-71.387-34.779-75.050c-34.779-3.663-142.775 0-142.775 0v-219.654h161.078s-1.83-73.219-32.949-73.219h-261.755l43.93-117.148s-65.897 3.663-89.692 45.761-98.844 252.604-98.844 252.604 25.627 10.983 67.726-20.134c42.101-31.116 56.743-86.033 56.743-86.033l76.879-3.663 1.83 223.316s-133.621-1.83-161.078 0c-27.457 1.83-42.101 75.050-42.101 75.050h203.182s-18.307 124.47-69.557 214.164c-53.085 89.692-151.929 161.078-151.929 161.078s71.387 29.287 140.947-10.983c69.557-42.101 120.811-223.316 120.811-223.316l162.912 203.182s14.643-97.013-1.83-124.47c-18.307-27.457-113.49-137.283-113.49-137.283l-42.101 36.607 29.287-120.811h177.552zM587.050 188.010l-1.83 660.793h65.897l23.795 82.37 115.321-82.37h162.912v-660.793h-366.091zM879.92 775.584h-76.879l-97.013 75.050-21.965-75.050h-20.134v-512.527h215.991v512.527z" fill="#ffffff" p-id="15127"></path></svg>' },
-    { name: 'Wikipedia', url: 'https://www.wikipedia.org', icon: '<svg t="1750573259703" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="20897" width="200" height="200"><path d="M515.84 559.744c-39.936 82.432-94.592 194.048-121.728 244.394667-26.282667 45.824-48.085333 39.722667-65.365333 1.237333-59.989333-141.696-183.168-390.144-241.109334-529.450667-10.709333-25.642667-18.816-42.112-26.410666-48.597333-7.722667-6.4-23.637333-10.24-47.872-11.562667C4.394667 214.741333 0 212.565333 0 208.981333v-19.413333l2.218667-1.92c39.424-0.213333 230.442667 0 230.442666 0l2.176 1.92v18.517333c0 5.077333-3.2 7.509333-9.6 7.509334l-24.064 1.322666c-20.693333 1.237333-31.018667 6.997333-31.018666 18.602667 0 5.76 2.261333 14.08 7.082666 25.642667 46.165333 112.896 205.568 448.896 205.568 448.896l5.802667 1.962666 102.869333-205.226666-20.565333-45.525334-70.741333-139.264s-13.568-27.904-18.261334-37.205333c-31.061333-61.568-30.378667-64.768-61.738666-68.992-8.832-0.981333-13.354667-2.133333-13.354667-6.357333v-19.968l2.56-1.92h183.125333l4.821334 1.578666v19.242667c0 4.48-3.242667 6.4-9.685334 6.4l-13.141333 2.005333c-33.792 2.602667-28.202667 16.256-5.802667 60.672l67.498667 138.752 75.008-149.504c12.501333-27.306667 9.941333-34.176 4.736-40.405333-2.986667-3.584-13.013333-9.386667-34.645333-10.24l-8.576-0.896a9.728 9.728 0 0 1-6.186667-2.176 6.4 6.4 0 0 1-2.858667-5.504v-18.218667l2.602667-1.92c53.205333-0.341333 172.501333 0 172.501333 0l2.517334 1.92v18.602667c0 5.162667-2.517333 7.594667-8.234667 7.594667-27.562667 1.28-33.365333 4.053333-43.648 18.730666-5.12 7.936-16 25.130667-27.562667 44.330667l-98.176 182.314667-2.773333 5.76 119.125333 243.712 7.253334 2.048 187.562666-445.354667c6.570667-18.005333 5.504-30.805333-2.730666-38.186667-8.405333-7.338667-14.762667-11.648-36.565334-12.586666l-17.92-0.682667a10.88 10.88 0 0 1-6.485333-1.92c-1.834667-1.237333-3.072-3.2-3.072-5.077333v-18.602667l2.517333-1.92h211.669334l1.749333 1.92v18.645333c0 5.077333-3.157333 7.68-8.917333 7.68-27.648 1.28-48.085333 7.68-61.568 17.962667-13.397333 10.88-23.765333 26.282667-31.402667 45.525333 0 0-172.501333 395.008-231.509333 526.464-22.4 42.965333-44.928 39.125333-64.128-1.322666-24.362667-49.962667-75.648-161.536-112.896-243.626667l2.261333-1.536z" fill="#ffffff" p-id="20898"></path></svg>' },
-    { name: 'Reddit', url: 'https://www.reddit.com', icon: '<svg t="1750573220041" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19053" width="200" height="200"><path d="M344 568m-56 0a56 56 0 1 0 112 0 56 56 0 1 0-112 0Z" p-id="19054" fill="#ffffff"></path><path d="M626.7 687.7c-23.1 18.2-68.9 37.8-114.7 37.8s-91.6-19.6-114.7-37.8c-14.4-11.3-35.3-8.9-46.7 5.5s-8.9 35.3 5.5 46.7C396.3 771.6 457.5 792 512 792s115.7-20.4 155.9-52.1c14.4-11.4 16.9-32.3 5.5-46.7-11.3-14.4-32.3-16.9-46.7-5.5z" p-id="19055" fill="#ffffff"></path><path d="M960 456c0-61.9-50.1-112-112-112-42.1 0-78.7 23.2-97.9 57.6-57.6-31.5-127.7-51.8-204.1-56.5L612.9 195l127.9 36.9c11.5 32.6 42.6 56.1 79.2 56.1 46.4 0 84-37.6 84-84s-37.6-84-84-84c-32 0-59.8 17.9-74 44.2L603.5 123c-16-4.6-32.8 3.2-39.6 18.4l-90.8 203.9c-74.5 5.2-142.9 25.4-199.2 56.2-19.1-34.3-55.8-57.5-97.9-57.5-61.9 0-112 50.1-112 112 0 45.8 27.5 85.1 66.8 102.5-7.1 21-10.8 43-10.8 65.5 0 154.6 175.5 280 392 280s392-125.4 392-280c0-22.6-3.8-44.5-10.8-65.5C932.5 541.1 960 501.8 960 456zM820 172.5c17.4 0 31.5 14.1 31.5 31.5s-14.1 31.5-31.5 31.5-31.5-14.1-31.5-31.5 14.1-31.5 31.5-31.5zM120 456c0-30.9 25.1-56 56-56 22.3 0 41.6 13.1 50.6 32.1-29.3 22.2-53.5 47.8-71.5 75.9-20.5-8.3-35.1-28.5-35.1-52z m392 381.5c-179.8 0-325.5-95.6-325.5-213.5S332.2 410.5 512 410.5 837.5 506.1 837.5 624 691.8 837.5 512 837.5zM868.8 508c-17.9-28.1-42.2-53.7-71.5-75.9 9-18.9 28.3-32.1 50.6-32.1 30.9 0 56 25.1 56 56 0.1 23.5-14.5 43.7-35.1 52z" p-id="19056" fill="#ffffff"></path><path d="M680 568m-56 0a56 56 0 1 0 112 0 56 56 0 1 0-112 0Z" p-id="19057" fill="#ffffff"></path></svg>' },
-    { name: 'V2EX', url: 'https://www.v2ex.com', icon: '<svg t="1750573003922" class="icon" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="14105" width="200" height="200"><path d="M0 360.608V146.304v-0.096c0-39.104 30.688-71.04 69.312-73.056H585.472c13.856 0 26.432 5.6 35.552 14.624l385.472 385.472c11.552 11.616 18.688 27.648 18.688 45.344s-7.136 33.728-18.688 45.344L634.208 935.488a50.24 50.24 0 0 1-35.52 14.624H69.568a73.184 73.184 0 0 1-69.472-72.384v-219.456h512l138.24-134.592a13.184 13.184 0 0 0-0.032-18.304l-138.24-134.592h-512z" p-id="14106" fill="#ffffff"></path></svg>' },
-];
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 初始化应用
+    try {
+        app = new NewTabApp();
+        await app.init();
+        console.log('应用状态:', app.getStatus());
+        
+        // 设置全局引用，供删除功能使用
+        window.app = app;
+    } catch (error) {
+        console.error('应用初始化失败:', error);
+    }
+
+    // 获取必要的DOM元素
     const searchInput = document.getElementById('search-input');
     const wallpaperContainer = document.getElementById('wallpaper');
     const changeWallpaperBtn = document.getElementById('change-wallpaper-btn');
@@ -37,6 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const jumpToPageInput = document.getElementById('jump-to-page-input');
     const closeWallpaperPanelBtn = document.getElementById('close-wallpaper-panel-btn');
     const wallpaperCategoriesSidebar = document.getElementById('wallpaper-categories-sidebar');
+    
+    // 搜索相关元素
     const searchEngineSelector = document.getElementById('search-engine-selector');
     const selectedEngine = document.getElementById('selected-engine');
     const searchEngineDropdown = document.getElementById('search-engine-dropdown');
@@ -130,23 +133,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const openSettingsPanel = async () => {
         const currentKey = await loadApiKey();
         apiKeyInput.value = currentKey || '';
-        settingsPanel.classList.remove('hidden');
+        settingsPanel.classList.remove('u-hidden');
     };
 
     const closeSettingsPanel = () => {
-        settingsPanel.classList.add('hidden');
+        settingsPanel.classList.add('u-hidden');
     };
 
     // 壁纸面板控制
     const openWallpaperPanel = () => {
-        wallpaperPanel.classList.remove('hidden');
+        wallpaperPanel.classList.remove('u-hidden');
         if (wallpaperGrid.childElementCount === 0) {
             searchWallpapers('Nature', 1);
         }
     };
 
     const closeWallpaperPanel = () => {
-        wallpaperPanel.classList.add('hidden');
+        wallpaperPanel.classList.add('u-hidden');
         wallpaperSearchInput.value = ''; // 清空搜索框
     
         // 如果当前查询不是一个预设分类，则恢复到上次的分类
@@ -195,7 +198,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             activeCategoryElement = null; // 如果是自定义搜索，则没有高亮分类
         }
 
-        wallpaperGrid.innerHTML = '正在加载...';
+        // 显示加载状态
+        const wallpaperLoading = document.getElementById('wallpaper-loading');
+        const wallpaperGrid = document.getElementById('wallpaper-grid');
+        if (wallpaperLoading) wallpaperLoading.classList.remove('u-hidden');
+        if (wallpaperGrid) wallpaperGrid.innerHTML = '';
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${WALLPAPERS_PER_PAGE}&page=${page}&orientation=landscape`;
 
         try {
@@ -211,12 +218,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } catch (error) {
             console.error('搜索壁纸时出错:', error);
+            // 隐藏加载状态
+            const wallpaperLoading = document.getElementById('wallpaper-loading');
+            if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
             wallpaperGrid.innerHTML = '加载失败，请检查API密钥或网络。';
         }
     };
 
     const renderWallpaperGrid = (photos) => {
-        wallpaperGrid.innerHTML = '';
+        // 隐藏加载状态
+        const wallpaperLoading = document.getElementById('wallpaper-loading');
+        const wallpaperGrid = document.getElementById('wallpaper-grid');
+        if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
+        if (wallpaperGrid) wallpaperGrid.innerHTML = '';
         photos.forEach(photo => {
             const img = document.createElement('img');
             img.src = photo.src.medium;
@@ -242,7 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(`已保存并缓存壁纸 (ID: ${photo.id})`);
                 closeWallpaperPanel();
             });
-            wallpaperGrid.appendChild(img);
+            if (wallpaperGrid) wallpaperGrid.appendChild(img);
         });
     };
 
@@ -263,14 +277,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isActive) {
                 button.classList.add('active');
             }
-            if (page) {
-                button.addEventListener('click', () => searchWallpapers(currentWallpaperQuery, page));
-            }
             return button;
         };
     
         // 上一页按钮
-        paginationButtons.appendChild(createButton('上一页', currentWallpaperPage - 1, currentWallpaperPage === 1));
+        const prevButton = createButton('上一页', currentWallpaperPage - 1, currentWallpaperPage === 1);
+        if (prevButton && !prevButton.disabled) {
+            prevButton.addEventListener('click', () => {
+                currentWallpaperPage = currentWallpaperPage - 1;
+                updatePagination();
+                searchWallpapers(currentWallpaperQuery, currentWallpaperPage);
+            });
+        }
+        paginationButtons.appendChild(prevButton);
     
         // 页码按钮逻辑
         const pagesToShow = getPaginationRange(currentWallpaperPage, totalPages);
@@ -278,12 +297,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (page === '...') {
                 paginationButtons.appendChild(createButton('', null, false, false, true));
             } else {
-                paginationButtons.appendChild(createButton(page, page, false, page === currentWallpaperPage));
+                const pageButton = createButton(page, page, false, page === currentWallpaperPage);
+                if (pageButton && page !== '...') {
+                    pageButton.addEventListener('click', () => {
+                        // 立即更新当前页码
+                        currentWallpaperPage = page;
+                        // 立即更新分页显示
+                        updatePagination();
+                        // 然后搜索壁纸
+                        searchWallpapers(currentWallpaperQuery, page);
+                    });
+                }
+                paginationButtons.appendChild(pageButton);
             }
         });
     
         // 下一页按钮
-        paginationButtons.appendChild(createButton('下一页', currentWallpaperPage + 1, currentWallpaperPage >= totalPages));
+        const nextButton = createButton('下一页', currentWallpaperPage + 1, currentWallpaperPage >= totalPages);
+        if (nextButton && !nextButton.disabled) {
+            nextButton.addEventListener('click', () => {
+                currentWallpaperPage = currentWallpaperPage + 1;
+                updatePagination();
+                searchWallpapers(currentWallpaperQuery, currentWallpaperPage);
+            });
+        }
+        paginationButtons.appendChild(nextButton);
     
         // 更新信息
         const maxResults = totalPages * WALLPAPERS_PER_PAGE;
@@ -529,21 +567,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         searchHistoryDropdown.classList.remove('u-hidden');
     };
 
-    const handleSearch = async () => {
-        const query = searchInput.value.trim();
-        if (query) {
-            await addSearchTermToHistory(query);
-            const url = `${currentSearchEngine.url}${encodeURIComponent(query)}`;
-            window.location.href = url;
-        }
-    };
-
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // 阻止默认行为，确保我们的异步保存能完成
-            handleSearch();
-        }
-    });
+    // 搜索功能已移至模块化架构，事件绑定在 app.js 中处理
 
     changeWallpaperBtn.addEventListener('click', async () => {
         const apiKey = await loadApiKey();
@@ -634,102 +658,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         wallpaperCategoriesSidebar.appendChild(categoryList);
     };
 
-    // --- 搜索引擎 ---
-    const updateSelectedEngineDisplay = () => {
-        selectedEngine.innerHTML = `${currentSearchEngine.icon}<div class="arrow-down"></div>`;
-    };
+    // 搜索引擎显示更新已移至模块化架构
 
-    const selectSearchEngine = (engine) => {
-        currentSearchEngine = engine;
-        chrome.storage.local.set({ searchEngine: engine.name });
-        updateSelectedEngineDisplay();
-        closeSearchDropdown();
-    };
-
-    const openSearchDropdown = () => {
-        searchEngineDropdown.classList.remove('u-hidden');
-        searchEngineSelector.classList.add('open');
-    };
-
-    const closeSearchDropdown = () => {
-        searchEngineDropdown.classList.add('u-hidden');
-        searchEngineSelector.classList.remove('open');
-    };
+    // 搜索引擎选择功能已移至模块化架构
     
-    const renderSearchEngineDropdown = () => {
-        searchEngineDropdown.innerHTML = '';
-        searchEngines.forEach(engine => {
-            const item = document.createElement('div');
-            item.className = 'search-engine-item';
-            item.innerHTML = `${engine.icon}<span>${engine.name}</span>`;
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                selectSearchEngine(engine);
-            });
-            searchEngineDropdown.appendChild(item);
-        });
-    };
+    // 搜索引擎下拉菜单渲染已移至模块化架构
 
-    const loadSearchEngine = () => {
-        chrome.storage.local.get('searchEngine', (result) => {
-            if (result.searchEngine) {
-                const savedEngine = searchEngines.find(e => e.name === result.searchEngine);
-                if (savedEngine) {
-                    currentSearchEngine = savedEngine;
-                }
-            }
-            updateSelectedEngineDisplay();
-        });
-    };
-
-    searchEngineSelector.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (searchEngineDropdown.classList.contains('u-hidden')) {
-            openSearchDropdown();
-        } else {
-            closeSearchDropdown();
-        }
-    });
-    
-    // 当点击输入框时，如果输入框为空，则显示历史记录
-    searchInput.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (searchInput.value.trim() === '') {
-            renderSearchHistory();
-        }
-    });
-
-    // 当输入框失去焦点时，检查焦点移动的目标元素
-    searchInput.addEventListener('blur', (e) => {
-        // 如果焦点转移到了历史记录列表之外的元素，则隐藏列表
-        // e.relatedTarget 是下一个获得焦点的元素
-        if (!searchHistoryDropdown.contains(e.relatedTarget)) {
-            searchHistoryDropdown.classList.add('u-hidden');
-        }
-    });
-
-    searchInput.addEventListener('input', () => {
-        // 用户开始输入时，隐藏历史记录
-        if (!searchHistoryDropdown.classList.contains('u-hidden')) {
-            searchHistoryDropdown.classList.add('u-hidden');
-        }
-
-        if (searchInput.value.length > 0) {
-            clearSearchBtn.classList.add('visible');
-        } else {
-            clearSearchBtn.classList.remove('visible');
-        }
-    });
-
-    clearSearchBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        searchInput.focus();
-        clearSearchBtn.classList.remove('visible');
-    });
-
-    searchSubmitBtn.addEventListener('click', handleSearch);
-
-    loadSearchEngine();
+    // 搜索引擎功能已移至模块化架构，在 app.js 中处理
     await loadApiKey(); // 确保在获取壁纸前加载API Key
     
     // 添加调试信息
@@ -740,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchAndSetWallpaper();
     initVisibilityToggle();
     renderCategories();
-    renderSearchEngineDropdown();
+    // 搜索引擎相关功能已在模块化架构中处理
     searchSubmitBtn.innerHTML = searchIcon;
     clearSearchBtn.innerHTML = clearIcon;
 
@@ -754,17 +689,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    initializeQuickAccess(); // This now handles loading and rendering
+    // 快捷访问功能已移至模块化架构，在 app.js 中处理
     
     // Event listener for the cancel button in the new quick access modal
     cancelQaBtn.addEventListener('click', () => {
-        addQuickAccessPanel.classList.add('hidden');
+        addQuickAccessPanel.classList.add('u-hidden');
     });
 
     // Event listener for clicking outside the modal to close it
     addQuickAccessPanel.addEventListener('click', (e) => {
         if (e.target === addQuickAccessPanel) {
-            addQuickAccessPanel.classList.add('hidden');
+            addQuickAccessPanel.classList.add('u-hidden');
         }
     });
     
@@ -792,14 +727,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
         
-        // 重新渲染分页
-        if (pagination) {
-            pagination.setItems(sites);
-        } else {
-        renderQuickAccess(sites);
-        }
+        // 重新渲染分页 - 已移至模块化架构
+        // 分页更新现在由模块化架构处理
         
-        addQuickAccessPanel.classList.add('hidden');
+        addQuickAccessPanel.classList.add('u-hidden');
     });
 
     const quickAccessGrid = document.getElementById('quick-access-grid');
@@ -813,33 +744,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         // URL Validation
         if (url.length === 0) {
             qaUrlInput.classList.remove('invalid');
-            qaUrlError.classList.add('hidden');
+            qaUrlError.classList.add('u-hidden');
         } else {
             const urlPattern = /^(https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(:\d+)?(\/[-a-z\d%_.~+]*)*(\?.*)?(#[-a-z\d_]*)?$/i;
             if (urlPattern.test(url)) {
                 qaUrlInput.classList.remove('invalid');
-                qaUrlError.classList.add('hidden');
+                qaUrlError.classList.add('u-hidden');
                 isUrlValid = true;
             } else {
                 qaUrlInput.classList.add('invalid');
                 qaUrlError.textContent = '请输入有效的网址。';
-                qaUrlError.classList.remove('hidden');
+                qaUrlError.classList.remove('u-hidden');
             }
         }
 
         // Name Validation
         if (name.length === 0) {
             qaNameInput.classList.remove('invalid');
-            qaNameError.classList.add('hidden');
+            qaNameError.classList.add('u-hidden');
         } else {
             if (name.length >= 2 && name.length <= 10) {
                 qaNameInput.classList.remove('invalid');
-                qaNameError.classList.add('hidden');
+                qaNameError.classList.add('u-hidden');
                 isNameValid = true;
             } else {
                 qaNameInput.classList.add('invalid');
                 qaNameError.textContent = '名称长度应在 2 到 10 个字符之间。';
-                qaNameError.classList.remove('hidden');
+                qaNameError.classList.remove('u-hidden');
             }
         }
         
@@ -853,12 +784,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const input = qaIconInput.value.trim();
         if (input.startsWith('<svg')) {
             qaIconPreview.innerHTML = input;
-            qaIconPreviewContainer.classList.remove('hidden');
+            qaIconPreviewContainer.classList.remove('u-hidden');
         } else if (input.match(/\.(jpeg|jpg|gif|png|svg)$/) || input.startsWith('http')) {
             qaIconPreview.innerHTML = `<img src="${input}" alt="Icon Preview">`;
-            qaIconPreviewContainer.classList.remove('hidden');
+            qaIconPreviewContainer.classList.remove('u-hidden');
         } else {
-            qaIconPreviewContainer.classList.add('hidden');
+            qaIconPreviewContainer.classList.add('u-hidden');
             qaIconPreview.innerHTML = '';
         }
     });
@@ -888,21 +819,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                 qaIconInput.dispatchEvent(new Event('input')); // Trigger preview
                 validateQuickAccessForm();
 
-                addQuickAccessPanel.classList.remove('hidden');
+                addQuickAccessPanel.classList.remove('u-hidden');
                 exitDeleteMode();
 
             } else if (e.target.classList.contains('delete-btn')) {
-                const confirmDelete = window.confirm(`您确定要删除 "${sites[index].name}" 吗？`);
-                if (confirmDelete) {
+                // 显示自定义删除确认弹窗
+                const deleteModal = document.getElementById('delete-confirm-modal');
+                const deleteConfirmText = document.getElementById('delete-confirm-text');
+                const deleteConfirmDelete = document.getElementById('delete-confirm-delete');
+                const deleteConfirmCancel = document.getElementById('delete-confirm-cancel');
+                
+                if (deleteModal && deleteConfirmText && deleteConfirmDelete && deleteConfirmCancel) {
+                    deleteConfirmText.textContent = `您确定要删除 "${sites[index].name}" 吗？`;
+                    deleteModal.classList.remove('u-hidden');
+                    
+                    // 绑定删除确认事件
+                    const handleDelete = async () => {
                     sites.splice(index, 1);
                     await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
-                
-                // 重新渲染分页
-                if (pagination) {
-                    pagination.setItems(sites);
-                } else {
-                    renderQuickAccess(sites);
-                }
+                        
+                        // 重新渲染快捷访问列表
+                        if (window.app && window.app.renderQuickAccess) {
+                            window.app.renderQuickAccess();
+                        }
+                        
+                        // 隐藏弹窗并清理事件
+                        deleteModal.classList.add('u-hidden');
+                        deleteConfirmDelete.removeEventListener('click', handleDelete);
+                        deleteConfirmCancel.removeEventListener('click', handleCancel);
+                    };
+                    
+                    // 绑定取消事件
+                    const handleCancel = () => {
+                        deleteModal.classList.add('u-hidden');
+                        deleteConfirmDelete.removeEventListener('click', handleDelete);
+                        deleteConfirmCancel.removeEventListener('click', handleCancel);
+                    };
+                    
+                    deleteConfirmDelete.addEventListener('click', handleDelete);
+                    deleteConfirmCancel.addEventListener('click', handleCancel);
                 }
             }
         } else if (e.target.closest('.add-quick-access-btn')) {
@@ -913,23 +868,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             qaUrlInput.value = '';
             qaNameInput.value = '';
             qaIconInput.value = '';
-            qaIconPreviewContainer.classList.add('hidden');
+            qaIconPreviewContainer.classList.add('u-hidden');
+            qaIconPreview.innerHTML = ''; // 清空图标预览内容
             qaUrlInput.classList.remove('invalid');
             qaNameInput.classList.remove('invalid');
-            qaUrlError.classList.add('hidden');
-            qaNameError.classList.add('hidden');
+            qaUrlError.classList.add('u-hidden');
+            qaNameError.classList.add('u-hidden');
             validateQuickAccessForm();
 
-            addQuickAccessPanel.classList.remove('hidden');
+            addQuickAccessPanel.classList.remove('u-hidden');
         }
     });
-
-
-
-
-
-    
-    
 
 
     // 右键菜单功能
@@ -986,7 +935,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             qaIconInput.dispatchEvent(new Event('input'));
             validateQuickAccessForm();
-            addQuickAccessPanel.classList.remove('hidden');
+            addQuickAccessPanel.classList.remove('u-hidden');
             menu.remove();
         };
         
@@ -1002,13 +951,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteOption.onmouseover = () => deleteOption.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
         deleteOption.onmouseout = () => deleteOption.style.backgroundColor = 'transparent';
         deleteOption.onclick = async () => {
-            const confirmDelete = window.confirm(`您确定要删除 "${siteName}" 吗？`);
-            if (confirmDelete) {
-                const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
-                const sites = data.quickAccessSites;
-                sites.splice(index, 1);
-                await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
-                renderQuickAccess(sites);
+            // 显示自定义删除确认弹窗
+            const deleteModal = document.getElementById('delete-confirm-modal');
+            const deleteConfirmText = document.getElementById('delete-confirm-text');
+            const deleteConfirmDelete = document.getElementById('delete-confirm-delete');
+            const deleteConfirmCancel = document.getElementById('delete-confirm-cancel');
+            
+            if (deleteModal && deleteConfirmText && deleteConfirmDelete && deleteConfirmCancel) {
+                deleteConfirmText.textContent = `您确定要删除 "${siteName}" 吗？`;
+                deleteModal.classList.remove('u-hidden');
+                menu.remove(); // 隐藏右键菜单
+                
+                // 绑定删除确认事件
+                const handleDelete = async () => {
+                    const data = await new Promise(resolve => chrome.storage.local.get({ quickAccessSites: [] }, resolve));
+                    const sites = data.quickAccessSites;
+                    sites.splice(index, 1);
+                    await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
+                    
+                    // 重新渲染快捷访问列表
+                    if (window.app && window.app.renderQuickAccess) {
+                        window.app.renderQuickAccess();
+                    }
+                    
+                    // 隐藏弹窗并清理事件
+                    deleteModal.classList.add('u-hidden');
+                    deleteConfirmDelete.removeEventListener('click', handleDelete);
+                    deleteConfirmCancel.removeEventListener('click', handleCancel);
+                };
+                
+                // 绑定取消事件
+                const handleCancel = () => {
+                    deleteModal.classList.add('u-hidden');
+                    deleteConfirmDelete.removeEventListener('click', handleDelete);
+                    deleteConfirmCancel.removeEventListener('click', handleCancel);
+                };
+                
+                deleteConfirmDelete.addEventListener('click', handleDelete);
+                deleteConfirmCancel.addEventListener('click', handleCancel);
             }
             menu.remove();
         };
@@ -1055,151 +1035,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 });
 
-async function initializeQuickAccess() {
-    const data = await new Promise(resolve => chrome.storage.local.get('quickAccessSites', resolve));
-    
-    if (data.quickAccessSites) {
-        renderQuickAccess(data.quickAccessSites);
-    } else {
-        // First time run: use default sites and save them
-        await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: defaultSites }, resolve));
-        renderQuickAccess(defaultSites);
-    }
-    
-    // 添加调试信息
-    console.log('快捷访问初始化完成');
-}
+// 快捷访问功能已移至模块化架构，在 app.js 中处理
 
-function renderQuickAccess(sites) {
-    const quickAccessGrid = document.getElementById('quick-access-grid');
-    
-    console.log('=== 开始渲染快捷访问 ===');
-    console.log('快捷访问项目数量:', sites.length);
-    console.log('AdvancedPagination类状态:', typeof AdvancedPagination);
-    console.log('pagination实例状态:', pagination);
-    
-    // 检查AdvancedPagination类是否可用
-    if (typeof AdvancedPagination === 'undefined') {
-        console.warn('AdvancedPagination类未加载，使用传统渲染方式');
-        renderTraditionalQuickAccess(sites);
-        return;
-    }
-    
-    // 如果分页实例不存在，创建新的分页实例
-    if (!pagination) {
-        try {
-            console.log('创建新的高级分页实例...');
-            pagination = new AdvancedPagination(quickAccessGrid, {
-                itemsPerPage: 10, // 每页显示10个项目（2行5列）
-                enableCrossPageDrag: false, // 关闭跨页面拖拽
-                groupName: 'quick-access-group', // 拖拽组名（保留但无效）
-                onPageChange: (page) => {
-                    console.log('页面切换:', page);
-                },
-                onItemMove: async (newOrder) => {
-                    // 保存新的排序
-                    try {
-                        await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: newOrder }, resolve));
-                        console.log('分页排序已保存:', newOrder.map(site => site.name));
-                    } catch (error) {
-                        console.error('保存分页排序失败:', error);
-                    }
-                },
-                // 已关闭跨页面移动回调
-            });
-            console.log('高级分页实例创建成功:', pagination);
-        } catch (error) {
-            console.error('创建高级分页实例失败:', error);
-            renderTraditionalQuickAccess(sites);
-            return;
-        }
-    } else {
-        console.log('使用现有高级分页实例:', pagination);
-    }
-    
-    // 设置项目数据
-    try {
-        console.log('设置分页项目数据...');
-        pagination.setItems(sites);
-        console.log('高级分页快捷访问渲染完成，共', sites.length, '个项目');
-    } catch (error) {
-        console.error('高级分页渲染失败:', error);
-        renderTraditionalQuickAccess(sites);
-    }
-}
-
-// 传统渲染方式（备用方案）
-function renderTraditionalQuickAccess(sites) {
-    const quickAccessGrid = document.getElementById('quick-access-grid');
-    quickAccessGrid.innerHTML = '';
-
-    sites.forEach((site, index) => {
-        const item = document.createElement('a');
-        item.href = site.url;
-        item.className = 'quick-access-item';
-        item.target = '_blank';
-        item.dataset.index = index;
-
-        const iconWrapper = document.createElement('div');
-        iconWrapper.className = 'icon-wrapper';
-        
-        const customIcon = site.icon;
-
-        if (customIcon) {
-            if (customIcon.trim().startsWith('<svg')) {
-                iconWrapper.innerHTML = customIcon;
-                const svg = iconWrapper.querySelector('svg');
-                if (svg) {
-                    svg.classList.add('icon');
-                }
-            } else {
-                const icon = document.createElement('img');
-                icon.src = customIcon;
-                icon.className = 'icon';
-                icon.alt = `${site.name} Icon`;
-                iconWrapper.appendChild(icon);
-            }
-        } else {
-            const icon = document.createElement('img');
-            icon.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
-            icon.className = 'icon';
-            icon.alt = `${site.name} Icon`;
-            
-            icon.onerror = () => {
-                const fallback = document.createElement('div');
-                fallback.className = 'fallback-icon';
-                const firstChar = site.name.charAt(0);
-                if (/\p{Script=Han}/u.test(firstChar)) {
-                    fallback.textContent = firstChar;
-                } else {
-                    fallback.textContent = firstChar.toUpperCase();
-                }
-                iconWrapper.innerHTML = '';
-                iconWrapper.appendChild(fallback);
-            };
-            iconWrapper.appendChild(icon);
-        }
-        
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = site.name;
-
-        item.appendChild(iconWrapper);
-        item.appendChild(name);
-        quickAccessGrid.appendChild(item);
-    });
-
-    const addButton = document.createElement('div');
-    addButton.className = 'add-quick-access-btn';
-    addButton.textContent = '+';
-    addButton.title = '添加快捷方式';
-    quickAccessGrid.appendChild(addButton);
-    
-    console.log('传统快捷访问渲染完成，共', sites.length, '个项目');
-}
-
- 
-
-
-
-
+// 传统渲染方式已移除，使用模块化架构

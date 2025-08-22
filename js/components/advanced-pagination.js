@@ -83,7 +83,7 @@ class AdvancedPagination {
             margin-bottom: 20px;
         `;
         
-        // 计算当前页的项目
+        // 计算当前页的项目（每页最多显示10个项目，包括添加按钮）
         const startIndex = (this.currentPage - 1) * this.itemsPerPage;
         const endIndex = startIndex + this.itemsPerPage;
         const currentPageItems = this.items.slice(startIndex, endIndex);
@@ -94,8 +94,9 @@ class AdvancedPagination {
             grid.appendChild(itemElement);
         });
         
-        // 添加按钮（只在最后一页显示）
-        if (this.currentPage === this.getTotalPages()) {
+        // 添加按钮：如果当前页项目少于10个，则显示添加按钮
+        // 如果当前页项目达到10个，添加按钮移到下一页
+        if (currentPageItems.length < this.itemsPerPage) {
             const addButton = this.createAddButton();
             grid.appendChild(addButton);
         }
@@ -168,8 +169,30 @@ class AdvancedPagination {
     createAddButton() {
         const addButton = document.createElement('div');
         addButton.className = 'add-quick-access-btn';
-        addButton.textContent = '+';
         addButton.title = '添加快捷方式';
+        
+        // 创建图标包装器，与快捷访问项目保持一致
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'icon-wrapper';
+        iconWrapper.textContent = '+';
+        iconWrapper.style.fontSize = '32px';
+        iconWrapper.style.fontWeight = '300';
+        
+        // 创建名称，与快捷访问项目保持一致
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = '添加';
+        
+        addButton.appendChild(iconWrapper);
+        addButton.appendChild(name);
+        
+        // 添加点击事件，显示添加快捷访问弹窗
+        addButton.addEventListener('click', () => {
+            if (window.app && window.app.showAddQuickAccessModal) {
+                window.app.showAddQuickAccessModal();
+            }
+        });
+        
         return addButton;
     }
     
@@ -244,6 +267,11 @@ class AdvancedPagination {
             onMove: (evt) => {
                 // 防止拖拽到添加按钮
                 if (evt.related && evt.related.classList.contains('add-quick-access-btn')) {
+                    return false;
+                }
+                
+                // 防止拖拽添加按钮本身
+                if (evt.dragged && evt.dragged.classList.contains('add-quick-access-btn')) {
                     return false;
                 }
                 
@@ -533,8 +561,16 @@ class AdvancedPagination {
     // 设置项目数据
     setItems(items) {
         this.items = items;
-        this.currentPage = 1;
-        this.render();
+        
+        // 如果已有分页结构，只更新内容，不重新创建
+        if (this.currentPageContainer) {
+            this.renderCurrentPage();
+            this.renderPaginationControls();
+        } else {
+            // 首次创建时才调用 render()
+            this.render();
+        }
+        
         console.log(`高级分页数据已更新，共${items.length}个项目`);
     }
     
@@ -569,7 +605,15 @@ class AdvancedPagination {
     
     // 获取总页数
     getTotalPages() {
-        return Math.ceil(this.items.length / this.itemsPerPage);
+        // 计算实际需要的页数
+        const pagesFromItems = Math.ceil(this.items.length / this.itemsPerPage);
+        
+        // 如果项目数量刚好填满一页，需要第二页来放置添加按钮
+        if (this.items.length > 0 && this.items.length % this.itemsPerPage === 0) {
+            return pagesFromItems + 1;
+        }
+        
+        return Math.max(pagesFromItems, 1);
     }
     
     // 获取当前页

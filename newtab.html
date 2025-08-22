@@ -58,12 +58,21 @@
                         </button>
     </div>
 
-    <script src="js/sortable.min.js"></script>
-    <script src="js/pagination.js"></script>
-    <script src="main.js"></script>
+        <script src="js/components/sortable.min.js"></script>
+        <script src="js/components/advanced-pagination.js"></script>
+        
+        <!-- 功能模块 -->
+        <script src="js/modules/wallpaper-manager.js"></script>
+        <script src="js/modules/search-manager.js"></script>
+        <script src="js/modules/quick-access-manager.js"></script>
+        <script src="js/modules/settings-manager.js"></script>
+        
+        <!-- 主应用 -->
+        <script src="js/app.js"></script>
+        <script src="main.js"></script>
 
     <!-- 壁纸设置面板 -->
-    <div id="wallpaper-panel" class="settings-panel hidden">
+    <div id="wallpaper-panel" class="settings-panel u-hidden">
         <div class="wallpaper-content settings-content">
             <div id="wallpaper-categories-sidebar" class="wallpaper-categories-sidebar">
                 <!-- 分类将动态插入 -->
@@ -78,6 +87,10 @@
                 </div>
                 <div id="wallpaper-grid" class="wallpaper-grid">
                     <!-- 壁纸缩略图将显示在这里 -->
+                </div>
+                <div id="wallpaper-loading" class="wallpaper-loading u-hidden">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在加载壁纸...</div>
                 </div>
                 <div id="wallpaper-pagination" class="wallpaper-pagination">
                     <div id="pagination-buttons" class="pagination-buttons">
@@ -98,7 +111,7 @@
         </div>
         
     <!-- 设置面板 (默认隐藏) -->
-    <div id="settings-panel" class="settings-panel hidden">
+    <div id="settings-panel" class="settings-panel u-hidden">
         <div class="settings-content">
             <h2>设置</h2>
             <div class="setting-item">
@@ -120,20 +133,36 @@
         </div>
     </div>
     
+    <!-- 删除确认弹窗 (默认隐藏) -->
+    <div id="delete-confirm-modal" class="delete-confirm-modal u-hidden">
+        <div class="delete-confirm-content">
+            <div class="delete-confirm-header">
+                <h3>确认删除</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <p id="delete-confirm-text">您确定要删除这个快捷方式吗？</p>
+            </div>
+            <div class="delete-confirm-footer">
+                <button id="delete-confirm-cancel" class="delete-confirm-btn cancel-btn">取消</button>
+                <button id="delete-confirm-delete" class="delete-confirm-btn delete-btn">删除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 添加/编辑快捷方式面板 (默认隐藏) -->
-    <div id="add-quick-access-panel" class="settings-panel hidden">
+    <div id="add-quick-access-panel" class="settings-panel u-hidden">
         <div class="settings-content">
             <h2 id="qa-panel-title">添加快捷方式</h2>
             <input type="hidden" id="qa-edit-index" value="-1">
             <div class="setting-item">
                 <label for="qa-url-input">链接地址 (URL)</label>
                 <input type="text" id="qa-url-input" placeholder="例如: https://www.baidu.com">
-                <p id="qa-url-error" class="error-message hidden"></p>
+                <p id="qa-url-error" class="error-message u-hidden"></p>
             </div>
             <div class="setting-item">
                 <label for="qa-name-input">标签名称</label>
                 <input type="text" id="qa-name-input" placeholder="例如: Baidu">
-                <p id="qa-name-error" class="error-message hidden"></p>
+                <p id="qa-name-error" class="error-message u-hidden"></p>
             </div>
             <div class="setting-item">
                 <div class="label-with-tooltip">
@@ -147,7 +176,7 @@
                 </div>
                 <div class="icon-input-wrapper">
                     <textarea id="qa-icon-input" rows="3" placeholder="粘贴图片URL或SVG代码"></textarea>
-                    <div id="qa-icon-preview-container" class="icon-preview-container hidden">
+                    <div id="qa-icon-preview-container" class="icon-preview-container u-hidden">
                         <span class="preview-label">预览:</span>
                         <div id="qa-icon-preview" class="icon-preview"></div>
                     </div>
