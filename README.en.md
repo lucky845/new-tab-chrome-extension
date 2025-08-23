@@ -28,6 +28,17 @@ New Tab is a Chrome extension designed to reinvent your new tab experience with 
     - A separate, beautifully designed settings panel for managing your Pexels API key.
     - All configurations are stored locally in your browser for security and reliability.
 
+- **📱 Drag and Drop Sorting**:
+    - Smooth drag and drop sorting based on SortableJS library.
+    - Support for mouse drag and touch device operations.
+    - Real-time visual feedback and animation effects.
+    - Automatic saving of sorting results.
+
+- **📄 Pagination**:
+    - Display 10 shortcuts per page (2 rows × 5 columns layout).
+    - Beautiful page indicators.
+    - Support for page switching.
+
 ## 🚀 Installation and Usage
 
 ### Install from the Chrome Web Store (Recommended)
