@@ -728,8 +728,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
         
         // 重新渲染快捷访问列表
-        if (window.app && window.app.renderQuickAccess) {
-            window.app.renderQuickAccess();
+        if (window.app && window.app.quickAccessManager && window.app.quickAccessManager.pagination) {
+            // 直接调用分页组件的setItems方法，避免重复渲染
+            window.app.quickAccessManager.pagination.setItems(sites);
         }
         
         addQuickAccessPanel.classList.add('u-hidden');
@@ -841,8 +842,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
                         
                         // 重新渲染快捷访问列表
-                        if (window.app && window.app.renderQuickAccess) {
-                            window.app.renderQuickAccess();
+                        if (window.app && window.app.quickAccessManager && window.app.quickAccessManager.pagination) {
+                            // 直接调用分页组件的setItems方法，避免重复渲染
+                            window.app.quickAccessManager.pagination.setItems(sites);
                         }
                         
                         // 隐藏弹窗并清理事件
@@ -972,8 +974,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
                     
                     // 重新渲染快捷访问列表
-                    if (window.app && window.app.renderQuickAccess) {
-                        window.app.renderQuickAccess();
+                    if (window.app && window.app.quickAccessManager && window.app.quickAccessManager.pagination) {
+                        // 直接调用分页组件的setItems方法，避免重复渲染
+                        window.app.quickAccessManager.pagination.setItems(sites);
                     }
                     
                     // 隐藏弹窗并清理事件
