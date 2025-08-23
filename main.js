@@ -727,8 +727,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         await new Promise(resolve => chrome.storage.local.set({ quickAccessSites: sites }, resolve));
         
-        // 重新渲染分页 - 已移至模块化架构
-        // 分页更新现在由模块化架构处理
+        // 重新渲染快捷访问列表
+        if (window.app && window.app.renderQuickAccess) {
+            window.app.renderQuickAccess();
+        }
         
         addQuickAccessPanel.classList.add('u-hidden');
     });

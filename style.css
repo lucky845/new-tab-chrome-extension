@@ -111,7 +111,7 @@ body {
 .main-container {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     width: 100%;
     height: 100%;
@@ -125,6 +125,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 40px; /* 控制搜索框和快捷访问网格之间的距离 */
+    margin-top: 15vh; /* 固定顶部距离，确保搜索栏位置一致 */
 }
 
 .search-container {
@@ -932,11 +933,13 @@ body {
 .quick-access-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr); /* 固定5列布局 */
+    grid-template-rows: repeat(2, 1fr); /* 固定2行布局 */
     gap: 20px;
     width: 100%;
     max-width: 680px; /* Limit max width for better layout on large screens */
     margin-top: 40px;
     padding: 0 20px;
+    min-height: 240px; /* 确保网格高度一致，无论内容多少 */
 }
 
 .quick-access-item {
@@ -954,6 +957,8 @@ body {
     text-decoration: none;
     transition: background-color 0.3s ease, transform 0.2s ease;
     aspect-ratio: 1 / 1; /* Make items square-ish */
+    min-height: 110px; /* 确保最小高度一致 */
+    min-width: 110px; /* 确保最小宽度一致 */
 }
 
 .quick-access-item .delete-btn {

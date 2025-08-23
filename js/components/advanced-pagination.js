@@ -238,13 +238,7 @@ class AdvancedPagination {
                 console.log('拖拽结束');
                 evt.item.style.opacity = '';
                 
-                // 清除翻页箭头
-                this.hidePageFlipArrow();
-                
-                // 无全局监听，无需解除
-
-                // 检查是否是跨页面拖拽
-                // 仅同页内排序
+                // 处理同页内排序
                 this.handleItemMove(evt, pageNumber);
                 
                 // 清除拖拽开始信息
@@ -254,13 +248,11 @@ class AdvancedPagination {
             // 项目添加到容器
             onAdd: (evt) => {
                 console.log('项目添加到容器');
-                // 这里不需要处理，因为onEnd已经处理了跨页面逻辑
             },
             
             // 项目从容器移除
             onRemove: (evt) => {
                 console.log('项目从容器移除');
-                // 这里不需要处理，因为onEnd已经处理了跨页面逻辑
             },
             
             // 拖拽移动
@@ -274,8 +266,6 @@ class AdvancedPagination {
                 if (evt.dragged && evt.dragged.classList.contains('add-quick-access-btn')) {
                     return false;
                 }
-                
-                // 关闭边缘翻页检测
                 
                 return true;
             }
@@ -308,214 +298,6 @@ class AdvancedPagination {
         console.log('同页项目移动处理完成');
     }
     
-
-    
-    // 检查网格外拖拽，显示翻页箭头
-    checkPageBoundaryDrag(evt) {
-        // 已禁用
-        if (!this.dragStartInfo) return;
-        
-        const gridElement = this.currentPageContainer.querySelector('.quick-access-grid');
-        if (!gridElement) {
-            console.warn('未找到网格元素');
-            return;
-        }
-        
-        const gridRect = gridElement.getBoundingClientRect();
-        const mouseX = (evt && evt.clientX !== undefined) ? evt.clientX : (evt && evt.touches && evt.touches[0] ? evt.touches[0].clientX : null);
-        const mouseY = (evt && evt.clientY !== undefined) ? evt.clientY : (evt && evt.touches && evt.touches[0] ? evt.touches[0].clientY : null);
-        
-        if (mouseX === null || mouseY === null) return;
-        
-        const totalPages = this.getTotalPages();
-        
-        // 调试信息：输出网格边界和鼠标位置
-        console.log('网格边界:', {
-            left: gridRect.left,
-            right: gridRect.right,
-            top: gridRect.top,
-            bottom: gridRect.bottom
-        });
-        console.log('鼠标位置:', { x: mouseX, y: mouseY });
-        
-        // 检查鼠标是否在网格外部
-        const isOutsideGrid = mouseX < gridRect.left || mouseX > gridRect.right || 
-                             mouseY < gridRect.top || mouseY > gridRect.bottom;
-        
-        console.log('是否在网格外部:', isOutsideGrid);
-        
-        if (isOutsideGrid) {
-            // 在网格外部，显示翻页箭头
-            if (mouseX < gridRect.left && this.currentPage > 1) {
-                console.log('检测到左侧外部，显示左箭头');
-                this.showPageFlipArrow('left');
-            } else if (mouseX > gridRect.right && this.currentPage < totalPages) {
-                console.log('检测到右侧外部，显示右箭头');
-                this.showPageFlipArrow('right');
-            } else {
-                console.log('其他外部区域，隐藏箭头');
-                this.hidePageFlipArrow();
-            }
-        } else {
-            // 在网格内部，隐藏箭头
-            this.hidePageFlipArrow();
-        }
-        
-        // 检查是否移动到箭头上
-        this.checkArrowHover(evt);
-    }
-    
-    // 显示翻页箭头
-    showPageFlipArrow(direction) {
-        return; // 已禁用
-        // 如果箭头已存在且方向相同，不重复创建
-        if (this.pageFlipArrow && this.pageFlipArrow.dataset.direction === direction) {
-            return;
-        }
-        
-        // 移除现有箭头
-        this.hidePageFlipArrow();
-        
-        const arrow = document.createElement('div');
-        arrow.className = 'page-flip-arrow';
-        arrow.dataset.direction = direction;
-        
-        const gridElement = this.currentPageContainer.querySelector('.quick-access-grid');
-        const gridRect = gridElement.getBoundingClientRect();
-        
-        arrow.style.cssText = `
-            position: fixed;
-            top: 50%;
-            ${direction === 'left' ? 'left: 50px' : 'right: 50px'};
-            transform: translateY(-50%);
-            width: 60px;
-            height: 60px;
-            background: rgba(76, 175, 80, 0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            font-weight: bold;
-            z-index: 1000;
-            cursor: pointer;
-            animation: arrowPulse 1s infinite;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        `;
-        
-        arrow.innerHTML = direction === 'left' ? '‹' : '›';
-        arrow.title = direction === 'left' ? '拖拽到此处翻到上一页' : '拖拽到此处翻到下一页';
-        
-        // 添加悬停效果
-        arrow.addEventListener('mouseenter', () => {
-            arrow.style.background = 'rgba(76, 175, 80, 1)';
-            arrow.style.transform = 'translateY(-50%) scale(1.1)';
-        });
-        
-        arrow.addEventListener('mouseleave', () => {
-            arrow.style.background = 'rgba(76, 175, 80, 0.9)';
-            arrow.style.transform = 'translateY(-50%) scale(1)';
-        });
-        
-        document.body.appendChild(arrow);
-        this.pageFlipArrow = arrow;
-        
-        console.log(`显示${direction === 'left' ? '左' : '右'}翻页箭头`);
-        console.log('箭头元素:', arrow);
-        console.log('箭头位置:', {
-            left: direction === 'left' ? '50px' : 'right: 50px',
-            top: '50%',
-            transform: 'translateY(-50%)'
-        });
-    }
-    
-    // 隐藏翻页箭头
-    hidePageFlipArrow() {
-        if (this.pageFlipArrow) {
-            this.pageFlipArrow.remove();
-            this.pageFlipArrow = null;
-        }
-    }
-    
-    // 检查是否移动到箭头上
-    checkArrowHover(evt) {
-        return; // 已禁用
-        
-        const arrowRect = this.pageFlipArrow.getBoundingClientRect();
-        const mouseX = (evt && evt.clientX !== undefined) ? evt.clientX : (evt && evt.touches && evt.touches[0] ? evt.touches[0].clientX : null);
-        const mouseY = (evt && evt.clientY !== undefined) ? evt.clientY : (evt && evt.touches && evt.touches[0] ? evt.touches[0].clientY : null);
-        
-        if (mouseX === null || mouseY === null) return;
-        
-        // 检查鼠标是否在箭头区域内
-        const isOverArrow = mouseX >= arrowRect.left && mouseX <= arrowRect.right &&
-                           mouseY >= arrowRect.top && mouseY <= arrowRect.bottom;
-        
-        if (isOverArrow) {
-            // 鼠标在箭头上，执行翻页
-            const direction = this.pageFlipArrow.dataset.direction;
-            console.log(`鼠标移动到${direction === 'left' ? '左' : '右'}箭头，执行翻页`);
-            
-            if (direction === 'left') {
-                this.previousPage();
-            } else {
-                this.nextPage();
-            }
-            
-            // 隐藏箭头
-            this.hidePageFlipArrow();
-        }
-    }
-    
-    // 处理跨页面移动
-    handleCrossPageMove(draggedItem, fromPage, toPage) {
-        const itemId = draggedItem.dataset.itemId;
-        const itemName = draggedItem.textContent.trim();
-        
-        console.log(`项目 "${itemName}" 从第${fromPage}页移动到第${toPage}页`);
-        
-        // 计算源页和目标页的项目范围
-        const fromStartIndex = (fromPage - 1) * this.itemsPerPage;
-        const fromEndIndex = fromStartIndex + this.itemsPerPage;
-        const toStartIndex = (toPage - 1) * this.itemsPerPage;
-        const toEndIndex = toStartIndex + this.itemsPerPage;
-        
-        // 找到要移动的项目
-        const itemToMove = this.items.find(item => (item.id || item.url) === itemId);
-        if (!itemToMove) {
-            console.warn('未找到要移动的项目:', itemId);
-            return;
-        }
-        
-        // 从源页移除项目
-        const fromPageItems = this.items.slice(fromStartIndex, fromEndIndex);
-        const fromItemIndex = fromPageItems.findIndex(item => (item.id || item.url) === itemId);
-        
-        if (fromItemIndex !== -1) {
-            // 从源页移除
-            this.items.splice(fromStartIndex + fromItemIndex, 1);
-            
-            // 添加到目标页
-            const toPageItems = this.items.slice(toStartIndex, toEndIndex);
-            const insertIndex = Math.min(toPageItems.length, this.itemsPerPage - 1);
-            this.items.splice(toStartIndex + insertIndex, 0, itemToMove);
-            
-            console.log('跨页面移动完成，重新渲染页面...');
-            
-            // 重新渲染相关页面
-            this.renderCurrentPage();
-            this.renderPaginationControls();
-            
-            // 调用跨页面移动回调
-            this.onCrossPageMove({
-                item: itemToMove,
-                fromPage,
-                toPage,
-                newItems: this.items
-            });
-        }
-    }
     
     // 渲染分页控件
     renderPaginationControls() {
@@ -562,6 +344,12 @@ class AdvancedPagination {
     setItems(items) {
         this.items = items;
         
+        // 检查当前页是否超出新的总页数范围，如果是则调整到最后一页
+        const newTotalPages = this.getTotalPages();
+        if (this.currentPage > newTotalPages) {
+            this.currentPage = newTotalPages;
+        }
+        
         // 如果已有分页结构，只更新内容，不重新创建
         if (this.currentPageContainer) {
             this.renderCurrentPage();
@@ -571,7 +359,7 @@ class AdvancedPagination {
             this.render();
         }
         
-        console.log(`高级分页数据已更新，共${items.length}个项目`);
+        console.log(`高级分页数据已更新，共${items.length}个项目，当前页${this.currentPage}，总页数${newTotalPages}`);
     }
     
     // 跳转到指定页面
@@ -625,20 +413,6 @@ class AdvancedPagination {
     bindEvents() {}
     
     // initTouchNavigation 已删除
-    
-    // 启用/禁用跨页面拖拽
-    setCrossPageDrag(enabled) {
-        this.enableCrossPageDrag = enabled;
-        console.log(`跨页面拖拽已${enabled ? '启用' : '禁用'}`);
-        
-        // 重新初始化所有页面的SortableJS
-        this.sortableInstances.forEach((instance, pageNumber) => {
-            instance.destroy();
-        });
-        this.sortableInstances.clear();
-        
-        this.renderCurrentPage();
-    }
     
     // 销毁组件
     destroy() {
