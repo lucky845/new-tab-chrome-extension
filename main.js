@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         app = new NewTabApp();
         await app.init();
-        console.log('应用状态:', app.getStatus());
 
         // 设置全局引用，供删除功能使用
         window.app = app;
@@ -50,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const historyItemsContainer = document.getElementById(window.SELECTORS.historyItemsContainer);
     const clearHistoryContainer = document.getElementById(window.SELECTORS.clearHistoryContainer);
     const clearAllHistoryBtn = document.getElementById(window.SELECTORS.clearAllHistoryBtn);
-
+    
     // Quick Access Modal elements
     const addQuickAccessPanel = document.getElementById(window.SELECTORS.addQuickAccessPanel);
     const qaUrlInput = document.getElementById(window.SELECTORS.qaUrlInput);
@@ -194,7 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeWallpaperPanel = () => {
         wallpaperPanel.classList.add('u-hidden');
         wallpaperSearchInput.value = ''; // 清空搜索框
-
+    
         // 如果当前查询不是一个预设分类，则恢复到上次的分类
         const currentQueryIsACategory = wallpaperCategories.some(
             c => c.query === currentWallpaperQuery
@@ -217,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             .catch(() => {
                 // 回退：不影响其他功能
-            });
+        });
     };
 
     // 壁纸搜索和渲染
@@ -256,10 +255,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch(url, { headers: { Authorization: pexelsApiKey } });
             if (!response.ok) throw new Error('壁纸搜索失败');
-
+            
             const data = await response.json();
             renderWallpaperGrid(data.photos);
-
+            
             totalPages = Math.ceil(data.total_results / WALLPAPERS_PER_PAGE);
             totalWallpapers = data.total_results;
             updatePagination();
@@ -285,24 +284,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             img.addEventListener('click', async () => {
                 const wallpaperUrl = photo.src.large2x;
                 wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
-
+                
                 // 保存被选中壁纸的完整信息到缓存
                 await new Promise(resolve => {
                     chrome.storage.local.set(
                         {
-                            savedWallpaperId: photo.id,
-                            savedWallpaperUrl: wallpaperUrl,
-                            savedWallpaperData: {
-                                id: photo.id,
-                                url: wallpaperUrl,
-                                photographer: photo.photographer,
+                        savedWallpaperId: photo.id,
+                        savedWallpaperUrl: wallpaperUrl,
+                        savedWallpaperData: {
+                            id: photo.id,
+                            url: wallpaperUrl,
+                            photographer: photo.photographer,
                                 alt: photo.alt,
                             },
                         },
                         resolve
                     );
                 });
-
+                
                 console.log(`已保存并缓存壁纸 (ID: ${photo.id})`);
                 closeWallpaperPanel();
             });
@@ -312,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const updatePagination = () => {
         paginationButtons.innerHTML = ''; // 清空旧按钮
-
+    
         // 辅助函数：创建按钮
         const createButton = (
             text,
@@ -326,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 span.textContent = '...';
                 return span;
             }
-
+    
             const button = document.createElement('button');
             button.innerHTML = text;
             button.disabled = isDisabled;
@@ -335,7 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             return button;
         };
-
+    
         // 上一页按钮
         const prevButton = createButton(
             '上一页',
@@ -350,7 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         paginationButtons.appendChild(prevButton);
-
+    
         // 页码按钮逻辑
         const pagesToShow = getPaginationRange(currentWallpaperPage, totalPages);
         pagesToShow.forEach(page => {
@@ -371,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 paginationButtons.appendChild(pageButton);
             }
         });
-
+    
         // 下一页按钮
         const nextButton = createButton(
             '下一页',
@@ -386,46 +385,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         paginationButtons.appendChild(nextButton);
-
+    
         // 更新信息
         const maxResults = totalPages * WALLPAPERS_PER_PAGE;
         totalResultsInfo.textContent = `共 ${totalPages} 页 / ${totalWallpapers > maxResults ? `~${maxResults}` : totalWallpapers} 个`;
         jumpToPageInput.max = totalPages;
     };
-
+    
     const getPaginationRange = (current, total) => {
         const delta = 2;
         const range = [];
         for (let i = Math.max(2, current - delta); i <= Math.min(total - 1, current + delta); i++) {
             range.push(i);
         }
-
+    
         if (current - delta > 2) {
             range.unshift('...');
         }
         if (current + delta < total - 1) {
             range.push('...');
         }
-
+    
         range.unshift(1);
         if (total > 1) {
             range.push(total);
         }
-
+    
         return [...new Set(range)]; // Set to remove duplicates if total pages is small
     };
 
     // 主壁纸功能
     const fetchAndSetWallpaper = async () => {
         const apiKey = await loadApiKey();
-
+    
         if (!apiKey) {
             console.log('Pexels API 密钥未设置，请在设置中添加。');
             openSettingsPanel();
             wallpaperContainer.style.backgroundImage = `url('https://www.todaybing.com/api/today?${new Date().getTime()}')`;
             return;
         }
-
+    
         // 1. 尝试加载已缓存的壁纸
         const result = await new Promise(resolve =>
             chrome.storage.local.get(
@@ -433,12 +432,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 resolve
             )
         );
-
+        
         if (result.savedWallpaperUrl) {
             // 优先使用缓存的URL，避免网络请求
             wallpaperContainer.style.backgroundImage = `url('${result.savedWallpaperUrl}')`;
             console.log('使用缓存的壁纸URL');
-
+            
             // 异步验证壁纸是否仍然有效
             if (result.savedWallpaperId) {
                 setTimeout(async () => {
@@ -451,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             return;
         }
-
+        
         // 2. 如果有ID但没有URL，尝试获取URL
         if (result.savedWallpaperId && !result.savedWallpaperUrl) {
             const success = await fetchWallpaperById(result.savedWallpaperId, apiKey);
@@ -459,11 +458,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
         }
-
+    
         // 3. 如果没有保存的壁纸或加载失败，则获取随机壁纸
         await fetchRandomWallpaper(apiKey, true);
     };
-
+    
     // 验证壁纸是否仍然有效
     const validateWallpaperById = async (id, apiKey) => {
         const url = `https://api.pexels.com/v1/photos/${id}`;
@@ -475,7 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return false;
         }
     };
-
+    
     const fetchWallpaperById = async (id, apiKey) => {
         const url = `https://api.pexels.com/v1/photos/${id}`;
         try {
@@ -495,24 +494,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             const photo = await response.json();
             const wallpaperUrl = photo.src.large2x;
             wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
-
+            
             // 保存壁纸信息到缓存
             await new Promise(resolve => {
                 chrome.storage.local.set(
                     {
-                        savedWallpaperId: photo.id,
-                        savedWallpaperUrl: wallpaperUrl,
-                        savedWallpaperData: {
-                            id: photo.id,
-                            url: wallpaperUrl,
-                            photographer: photo.photographer,
+                    savedWallpaperId: photo.id,
+                    savedWallpaperUrl: wallpaperUrl,
+                    savedWallpaperData: {
+                        id: photo.id,
+                        url: wallpaperUrl,
+                        photographer: photo.photographer,
                             alt: photo.alt,
                         },
                     },
                     resolve
                 );
             });
-
+            
             console.log(`成功加载并缓存壁纸 (ID: ${id})`);
             return true;
         } catch (error) {
@@ -520,7 +519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return false;
         }
     };
-
+    
     const fetchRandomWallpaper = async (apiKey, shouldSave = false) => {
         const queries = [
             'Nature',
@@ -536,10 +535,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const randomQuery = queries[Math.floor(Math.random() * queries.length)];
         const page = Math.floor(Math.random() * 100) + 1;
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(randomQuery)}&orientation=landscape&per_page=1&page=${page}`;
-
+    
         try {
             const response = await fetch(url, { headers: { Authorization: apiKey } });
-
+    
             if (!response.ok) {
                 if (response.status === 401) {
                     console.error('Pexels API 密钥无效或已过期。');
@@ -547,23 +546,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 throw new Error(`Pexels API 请求失败: ${response.status}`);
             }
-
+    
             const data = await response.json();
             if (data.photos && data.photos.length > 0) {
                 const photo = data.photos[0];
                 const wallpaperUrl = photo.src.large2x;
                 wallpaperContainer.style.backgroundImage = `url('${wallpaperUrl}')`;
-
+                
                 if (shouldSave) {
                     await new Promise(resolve => {
                         chrome.storage.local.set(
                             {
-                                savedWallpaperId: photo.id,
-                                savedWallpaperUrl: wallpaperUrl,
-                                savedWallpaperData: {
-                                    id: photo.id,
-                                    url: wallpaperUrl,
-                                    photographer: photo.photographer,
+                            savedWallpaperId: photo.id,
+                            savedWallpaperUrl: wallpaperUrl,
+                            savedWallpaperData: {
+                                id: photo.id,
+                                url: wallpaperUrl,
+                                photographer: photo.photographer,
                                     alt: photo.alt,
                                 },
                             },
@@ -633,7 +632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         history.forEach(term => {
             const item = document.createElement('div');
             item.className = 'history-item';
-
+            
             const text = document.createElement('span');
             text.className = 'history-text';
             text.textContent = term;
@@ -671,7 +670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     settingsBtn.addEventListener('click', openSettingsPanel);
     closeSettingsBtn.addEventListener('click', closeSettingsPanel);
-
+    
     wallpaperSettingsBtn.addEventListener('click', openWallpaperPanel);
     closeWallpaperPanelBtn.addEventListener('click', closeWallpaperPanel);
 
@@ -684,7 +683,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             searchWallpapers(lastActiveCategoryQuery, 1);
         }
     });
-
+    
     wallpaperSearchInput.addEventListener('keypress', e => {
         if (e.key === 'Enter') {
             const query = wallpaperSearchInput.value.trim();
@@ -719,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (newKey) {
             try {
-                await saveApiKey(newKey);
+            await saveApiKey(newKey);
 
                 // 保存天气城市与天气API Key
                 // 统一写入集中 settings（避免双写）
@@ -744,8 +743,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                closeSettingsPanel();
-                fetchAndSetWallpaper();
+            closeSettingsPanel();
+            fetchAndSetWallpaper();
                 console.log('设置已保存');
             } catch (error) {
                 console.error('保存设置失败:', error);
@@ -794,7 +793,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 搜索引擎功能已移至模块化架构，在 app.js 中处理
     await migrateLegacySettings();
     await loadApiKey(); // 确保在获取壁纸前加载API Key
-
+    
     // 添加调试信息
     console.log('开始初始化壁纸...');
     const cachedData = await new Promise(resolve =>
@@ -803,8 +802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             resolve
         )
     );
-    console.log('缓存的壁纸数据:', cachedData);
-
+    
     fetchAndSetWallpaper();
     initVisibilityToggle();
     renderCategories();
@@ -814,7 +812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     clearAllHistoryBtn.addEventListener('click', async e => {
         e.stopPropagation(); // 阻止事件冒泡
-
+        
         // 添加二次确认
         if (window.confirm('您确定要清空所有搜索记录吗？此操作无法撤销。')) {
             await saveSearchHistory([]);
@@ -823,7 +821,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // 快捷访问功能已移至模块化架构，在 app.js 中处理
-
+    
     // Event listener for the cancel button in the new quick access modal
     cancelQaBtn.addEventListener('click', () => {
         addQuickAccessPanel.classList.add('u-hidden');
@@ -835,7 +833,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             addQuickAccessPanel.classList.add('u-hidden');
         }
     });
-
+    
     // Event listener for the save button
     saveQaBtn.addEventListener('click', async () => {
         let url = qaUrlInput.value.trim();
@@ -848,7 +846,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const newSite = { name, url, icon: icon || null };
-
+        
         const data = await new Promise(resolve =>
             chrome.storage.local.get({ quickAccessSites: [] }, resolve)
         );
@@ -859,7 +857,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             sites.push(newSite); // Add new
         }
-
+        
         await new Promise(resolve =>
             chrome.storage.local.set({ quickAccessSites: sites }, resolve)
         );
@@ -918,7 +916,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 qaNameError.classList.remove('u-hidden');
             }
         }
-
+        
         saveQaBtn.disabled = !(isUrlValid && isNameValid);
     };
 
@@ -947,7 +945,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 检查item是否存在，避免null错误
             if (!item) return;
-
+            
             const index = parseInt(item.dataset.index, 10);
             const data = await new Promise(resolve =>
                 chrome.storage.local.get({ quickAccessSites: [] }, resolve)
@@ -962,7 +960,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 qaUrlInput.value = siteToEdit.url;
                 qaNameInput.value = siteToEdit.name;
                 qaIconInput.value = siteToEdit.icon || '';
-
+                
                 qaIconInput.dispatchEvent(new Event('input')); // Trigger preview
                 validateQuickAccessForm();
 
@@ -992,7 +990,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     // 绑定删除确认事件
                     const handleDelete = async () => {
-                        sites.splice(index, 1);
+                    sites.splice(index, 1);
                         await new Promise(resolve =>
                             chrome.storage.local.set({ quickAccessSites: sites }, resolve)
                         );
@@ -1027,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (e.target.closest('.add-quick-access-btn')) {
             qaPanelTitle.textContent = '添加快捷方式';
             qaEditIndexInput.value = '-1';
-
+            
             // Reset form for new entry
             qaUrlInput.value = '';
             qaNameInput.value = '';

@@ -18,7 +18,7 @@ const WEATHER_CONFIG = {
     UPDATE_INTERVAL: 30 * 60 * 1000, // 30分钟
 
     // 地理位置超时设置
-    GEOLOCATION_TIMEOUT: 30000, // 30秒（增加超时时间）
+    GEOLOCATION_TIMEOUT: 5000, // 5秒（增加超时时间）
     GEOLOCATION_MAX_AGE: 5 * 60 * 1000, // 5分钟缓存
 
     // 本地缓存与限流

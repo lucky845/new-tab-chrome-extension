@@ -127,7 +127,7 @@ const data = await fetchJSON('https://example.com/api', {
     timeout: 10000,
     retries: 2,
     retryDelay: 600,
-    backoff: 2
+    backoff: 2,
 });
 ```
 
@@ -138,9 +138,9 @@ const data = await fetchJSON('https://example.com/api', {
 1. 保留现有功能：原有功能已保留并模块化
 2. 渐进式迁移：将散落在 `main.js` 的逻辑迁入对应模块
 3. 选择器与配置：
-   - DOM id/选择器统一使用 `window.SELECTORS`
-   - 配置统一通过 `SettingsManager` 读写
-   - 旧键已在启动时一次性迁移与清理
+    - DOM id/选择器统一使用 `window.SELECTORS`
+    - 配置统一通过 `SettingsManager` 读写
+    - 旧键已在启动时一次性迁移与清理
 
 ### 添加新功能
 

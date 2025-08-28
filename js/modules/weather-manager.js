@@ -309,12 +309,47 @@ class WeatherManager {
             if (!adcode && !cityCode) {
                 throw new Error('逆地理失败，未获取到adcode');
             }
+
+            // 缓存城市信息
+            const cacheKey = `amap_adcode_${adcode}`;
+            await chrome.storage.local.set({ [cacheKey]: { adcode: regeoData?.regeocode?.addressComponent?.city || undefined, ts: Date.now() } });
+
             // 天气
             return await this.getWeatherByAdcode(adcode || cityCode);
         } catch (error) {
-            console.error('获取位置天气失败:', error);
-            throw error;
+            console.warn('基于浏览器定位失败，尝试使用IP定位作为回退...', error?.message || error);
+            // 回退：使用IP定位获取adcode
+            try {
+                const adcode = await this.getAdcodeByIP();
+                return await this.getWeatherByAdcode(adcode);
+            } catch (ipErr) {
+                console.error('IP 定位回退也失败:', ipErr);
+                throw error; // 抛出原始错误，便于上层判断权限/超时
+            }
         }
+    }
+
+    /**
+     * 通过IP定位获取 adcode（回退方案）
+     */
+    async getAdcodeByIP() {
+        const { fetchJSON } = await import('../utils/request.js');
+        // 直接使用高德 IP 定位，无需额外第三方服务/host 权限
+        const url = `${this.baseUrl}/ip?key=${this.apiKey}`;
+        const data = await fetchJSON(url, {
+            timeout: (window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000) - 1000,
+            retries: 1,
+            retryDelay: 500,
+            backoff: 2,
+        });
+        const ipAdcode = data?.adcode || data?.citycode;
+        if (!ipAdcode) throw new Error('IP定位未返回adcode');
+
+        // 缓存城市信息
+        const cacheKey = `amap_adcode_${ipAdcode}`;
+        await chrome.storage.local.set({ [cacheKey]: { adcode: data?.city || undefined, ts: Date.now() } });
+
+        return ipAdcode;
     }
 
     /**
@@ -322,57 +357,130 @@ class WeatherManager {
      */
     getCurrentPosition() {
         return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
+            if (!('geolocation' in navigator)) {
                 reject(new Error('浏览器不支持地理位置'));
                 return;
             }
 
-            // 统一的错误处理
-            const onError = error => {
-                let errorMessage = '获取位置失败';
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage = '地理位置权限被拒绝，请在浏览器设置中允许位置访问';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage = '位置信息不可用';
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage = '获取位置超时，请检查网络/定位设置';
-                        break;
-                    default:
-                        errorMessage = '获取位置时发生未知错误';
+            const geoOptions = {
+                enableHighAccuracy: true,
+                timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
+                maximumAge: window.WEATHER_CONFIG?.GEOLOCATION_MAX_AGE || 5 * 60 * 1000,
+            };
+
+            const mapGeoError = (error) => {
+                if (!error) return '获取位置失败（未知原因）';
+                // 标准 PositionError(code) 与现代 DOMException(name)
+                const code = typeof error.code === 'number' ? error.code : undefined;
+                const name = error.name || '';
+                const msg = error.message || '';
+
+                // 先按 code 分类
+                if (code === 1 /* PERMISSION_DENIED */) {
+                    return '地理位置权限被拒绝，请在浏览器/系统设置中允许位置访问';
                 }
-                reject(new Error(errorMessage));
+                if (code === 2 /* POSITION_UNAVAILABLE */) {
+                    return '位置信息不可用';
+                }
+                if (code === 3 /* TIMEOUT */) {
+                    return '获取位置超时，请检查网络/定位设置';
+                }
+
+                // 再按 name/消息特征
+                if (name === 'NotAllowedError' || /denied|blocked/i.test(msg)) {
+                    return '地理位置权限被拒绝，请在浏览器/系统设置中允许位置访问';
+                }
+                if (name === 'NotFoundError') {
+                    return '未找到可用的定位源，请检查系统定位是否开启';
+                }
+                if (name === 'SecurityError') {
+                    return '定位被安全策略阻止，请检查浏览器定位设置';
+                }
+                if (/timeout/i.test(msg)) {
+                    return '获取位置超时，请检查网络/定位设置';
+                }
+                return '获取位置时发生未知错误';
             };
 
-            // 实际请求位置的函数（先声明再调用，避免未定义）
             const requestLocation = () => {
-                navigator.geolocation.getCurrentPosition(resolve, onError, {
-                    enableHighAccuracy: true,
-                    timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-                    maximumAge: window.WEATHER_CONFIG?.GEOLOCATION_MAX_AGE || 5 * 60 * 1000,
-                });
+                let settled = false;
+
+                // 先尝试高精度，失败或超时则自动回退到低精度，延长超时
+                const tryHighAccuracy = () => {
+                    const opts = {
+                        enableHighAccuracy: true,
+                        timeout: Math.min(geoOptions.timeout, 8000),
+                        maximumAge: geoOptions.maximumAge,
+                    };
+                    const timerA = setTimeout(() => {
+                        if (settled) return;
+                        tryLowAccuracy();
+                    }, opts.timeout + 200);
+
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            if (settled) return;
+                            settled = true;
+                            clearTimeout(timerA);
+                            resolve(pos);
+                        },
+                        () => {
+                            if (settled) return;
+                            clearTimeout(timerA);
+                            tryLowAccuracy();
+                        },
+                        opts
+                    );
+                };
+
+                const tryLowAccuracy = () => {
+                    const opts = {
+                        enableHighAccuracy: false,
+                        timeout: Math.max(geoOptions.timeout, 12000),
+                        maximumAge: geoOptions.maximumAge,
+                    };
+                    const timerB = setTimeout(() => {
+                        if (settled) return;
+                        settled = true;
+                        reject(new Error('获取位置超时，请检查网络/定位设置'));
+                    }, opts.timeout + 200);
+
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            if (settled) return;
+                            settled = true;
+                            clearTimeout(timerB);
+                            resolve(pos);
+                        },
+                        err => {
+                            if (settled) return;
+                            settled = true;
+                            clearTimeout(timerB);
+                            reject(new Error(mapGeoError(err)));
+                        },
+                        opts
+                    );
+                };
+
+                tryHighAccuracy();
             };
 
-            // 检查权限状态（若支持）
             if (navigator.permissions && navigator.permissions.query) {
-                // 某些浏览器要求 name 为字符串
                 navigator.permissions
                     .query({ name: 'geolocation' })
                     .then(status => {
                         if (status.state === 'denied') {
-                            reject(new Error('地理位置权限被拒绝，请在浏览器设置中允许位置访问'));
+                            reject(
+                                new Error('地理位置权限被拒绝，请在浏览器/系统设置中允许位置访问')
+                            );
                             return;
                         }
                         requestLocation();
                     })
                     .catch(() => {
-                        // 查询失败则直接尝试
                         requestLocation();
                     });
             } else {
-                // 不支持权限查询，直接尝试获取位置
                 requestLocation();
             }
         });
@@ -669,6 +777,8 @@ class WeatherManager {
             <div class="hint-content">
                 <span class="hint-icon">🔒</span>
                 <span class="hint-text">需要位置权限</span>
+                <button class="hint-action" title="重试授权" onclick="window.app && window.app.weatherManager && window.app.weatherManager.requestLocationPrompt && window.app.weatherManager.requestLocationPrompt()">🔄</button>
+                <button class="hint-action" title="打开定位设置" onclick="window.open('chrome://settings/content/location','_blank')">⚙️</button>
                 <button class="hint-action" onclick="this.parentElement.parentElement.remove()">×</button>
             </div>
         `;
@@ -681,6 +791,31 @@ class WeatherManager {
                 hint.remove();
             }
         }, 3000);
+    }
+
+    /**
+     * 主动触发一次定位授权提示（用于用户未看到系统弹窗时）
+     */
+    async requestLocationPrompt() {
+        try {
+            // 再次检查权限状态
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const status = await navigator.permissions.query({ name: 'geolocation' });
+                    if (status.state === 'denied') {
+                        this.showError('地理位置权限被拒绝，请在浏览器/系统设置中允许位置访问');
+                        return;
+                    }
+                } catch {}
+            }
+            // 直接尝试获取一次，促使浏览器弹出授权条
+            await this.getCurrentPosition();
+            // 成功后刷新天气
+            await this.refresh();
+        } catch (e) {
+            // 失败则维持提示
+            this.showError(e?.message || '获取位置失败');
+        }
     }
 
     /**
