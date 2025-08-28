@@ -1,100 +1,100 @@
-# New Tab - A Modern, Feature-Rich New Tab Page for Your Browser
+# New Tab Pro - Intelligent New Tab Manager
 
 ![Plugin Screenshot](img/preview.png)
 
-New Tab is a Chrome extension designed to reinvent your new tab experience with a beautiful design and powerful features. It boasts an iOS-style glassmorphism interface, dynamic wallpapers, customizable speed dials, and a robust search bar integrated with multiple search engines, bringing you a browsing experience that is both efficient and visually pleasing.
+New Tab Pro turns your new tab into a clean and efficient workspace: modern UI, wallpaper management, multi-engine search, shortcut management, and weather.
 
-## ✨ Key Features
+## 🚀 Core Features
 
-- **🌌 Dynamic HD Wallpapers**:
-    - Uses Bing's daily wallpaper by default, automatically updated every day.
-    - Supports Pexels API integration, allowing you to easily search, browse, and set millions of high-quality professional photos as your background.
-    - A powerful wallpaper library that supports browsing by category, searching by keyword, and pagination.
-    - Remembers your wallpaper choice, so you see your favorite scenery every time you open a new tab.
-    - **Smart wallpaper caching**: Wallpaper URL and related info are cached locally, so you won't see a gray/white flash on first load.
+### 🌟 Wallpaper
+- Bing daily (default) and Pexels search
+- Preference memory and cached selected wallpaper
+- Categories and paginated browsing
 
-- **🔍 Enhanced Search Experience**:
-    - Integrated with multiple mainstream search engines (Baidu, Google, Bing, Sogou, DuckDuckGo) for one-click switching.
-    - Remembers the last search engine you used.
-    - Search history feature for quick access to your previous searches.
-    - Supports one-click clearing of the input field and all search history.
+### 🔍 Search
+- One-click switch among Baidu, Google, Bing, Sogou, DuckDuckGo
+- Search history (click-to-fill, clear all, remove single)
 
-- **🎨 Modern Design**:
-    - Inspired by iOS design, all components feature elegant glassmorphism and rounded corners.
-    - Smooth animations and transition effects.
-    - Carefully selected icons and layout for both aesthetics and usability.
+### 🎯 Shortcuts
+- 10 per page (9 items + 1 add button), unified sizing
+- Drag-and-drop sort (same page), right-click edit/delete
+- Single DOM update per pagination action
 
-- **⚙️ Convenient Settings**:
-    - A separate, beautifully designed settings panel for managing your Pexels API key.
-    - All configurations are stored locally in your browser for security and reliability.
+### 🌤️ Weather (Gaode/AMap)
+- Auto location or manual city (city name converted to adcode)
+- Caching & rate limiting: adcode cache, weather TTL, min request interval
+- Unified request wrapper: timeout, retries (exponential backoff), error parsing
+- Chinese phenomenon → built-in SVG icons
 
-- **📱 Drag and Drop Sorting**:
-    - Smooth drag and drop sorting based on SortableJS library.
-    - Support for mouse drag and touch device operations.
-    - Real-time visual feedback and animation effects.
-    - Automatic saving of sorting results.
+## ⚙️ Config & Permissions
 
-- **📄 Pagination**:
-    - Display 10 shortcuts per page (2 rows × 5 columns layout).
-    - Beautiful page indicators.
-    - Support for page switching.
+- In settings panel:
+  - Pexels API Key (optional)
+  - Gaode (AMap) Weather Key (required for weather) and City (leave empty to auto locate)
+- `manifest.json` permissions:
+  - `geolocation`
+  - `host_permissions`: `https://restapi.amap.com/`
+- CSP: favicon icons come from target sites, `img-src * data:` allows broad compatibility.
 
-## 🚀 Installation and Usage
+## 🧱 Architecture & Conventions
 
-### Install from the Chrome Web Store (Recommended)
+- Modular: see `README-MODULES.md`
+  - `SettingsManager` central config I/O and legacy key migration
+  - `WeatherManager` uses `utils/request.js` and `config/weather-config.js`
+  - Selector constants: `constants/selectors.js` via `window.SELECTORS`
+  - Weather icons & visibility toggle: `components/weather-icons.js`, `components/visibility-toggle.js`
+- Code quality:
+  - Lint/Format: `npm run lint`, `npm run format`
+  - EditorConfig for consistent whitespace/newlines
 
-> *The project will be published to the Chrome Web Store once it's ready.*
+## 📦 Install & Use
 
-1.  Visit the [plugin's Chrome Web Store page]() <!-- This will be replaced with the store link -->.
-2.  Click "Add to Chrome".
-3.  Once installed, open a new tab to start the experience.
+### From Store (Edge)
+1. Open Edge Add-ons Store
+2. Search "New Tab Pro" and install
+3. Open a new tab
 
-### Install from Local Source
+### Load Locally
+1. Clone the repository
+2. Open extensions page, enable Developer Mode
+3. Load unpacked and select the project folder
 
-1.  Download or clone this repository to your local machine.
-2.  Open Chrome and navigate to the `chrome://extensions/` page.
-3.  In the top right corner, toggle on "Developer mode".
-4.  Click the "Load unpacked" button in the top left.
-5.  In the file selection dialog, choose the repository folder you just downloaded.
-6.  The plugin is now installed!
+## 🔧 Advanced
 
-### Test Wallpaper Caching Feature
+### Wallpaper cache verification
+1. Set Pexels API Key
+2. Pick a wallpaper and refresh the tab
+3. Observe flicker-free loading and persistence
 
-1. **First Setup**:
-   - After installing the extension, enter your Pexels API key in the settings.
-   - Choose a wallpaper or use the random wallpaper feature.
-   - Close and reopen a new tab, and observe that the wallpaper appears instantly (no gray/white flash).
+### Shortcuts
+1. Click Add to input info
+2. Drag to sort (same page)
+3. Right-click to edit/delete
 
-2. **Verify Caching**:
-   - Open the browser developer tools (F12).
-   - Check the console output; you should see a message like "Using cached wallpaper URL".
-   - Cached data includes: wallpaper ID, URL, photographer info, etc.
+## Development
 
-3. **Cache Expiry Handling**:
-   - If the cached wallpaper becomes invalid, the system will automatically fetch a new wallpaper.
-   - The console will display relevant log information.
+Install tools and run lint/format:
 
-## 🔧 Local Development
+```bash
+npm install
+npm run lint
+npm run format
+```
 
-If you'd like to contribute to this project or develop it further, please follow these steps:
-
-1.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/lucky845/new-tab-chrome-plugin.git
-    cd new-tab-chrome-plugin
-    ```
-
-2.  **Load the Extension**:
-    - Follow the steps in "Install from Local Source" to load the repository folder into Chrome.
-
-3.  **Modify the Code**:
-    - Directly edit files like `main.js`, `style.css`, or `newtab.html`.
-    - On the `chrome://extensions/` page, click the "Reload" button (a circular arrow icon) on the plugin's card. Your changes will take effect immediately.
+ESLint is configured for browser extensions and recognizes globals like `chrome` and `Sortable`.
 
 ## 🤝 Contributing
-
-We warmly welcome all forms of contributions! If you have any great ideas, feature suggestions, or have found a bug, please feel free to let us know via [Issues](https://github.com/your-username/your-repo-name/issues).
+- Run `npm run lint` before PRs
+- Follow modularization and selector constantization conventions
 
 ## 📄 License
+- MIT
 
-This project is open-sourced under the [MIT License](./LICENSE). 
+## 🔮 Roadmap
+- [ ] More wallpaper sources
+- [ ] Optional themes and sync
+- [ ] Tests and TypeScript support
+
+---
+
+New Tab Pro - Redefine your new tab

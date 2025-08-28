@@ -6,8 +6,11 @@ class SettingsManager {
     constructor() {
         this.defaultSettings = {
             pexelsApiKey: '',
+            weatherApiKey: '',
+            weatherCity: '',
+            temperatureUnit: 'celsius',
             wallpaperQuery: 'Nature',
-            searchEngine: 'Baidu'
+            searchEngine: 'Bing',
         };
         this.settings = { ...this.defaultSettings };
     }
@@ -67,6 +70,36 @@ class SettingsManager {
     // 设置Pexels API密钥
     async setPexelsApiKey(apiKey) {
         await this.setSetting('pexelsApiKey', apiKey);
+    }
+
+    // 获取天气API密钥
+    getWeatherApiKey() {
+        return this.settings.weatherApiKey;
+    }
+
+    // 设置天气API密钥
+    async setWeatherApiKey(apiKey) {
+        await this.setSetting('weatherApiKey', apiKey);
+    }
+
+    // 获取天气城市
+    getWeatherCity() {
+        return this.settings.weatherCity;
+    }
+
+    // 设置天气城市
+    async setWeatherCity(city) {
+        await this.setSetting('weatherCity', city);
+    }
+
+    // 获取温度单位
+    getTemperatureUnit() {
+        return this.settings.temperatureUnit;
+    }
+
+    // 设置温度单位
+    async setTemperatureUnit(unit) {
+        await this.setSetting('temperatureUnit', unit);
     }
 
     // 获取壁纸搜索关键词

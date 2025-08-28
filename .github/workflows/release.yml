@@ -1,33 +1,33 @@
 name: Package and Release Extension
 
 on:
-  push:
-    tags:
-      - 'v*' # 仅在推送 v 开头的标签时触发, e.g., v1.0, v1.2.1
+    push:
+        tags:
+            - 'v*' # 仅在推送 v 开头的标签时触发, e.g., v1.0, v1.2.1
 
 jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # 授予创建 Release 的权限
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    build-and-release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write # 授予创建 Release 的权限
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Build and package the extension
-        id: package
-        run: |
-          zip -r extension-v${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
-          echo "zip_name=extension-v${{ github.ref_name }}.zip" >> $GITHUB_OUTPUT
+            - name: Build and package the extension
+              id: package
+              run: |
+                  zip -r extension-v${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
+                  echo "zip_name=extension-v${{ github.ref_name }}.zip" >> $GITHUB_OUTPUT
 
-      - name: Create Release and Upload Asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.package.outputs.zip_name }}
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: |
-            这是 ${{ github.ref_name }} 版本的正式发布。
-            打包好的 `${{ steps.package.outputs.zip_name }}` 文件已准备就绪，可用于提交到 Chrome Web Store。
-          draft: false
-          prerelease: false 
+            - name: Create Release and Upload Asset
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: ${{ steps.package.outputs.zip_name }}
+                  tag_name: ${{ github.ref_name }}
+                  release_name: Release ${{ github.ref_name }}
+                  body: |
+                      这是 ${{ github.ref_name }} 版本的正式发布。
+                      打包好的 `${{ steps.package.outputs.zip_name }}` 文件已准备就绪，可用于提交到 Chrome Web Store。
+                  draft: false
+                  prerelease: false

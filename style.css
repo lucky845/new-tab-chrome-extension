@@ -1,9 +1,283 @@
+/* 通用按钮/输入/面板去重（不改变视觉，仅合并公共规则） */
+.settings-panel .settings-btn,
+.delete-confirm-btn,
+.location-btn,
+.visibility-toggle {
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.input-with-icon input[type='text'],
+.input-with-icon input[type='password'] {
+    width: 100%;
+}
+/* 分页组件样式（收敛原先的内联样式） */
+.advanced-pagination {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.current-page-container {
+    width: 100%;
+    position: relative;
+}
+
+.pagination-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    z-index: 20;
+}
+
+/* 旧版 quick-access-grid 定义移除，统一使用下方完整规则 */
+
 :root {
-  --search-bar-height: 54px;
-  --border-radius-large: 20px;
-  --border-radius-small: 16px;
-  --transition-fast: 0.2s ease;
-  --transition-medium: 0.3s ease;
+    --search-bar-height: 54px;
+    --border-radius-large: 20px;
+    --border-radius-small: 16px;
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+}
+
+/* 天气组件 */
+.weather-widget {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+.weather-widget:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.weather-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.weather-icon {
+    flex-shrink: 0;
+    color: #ffffff;
+}
+
+.weather-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.temperature {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.weather-desc {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.location {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.weather-settings-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.weather-settings-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.weather-widget.loading .weather-icon {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* 天气设置面板中的位置按钮 */
+.location-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.location-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 通用：密钥可见性切换按钮，与现有样式保持一致 */
+.visibility-toggle {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: var(--transition-fast);
+}
+.visibility-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* 权限提示样式 */
+.permission-hint {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    right: 0;
+    background: rgba(255, 193, 7, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideDown 0.3s ease;
+}
+
+.hint-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hint-icon {
+    font-size: 14px;
+}
+
+.hint-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.hint-action {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.hint-action:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 超时提示样式 */
+.timeout-hint {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    right: 0;
+    background: rgba(255, 152, 0, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideDown 0.3s ease;
+}
+
+.timeout-hint .hint-action:first-of-type {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 14px;
+}
+
+.timeout-hint .hint-action:first-of-type:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* 刷新提示样式 */
+.refresh-hint {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    right: 0;
+    background: rgba(76, 175, 80, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideDown 0.3s ease;
 }
 
 /* 删除确认弹窗样式 */
@@ -80,11 +354,13 @@
     background: #c0392b;
 }
 
-body, html {
-  height: 100%;
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow: hidden;
+body,
+html {
+    height: 100%;
+    margin: 0;
+    font-family:
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
 }
 
 * {
@@ -242,7 +518,7 @@ body {
     backdrop-filter: blur(15px);
     padding: 8px;
     z-index: 20;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .search-engine-item {
@@ -282,7 +558,7 @@ body {
     backdrop-filter: blur(15px);
     padding: 8px;
     z-index: 15; /* 比搜索引擎下拉框低，比其他内容高 */
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     max-height: 400px;
     overflow-y: auto;
 }
@@ -436,7 +712,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.3s ease, transform 0.3s ease;
+    transition:
+        background 0.3s ease,
+        transform 0.3s ease;
     backdrop-filter: blur(5px);
 }
 
@@ -464,7 +742,9 @@ body {
     justify-content: center;
     z-index: 20;
     opacity: 1;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition:
+        opacity 0.3s ease,
+        visibility 0.3s ease;
 }
 
 .settings-panel.hidden {
@@ -506,8 +786,8 @@ body {
     position: relative;
 }
 
-.setting-item input[type="text"],
-.setting-item input[type="password"],
+.setting-item input[type='text'],
+.setting-item input[type='password'],
 .setting-item textarea {
     width: 100%;
     padding: 12px 15px;
@@ -517,7 +797,9 @@ body {
     color: white;
     font-size: 16px;
     box-sizing: border-box;
-    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast);
 }
 
 .setting-item textarea {
@@ -526,8 +808,8 @@ body {
     font-family: inherit; /* Ensure it uses the same font */
 }
 
-.setting-item input[type="text"]:focus,
-.setting-item input[type="password"]:focus,
+.setting-item input[type='text']:focus,
+.setting-item input[type='password']:focus,
 .setting-item textarea:focus {
     outline: none;
     border-color: rgba(80, 150, 255, 0.8);
@@ -539,38 +821,38 @@ body {
 }
 
 .icon-input-wrapper {
-  display: flex;
-  align-items: flex-start;
-  gap: 15px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
 }
 
 .icon-input-wrapper textarea {
-  flex-grow: 1;
+    flex-grow: 1;
 }
 
 .icon-preview-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
 .icon-preview {
-  width: 48px;
-  height: 48px;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+    width: 48px;
+    height: 48px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 }
 
 .icon-preview img,
 .icon-preview svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 .preview-label {
@@ -760,7 +1042,9 @@ body {
     object-fit: cover;
     border-radius: 10px;
     cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
 }
 
 .wallpaper-grid img:hover {
@@ -955,7 +1239,9 @@ body {
     -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.2);
     text-decoration: none;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    transition:
+        background-color 0.3s ease,
+        transform 0.2s ease;
     aspect-ratio: 1 / 1; /* Make items square-ish */
     min-height: 110px; /* 确保最小高度一致 */
     min-width: 110px; /* 确保最小宽度一致 */
@@ -978,7 +1264,7 @@ body {
     text-align: center;
     cursor: pointer;
     z-index: 10;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .quick-access-item .edit-btn {
@@ -988,7 +1274,7 @@ body {
     left: -6px;
     width: 24px;
     height: 24px;
-    background-color: #4CAF50; /* Green for edit */
+    background-color: #4caf50; /* Green for edit */
     color: white;
     border-radius: 50%;
     border: 2px solid white;
@@ -998,7 +1284,7 @@ body {
     text-align: center;
     cursor: pointer;
     z-index: 10;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* Delete Mode Activated */
@@ -1008,11 +1294,21 @@ body {
 }
 
 @keyframes wiggle {
-    0% { transform: rotate(0deg); }
-    25% { transform: rotate(-2deg); }
-    50% { transform: rotate(0deg); }
-    75% { transform: rotate(2deg); }
-    100% { transform: rotate(0deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(-2deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+    75% {
+        transform: rotate(2deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
 }
 
 .quick-access-grid.delete-mode .quick-access-item:not(.add-quick-access-btn) {
@@ -1081,7 +1377,9 @@ body {
     background: rgba(255, 255, 255, 0.1);
     border: 2px dashed rgba(255, 255, 255, 0.4);
     cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    transition:
+        background-color 0.3s ease,
+        transform 0.2s ease;
     aspect-ratio: 1 / 1;
     color: rgba(255, 255, 255, 0.7);
     font-size: 48px;
@@ -1091,7 +1389,7 @@ body {
     backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
     min-height: 110px; /* 确保最小高度与快捷访问项目一致 */
-    min-width: 110px;  /* 确保最小宽度与快捷访问项目一致 */
+    min-width: 110px; /* 确保最小宽度与快捷访问项目一致 */
 }
 
 /* 添加按钮的图标包装器，与快捷访问项目保持一致 */
@@ -1126,64 +1424,64 @@ body {
 }
 
 .label-with-tooltip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px; /* Add some space below the label */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px; /* Add some space below the label */
 }
 
 .tooltip-container {
-  position: relative;
-  display: inline-block;
+    position: relative;
+    display: inline-block;
 }
 
 .tooltip-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
-  font-weight: bold;
-  cursor: help;
-  font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: help;
+    font-style: italic;
 }
 
 .tooltip-text {
-  visibility: hidden;
-  width: 220px;
-  background-color: #333;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 8px;
-  position: absolute;
-  z-index: 1;
-  bottom: 150%; /* Position above the icon */
-  left: 50%;
-  margin-left: -110px; /* Use half of the width to center */
-  opacity: 0;
-  transition: opacity 0.3s;
-  font-size: 13px;
+    visibility: hidden;
+    width: 220px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 1;
+    bottom: 150%; /* Position above the icon */
+    left: 50%;
+    margin-left: -110px; /* Use half of the width to center */
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 13px;
 }
 
 .tooltip-text::after {
-  content: "";
-  position: absolute;
-  top: 100%; /* At the bottom of the tooltip */
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: #333 transparent transparent transparent;
+    content: '';
+    position: absolute;
+    top: 100%; /* At the bottom of the tooltip */
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
 }
 
 .tooltip-container:hover .tooltip-text {
-  visibility: visible;
-  opacity: 1;
+    visibility: visible;
+    opacity: 1;
 }
 
 .tooltip-text a {
@@ -1194,53 +1492,48 @@ body {
     text-decoration: underline;
 }
 
-
-
 @keyframes item-float {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-  100% {
-    transform: translateY(0);
-  }
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+    100% {
+        transform: translateY(0);
+    }
 }
 
 /* 占位符动画 */
 @keyframes placeholder-pulse {
-  0%, 100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.02);
-  }
+    0%,
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
 }
 
 /* 触摸优化 */
 @media (hover: none) and (pointer: coarse) {
-  .quick-access-item {
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .quick-access-item:active {
-    transform: scale(0.95);
-  }
-}
+    .quick-access-item {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
 
-
-  font-size: 12px;
+    .quick-access-item:active {
+        transform: scale(0.95);
+    }
 }
 
 /* SortableJS拖拽样式 */
 .sortable-ghost {
     opacity: 0.3;
     background: rgba(76, 175, 80, 0.1);
-    border: 2px dashed #4CAF50;
+    border: 2px dashed #4caf50;
 }
 
 .sortable-chosen {
@@ -1347,8 +1640,8 @@ body {
     }
 }
 
-/* 页面翻转提示动画 */
-@keyframes fadeIn {
+/* 页面翻转提示动画（重命名避免冲突） */
+@keyframes fadeInScale {
     from {
         opacity: 0;
         transform: translateY(-50%) scale(0.8);
@@ -1447,8 +1740,10 @@ body {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-    opacity: 1;
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }

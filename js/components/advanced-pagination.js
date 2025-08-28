@@ -11,102 +11,73 @@ class AdvancedPagination {
         this.onPageChange = options.onPageChange || (() => {});
         this.onItemMove = options.onItemMove || (() => {});
         // 跨页面拖拽已移除
-        
+        this._renderScheduled = false;
+
         this.init();
     }
-    
+
     init() {
         this.render();
         this.bindEvents();
         console.log('高级分页组件初始化完成');
     }
-    
+
     // 渲染分页内容
     render() {
         this.container.innerHTML = '';
-        
+
         // 创建分页容器
         this.paginationContainer = document.createElement('div');
         this.paginationContainer.className = 'advanced-pagination';
-        this.paginationContainer.style.cssText = `
-            position: relative;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        `;
-        
+
         // 创建当前页面容器
         this.currentPageContainer = document.createElement('div');
         this.currentPageContainer.className = 'current-page-container';
-        this.currentPageContainer.style.cssText = `
-            width: 100%;
-            position: relative;
-        `;
-        
+
         // 创建分页控件容器
         this.controlsContainer = document.createElement('div');
         this.controlsContainer.className = 'pagination-controls';
-        this.controlsContainer.style.cssText = `
-            position: fixed;
-            left: 50%;
-            bottom: 40px;
-            transform: translateX(-50%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            z-index: 20;
-        `;
-        
+
         this.paginationContainer.appendChild(this.currentPageContainer);
         this.paginationContainer.appendChild(this.controlsContainer);
         this.container.appendChild(this.paginationContainer);
-        
+
         this.renderCurrentPage();
         this.renderPaginationControls();
     }
-    
+
     // 渲染当前页面
     renderCurrentPage() {
         this.currentPageContainer.innerHTML = '';
-        
+
         // 创建当前页面的网格
         const grid = document.createElement('div');
         grid.className = 'quick-access-grid';
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-        `;
-        
+
         // 计算当前页的项目（每页最多显示10个项目，包括添加按钮）
         const startIndex = (this.currentPage - 1) * this.itemsPerPage;
         const endIndex = startIndex + this.itemsPerPage;
         const currentPageItems = this.items.slice(startIndex, endIndex);
-        
+
         // 渲染项目
         currentPageItems.forEach((item, index) => {
             const itemElement = this.createItemElement(item, startIndex + index);
             grid.appendChild(itemElement);
         });
-        
+
         // 添加按钮：如果当前页项目少于10个，则显示添加按钮
         // 如果当前页项目达到10个，添加按钮移到下一页
         if (currentPageItems.length < this.itemsPerPage) {
             const addButton = this.createAddButton();
             grid.appendChild(addButton);
         }
-        
+
         this.currentPageContainer.appendChild(grid);
-        
+
         // 初始化当前页的SortableJS
         this.initSortableForPage(grid, this.currentPage);
     }
-    
+
     // 创建项目元素
     createItemElement(item, globalIndex) {
         const itemElement = document.createElement('a');
@@ -116,10 +87,10 @@ class AdvancedPagination {
         itemElement.dataset.index = globalIndex;
         itemElement.dataset.itemId = item.id || globalIndex;
         itemElement.dataset.page = this.currentPage;
-        
+
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
-        
+
         if (item.icon) {
             if (item.icon.trim().startsWith('<svg')) {
                 iconWrapper.innerHTML = item.icon;
@@ -139,7 +110,7 @@ class AdvancedPagination {
             icon.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${item.url}`;
             icon.className = 'icon';
             icon.alt = `${item.name} Icon`;
-            
+
             icon.onerror = () => {
                 const fallback = document.createElement('div');
                 fallback.className = 'fallback-icon';
@@ -154,60 +125,60 @@ class AdvancedPagination {
             };
             iconWrapper.appendChild(icon);
         }
-        
+
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = item.name;
-        
+
         itemElement.appendChild(iconWrapper);
         itemElement.appendChild(name);
-        
+
         return itemElement;
     }
-    
+
     // 创建添加按钮
     createAddButton() {
         const addButton = document.createElement('div');
         addButton.className = 'add-quick-access-btn';
         addButton.title = '添加快捷方式';
-        
+
         // 创建图标包装器，与快捷访问项目保持一致
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
         iconWrapper.textContent = '+';
         iconWrapper.style.fontSize = '32px';
         iconWrapper.style.fontWeight = '300';
-        
+
         // 创建名称，与快捷访问项目保持一致
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = '添加';
-        
+
         addButton.appendChild(iconWrapper);
         addButton.appendChild(name);
-        
+
         // 添加点击事件，显示添加快捷访问弹窗
         addButton.addEventListener('click', () => {
             if (window.app && window.app.showAddQuickAccessModal) {
                 window.app.showAddQuickAccessModal();
             }
         });
-        
+
         return addButton;
     }
-    
+
     // 为指定页面初始化SortableJS
     initSortableForPage(grid, pageNumber) {
         if (typeof Sortable === 'undefined') {
             console.warn('SortableJS未加载，拖拽功能将不可用');
             return;
         }
-        
+
         // 销毁之前的实例
         if (this.sortableInstances.has(pageNumber)) {
             this.sortableInstances.get(pageNumber).destroy();
         }
-        
+
         // 创建新的Sortable实例
         const sortableInstance = new Sortable(grid, {
             draggable: '.quick-access-item',
@@ -216,72 +187,72 @@ class AdvancedPagination {
             dragClass: 'sortable-drag',
             animation: 150,
             easing: 'cubic-bezier(1, 0, 0, 1)',
-            
+
             // 拖拽开始
-            onStart: (evt) => {
+            onStart: evt => {
                 console.log(`开始拖拽项目: ${evt.item.textContent.trim()}`);
                 evt.item.style.opacity = '0.5';
-                
+
                 // 记录拖拽开始时的页面信息
                 this.dragStartInfo = {
                     page: pageNumber,
                     itemId: evt.item.dataset.itemId,
-                    itemName: evt.item.textContent.trim()
+                    itemName: evt.item.textContent.trim(),
                 };
                 console.log('拖拽开始信息:', this.dragStartInfo);
 
                 // 关闭跨页检测，不绑定全局指针监听
             },
-            
+
             // 拖拽结束
-            onEnd: (evt) => {
+            onEnd: evt => {
                 console.log('拖拽结束');
                 evt.item.style.opacity = '';
-                
+
                 // 处理同页内排序
                 this.handleItemMove(evt, pageNumber);
-                
+
                 // 清除拖拽开始信息
                 this.dragStartInfo = null;
             },
-            
+
             // 项目添加到容器
-            onAdd: (evt) => {
+            onAdd: evt => {
                 console.log('项目添加到容器');
             },
-            
+
             // 项目从容器移除
-            onRemove: (evt) => {
+            onRemove: evt => {
                 console.log('项目从容器移除');
             },
-            
+
             // 拖拽移动
-            onMove: (evt) => {
+            onMove: evt => {
                 // 防止拖拽到添加按钮
                 if (evt.related && evt.related.classList.contains('add-quick-access-btn')) {
                     return false;
                 }
-                
+
                 // 防止拖拽添加按钮本身
                 if (evt.dragged && evt.dragged.classList.contains('add-quick-access-btn')) {
                     return false;
                 }
-                
+
                 return true;
-            }
+            },
         });
-        
+
         this.sortableInstances.set(pageNumber, sortableInstance);
-        console.log(`第${pageNumber}页SortableJS已初始化`);
+        // 初始化完成
     }
-    
+
     // 处理项目移动（同页内排序）
     handleItemMove(evt, pageNumber) {
-        console.log(`处理第${pageNumber}页项目移动...`);
-        
+        // 处理同页内排序
+
         const items = Array.from(evt.to.querySelectorAll('.quick-access-item'));
         const startIndex = (pageNumber - 1) * this.itemsPerPage;
-        
+
         // 更新当前页的项目顺序
         items.forEach((item, index) => {
             const globalIndex = startIndex + index;
@@ -292,21 +263,19 @@ class AdvancedPagination {
                 }
             }
         });
-        
+
         // 调用回调函数
         this.onItemMove(this.items);
-        console.log('同页项目移动处理完成');
     }
-    
-    
+
     // 渲染分页控件
     renderPaginationControls() {
         const totalPages = this.getTotalPages();
-        
+
         this.controlsContainer.innerHTML = '';
-        
+
         // 始终渲染分页按钮（即使只有一页），但禁用前后按钮
-        
+
         // 上一页按钮
         const prevButton = document.createElement('button');
         prevButton.innerHTML = '‹';
@@ -314,21 +283,21 @@ class AdvancedPagination {
         prevButton.disabled = this.currentPage === 1;
         prevButton.addEventListener('click', () => this.previousPage());
         this.controlsContainer.appendChild(prevButton);
-        
+
         // 页码按钮
         const startPage = Math.max(1, this.currentPage - 2);
         const endPage = Math.min(totalPages, this.currentPage + 2);
-        
+
         for (let i = startPage; i <= endPage; i++) {
             const pageButton = document.createElement('button');
             pageButton.textContent = i;
             pageButton.className = 'page-btn';
             pageButton.classList.toggle('active', i === this.currentPage);
-            
+
             pageButton.addEventListener('click', () => this.goToPage(i));
             this.controlsContainer.appendChild(pageButton);
         }
-        
+
         // 下一页按钮
         const nextButton = document.createElement('button');
         nextButton.innerHTML = '›';
@@ -336,20 +305,20 @@ class AdvancedPagination {
         nextButton.disabled = this.currentPage === totalPages;
         nextButton.addEventListener('click', () => this.nextPage());
         this.controlsContainer.appendChild(nextButton);
-        
+
         // 额外信息已移除
     }
-    
+
     // 设置项目数据
     setItems(items) {
         this.items = items;
-        
+
         // 检查当前页是否超出新的总页数范围，如果是则调整到最后一页
         const newTotalPages = this.getTotalPages();
         if (this.currentPage > newTotalPages) {
             this.currentPage = newTotalPages;
         }
-        
+
         // 如果已有分页结构，只更新内容，不重新创建
         if (this.currentPageContainer) {
             this.renderCurrentPage();
@@ -358,31 +327,30 @@ class AdvancedPagination {
             // 首次创建时才调用 render()
             this.render();
         }
-        
-        console.log(`高级分页数据已更新，共${items.length}个项目，当前页${this.currentPage}，总页数${newTotalPages}`);
+
+        // 数据已更新
     }
-    
+
     // 跳转到指定页面
     goToPage(page) {
         const totalPages = this.getTotalPages();
         if (page < 1 || page > totalPages) {
             return;
         }
-        
+
         this.currentPage = page;
-        this.renderCurrentPage();
-        this.renderPaginationControls();
+        this.queueRender(true);
         this.onPageChange(page);
-        console.log(`切换到第 ${page} 页`);
+        // 切换完成
     }
-    
+
     // 上一页
     previousPage() {
         if (this.currentPage > 1) {
             this.goToPage(this.currentPage - 1);
         }
     }
-    
+
     // 下一页
     nextPage() {
         const totalPages = this.getTotalPages();
@@ -390,30 +358,30 @@ class AdvancedPagination {
             this.goToPage(this.currentPage + 1);
         }
     }
-    
+
     // 获取总页数
     getTotalPages() {
         // 计算实际需要的页数
         const pagesFromItems = Math.ceil(this.items.length / this.itemsPerPage);
-        
+
         // 如果项目数量刚好填满一页，需要第二页来放置添加按钮
         if (this.items.length > 0 && this.items.length % this.itemsPerPage === 0) {
             return pagesFromItems + 1;
         }
-        
+
         return Math.max(pagesFromItems, 1);
     }
-    
+
     // 获取当前页
     getCurrentPage() {
         return this.currentPage;
     }
-    
+
     // 触摸滑动翻页已移除
     bindEvents() {}
-    
+
     // initTouchNavigation 已删除
-    
+
     // 销毁组件
     destroy() {
         // 销毁所有SortableJS实例
@@ -421,8 +389,20 @@ class AdvancedPagination {
             instance.destroy();
         });
         this.sortableInstances.clear();
-        
+
         this.container.innerHTML = '';
-        console.log('高级分页组件已销毁');
+        // 销毁完成
+    }
+
+    // 合并渲染，避免短时间重复渲染
+    queueRender(updateControls = true) {
+        if (this._renderScheduled) return;
+        this._renderScheduled = true;
+        requestAnimationFrame(() => {
+            this._renderScheduled = false;
+            if (!this.currentPageContainer) return;
+            this.renderCurrentPage();
+            if (updateControls) this.renderPaginationControls();
+        });
     }
 }

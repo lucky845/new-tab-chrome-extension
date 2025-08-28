@@ -20,7 +20,7 @@ class WallpaperManager {
             { name: '天空', query: 'Sky' },
             { name: '动物', query: 'Animals' },
             { name: '食物', query: 'Food' },
-            { name: '运动', query: 'Sports' }
+            { name: '运动', query: 'Sports' },
         ];
         this.lastActiveCategoryQuery = 'Nature';
         this.activeCategoryElement = null;
@@ -55,8 +55,8 @@ class WallpaperManager {
                 `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&page=${page}&per_page=18`,
                 {
                     headers: {
-                        'Authorization': this.pexelsApiKey
-                    }
+                        Authorization: this.pexelsApiKey,
+                    },
                 }
             );
 
@@ -73,7 +73,7 @@ class WallpaperManager {
             return {
                 wallpapers: data.photos || [],
                 total: this.totalWallpapers,
-                totalPages: this.totalPages
+                totalPages: this.totalPages,
             };
         } catch (error) {
             console.error('搜索壁纸失败:', error);
@@ -107,7 +107,7 @@ class WallpaperManager {
             query: this.currentQuery,
             page: this.currentPage,
             totalPages: this.totalPages,
-            totalWallpapers: this.totalWallpapers
+            totalWallpapers: this.totalWallpapers,
         };
     }
 }

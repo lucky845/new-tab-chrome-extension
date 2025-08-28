@@ -1,26 +1,22 @@
 {
     "manifest_version": 3,
-    "name": "新标签页",
-    "version": "1.0.4",
-    "description": "一款功能丰富、高度可定制的新标签页，提供高清壁纸、快捷网站访问和搜索功能。",
+    "name": "New Tab Pro - 智能新标签页管理器",
+    "version": "1.0.5",
+    "description": "专为浏览器设计的智能新标签页扩展，提供智能壁纸管理、多引擎搜索、个性化快捷方式管理和现代毛玻璃设计。",
     "chrome_url_overrides": {
         "newtab": "newtab.html"
     },
-    "permissions": [
-        "storage"
-    ],
-    "host_permissions": [
-        "https://api.pexels.com/"
-    ],
+    "permissions": ["storage", "geolocation"],
+    "host_permissions": ["https://api.pexels.com/", "https://restapi.amap.com/"],
     "icons": {
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",
         "128": "icons/icon128.png"
     },
     "action": {
-        "default_title": "新标签页"
+        "default_title": "New Tab Pro"
     },
-            "content_security_policy": {
-            "extension_pages": "script-src 'self'; object-src 'self'; img-src * data:;"
-        }
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; img-src * data:;"
+    }
 }

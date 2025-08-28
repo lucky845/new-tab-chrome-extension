@@ -1,0 +1,18 @@
+{
+    "name": "new-tab-chrome-extension",
+    "version": "1.0.5",
+    "private": true,
+    "description": "Custom new tab Chrome/Edge extension",
+    "license": "MIT",
+    "scripts": {
+        "lint": "eslint . --ext .js",
+        "lint:fix": "eslint . --ext .js --fix",
+        "format": "prettier --write ."
+    },
+    "devDependencies": {
+        "eslint": "^9.34.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.4",
+        "prettier": "^3.6.2"
+    }
+}

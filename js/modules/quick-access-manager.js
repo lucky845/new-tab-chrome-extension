@@ -12,7 +12,7 @@ class QuickAccessManager {
             { name: '知乎', url: 'https://www.zhihu.com', icon: '知' },
             { name: 'Wikipedia', url: 'https://www.wikipedia.org', icon: 'W' },
             { name: 'Reddit', url: 'https://www.reddit.com', icon: 'R' },
-            { name: 'V2EX', url: 'https://www.v2ex.com', icon: 'V' }
+            { name: 'V2EX', url: 'https://www.v2ex.com', icon: 'V' },
         ];
         this.sites = [];
         this.pagination = null;
