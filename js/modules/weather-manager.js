@@ -63,8 +63,11 @@ class WeatherManager {
             // 绑定天气组件点击事件
             this.bindWeatherWidgetEvents();
 
-            // 获取天气信息
-            await this.updateWeather();
+            // 启动优先走缓存渲染，避免刷新即请求
+            const usedCache = await this.displayCachedWeatherIfFresh();
+            if (!usedCache) {
+                await this.updateWeather();
+            }
 
             // 设置定时更新
             const updateInterval = window.WEATHER_CONFIG?.UPDATE_INTERVAL || 30 * 60 * 1000;
@@ -74,6 +77,38 @@ class WeatherManager {
         } catch (error) {
             console.error('天气管理器初始化失败:', error);
             this.showError('天气服务初始化失败');
+        }
+    }
+
+    /**
+     * 若缓存仍在有效期内，则直接渲染缓存并跳过请求
+     */
+    async displayCachedWeatherIfFresh() {
+        try {
+            const ttl = window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
+            // 若用户设置了城市，尝试通过 city -> adcode 缓存，再读天气缓存
+            if (this.currentCity) {
+                const adcodeKey = `amap_adcode_${this.currentCity}`;
+                const adcodeCached = await chrome.storage.local.get([adcodeKey]);
+                const cachedAd = adcodeCached && adcodeCached[adcodeKey];
+                if (cachedAd && Date.now() - cachedAd.ts < (window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000)) {
+                    const wKey = `amap_weather_${cachedAd.adcode}`;
+                    const weatherCached = await chrome.storage.local.get([wKey]);
+                    const cachedW = weatherCached && weatherCached[wKey];
+                    if (cachedW && Date.now() - cachedW.ts < ttl && cachedW.data) {
+                        this.weatherData = cachedW.data;
+                        this.displayWeather(this.weatherData);
+                        return true;
+                    }
+                }
+            }
+
+            // 若没有用户设置城市，但之前已持久化（上一轮自动识别已保存），loadSettings 已同步
+            // 如果 currentCity 为空，则无法确定 adcode，这种情况直接返回 false 走正常流程
+            return false;
+        } catch (e) {
+            console.warn('读取缓存天气失败，将走网络请求:', e?.message || e);
+            return false;
         }
     }
 
@@ -204,6 +239,14 @@ class WeatherManager {
             if (weatherData) {
                 this.weatherData = weatherData;
                 this.displayWeather(weatherData);
+                // 若当前未指定城市且成功从定位/IP 获取到城市名，持久化保存，避免频繁请求
+                if (!this.currentCity && weatherData.city) {
+                    try {
+                        await this.persistDetectedCity(weatherData.city);
+                    } catch (e) {
+                        console.warn('自动保存定位城市失败:', e?.message || e);
+                    }
+                }
             }
         } catch (error) {
             console.error('获取天气信息失败:', error);
@@ -211,6 +254,17 @@ class WeatherManager {
         } finally {
             this.isLoading = false;
         }
+    }
+
+    /**
+     * 持久化保存自动识别到的城市（仅当用户未手动设置城市时）
+     */
+    async persistDetectedCity(cityName) {
+        if (!cityName) return;
+        // 若用户已经设置了城市，则不覆盖
+        if (this.currentCity) return;
+        this.currentCity = cityName;
+        await this.saveSettings();
     }
     /**
      * 根据城市名获取adcode（带缓存）
@@ -306,22 +360,35 @@ class WeatherManager {
             });
             const adcode = regeoData?.regeocode?.addressComponent?.adcode;
             const cityCode = adcode || regeoData?.regeocode?.addressComponent?.citycode;
+            const detectedCityName = regeoData?.regeocode?.addressComponent?.city || regeoData?.regeocode?.addressComponent?.province;
             if (!adcode && !cityCode) {
                 throw new Error('逆地理失败，未获取到adcode');
             }
-
-            // 缓存城市信息
-            const cacheKey = `amap_adcode_${adcode}`;
-            await chrome.storage.local.set({ [cacheKey]: { adcode: regeoData?.regeocode?.addressComponent?.city || undefined, ts: Date.now() } });
-
             // 天气
-            return await this.getWeatherByAdcode(adcode || cityCode);
+            const data = await this.getWeatherByAdcode(adcode || cityCode);
+            // 持久化保存自动识别到的城市
+            if (!this.currentCity && detectedCityName) {
+                try {
+                    await this.persistDetectedCity(detectedCityName);
+                } catch (e) {
+                    console.warn('保存定位城市失败:', e?.message || e);
+                }
+            }
+            return data;
         } catch (error) {
             console.warn('基于浏览器定位失败，尝试使用IP定位作为回退...', error?.message || error);
             // 回退：使用IP定位获取adcode
             try {
-                const adcode = await this.getAdcodeByIP();
-                return await this.getWeatherByAdcode(adcode);
+                const { adcode, cityName } = await this.getAdcodeByIP();
+                const data = await this.getWeatherByAdcode(adcode);
+                if (!this.currentCity && cityName) {
+                    try {
+                        await this.persistDetectedCity(cityName);
+                    } catch (e) {
+                        console.warn('保存IP城市失败:', e?.message || e);
+                    }
+                }
+                return data;
             } catch (ipErr) {
                 console.error('IP 定位回退也失败:', ipErr);
                 throw error; // 抛出原始错误，便于上层判断权限/超时
@@ -344,12 +411,8 @@ class WeatherManager {
         });
         const ipAdcode = data?.adcode || data?.citycode;
         if (!ipAdcode) throw new Error('IP定位未返回adcode');
-
-        // 缓存城市信息
-        const cacheKey = `amap_adcode_${ipAdcode}`;
-        await chrome.storage.local.set({ [cacheKey]: { adcode: data?.city || undefined, ts: Date.now() } });
-
-        return ipAdcode;
+        const cityName = data?.city || data?.province;
+        return { adcode: ipAdcode, cityName };
     }
 
     /**
