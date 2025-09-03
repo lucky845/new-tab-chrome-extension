@@ -17,8 +17,8 @@ jobs:
             - name: Build and package the extension
               id: package
               run: |
-                  zip -r extension-v${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
-                  echo "zip_name=extension-v${{ github.ref_name }}.zip" >> $GITHUB_OUTPUT
+                  zip -r extension-${{ github.ref_name }}.zip manifest.json main.js style.css newtab.html icons/
+                  echo "zip_name=extension-${{ github.ref_name }}.zip" >> $GITHUB_OUTPUT
 
             - name: Create Release and Upload Asset
               uses: softprops/action-gh-release@v2
