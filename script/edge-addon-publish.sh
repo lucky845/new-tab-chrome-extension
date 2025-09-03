@@ -26,9 +26,6 @@ if [ -z "$operation_id" ]; then
   exit 1
 fi
 
-# 拼接完整轮询URL
-status_url="${API_ENDPOINT}/v1/products/${PRODUCT_ID}/submissions/draft/package/operations/${operation_id}"
-
 # 轮询上传状态
 status="InProgress"
 retry=0
@@ -38,7 +35,7 @@ while [ "$status" = "InProgress" ] && [ $retry -lt $RETRY_LIMIT ]; do
     -H "Authorization: ApiKey ${API_KEY}" \
     -H "Content-Type: application/zip" \
     -H "X-ClientID: ${CLIENT_ID}" \
-    "${status_url}")
+    "${API_ENDPOINT}/v1/products/${PRODUCT_ID}/submissions/draft/package/operations/${operation_id}")
   status=$(echo "$status_resp" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
   echo "上传状态: $status"
   retry=$((retry+1))
@@ -74,7 +71,7 @@ while [ "$publish_status" = "InProgress" ] && [ $retry -lt $RETRY_LIMIT ]; do
     -H "Authorization: ApiKey ${API_KEY}" \
     -H "Content-Type: application/json" \
     -H "X-ClientID: ${CLIENT_ID}" \
-    "${publish_location}")
+    "${API_ENDPOINT}/v1/products/${PRODUCT_ID}/submissions/operations/${publish_location}")
   publish_status=$(echo "$pub_status_resp" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
   echo "发布状态: $publish_status"
   retry=$((retry+1))
