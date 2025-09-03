@@ -9,6 +9,7 @@ API_ENDPOINT="https://api.addons.microsoftedge.microsoft.com"
 RETRY_LIMIT=10
 RETRY_AFTER=5
 
+# 上传扩展包
 upload_resp=$(curl -i -X POST \
   -H "Authorization: ApiKey ${API_KEY}" \
   -H "Content-Type: application/zip" \
@@ -18,11 +19,15 @@ upload_resp=$(curl -i -X POST \
 
 echo "$upload_resp"
 
-location=$(echo "$upload_resp" | grep -Fi Location | awk '{print $2}' | tr -d '\r\n')
-if [ -z "$location" ]; then
+# 提取操作ID
+operation_id=$(echo "$upload_resp" | grep -Fi Location | awk '{print $2}' | tr -d '\r\n')
+if [ -z "$operation_id" ]; then
   echo "上传失败，未获取到操作ID"
   exit 1
 fi
+
+# 拼接完整轮询URL
+status_url="${API_ENDPOINT}/v1/products/${PRODUCT_ID}/submissions/draft/package/operations/${operation_id}"
 
 # 轮询上传状态
 status="InProgress"
@@ -33,7 +38,7 @@ while [ "$status" = "InProgress" ] && [ $retry -lt $RETRY_LIMIT ]; do
     -H "Authorization: ApiKey ${API_KEY}" \
     -H "Content-Type: application/zip" \
     -H "X-ClientID: ${CLIENT_ID}" \
-    "${location}")
+    "${status_url}")
   status=$(echo "$status_resp" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
   echo "上传状态: $status"
   retry=$((retry+1))
