@@ -8,7 +8,6 @@ on:
 jobs:
     build-and-release:
         runs-on: ubuntu-latest
-        environment: edge-publish-script
         permissions:
             contents: write # 授予创建 Release 的权限
         steps:

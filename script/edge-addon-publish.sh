@@ -2,7 +2,7 @@
 set -e
 
 CLIENT_ID="${EDGE_CLIENT_ID}"
-CLIENT_SECRET="${EDGE_CLIENT_SECRET}"
+API_KEY="${EDGE_CLIENT_SECRET}" # 实际是 API 密钥
 PRODUCT_ID="${EDGE_PRODUCT_ID}"
 FILE_PATH="${EDGE_EXTENSION_FILE}"
 API_ENDPOINT="https://api.addons.microsoftedge.microsoft.com"
@@ -11,7 +11,7 @@ RETRY_AFTER=5
 
 # 上传扩展包
 upload_resp=$(curl -i -X POST \
-  -H "Authorization: ApiKey ${CLIENT_SECRET}" \
+  -H "Authorization: ApiKey ${API_KEY}" \
   -H "Content-Type: application/zip" \
   -H "X-ClientID: ${CLIENT_ID}" \
   --data-binary @"${FILE_PATH}" \
@@ -31,7 +31,7 @@ retry=0
 while [ "$status" = "InProgress" ] && [ $retry -lt $RETRY_LIMIT ]; do
   sleep $RETRY_AFTER
   status_resp=$(curl -s -X GET \
-    -H "Authorization: ApiKey ${CLIENT_SECRET}" \
+    -H "Authorization: ApiKey ${API_KEY}" \
     -H "Content-Type: application/zip" \
     -H "X-ClientID: ${CLIENT_ID}" \
     "${location}")
@@ -47,7 +47,7 @@ fi
 
 # 发布扩展
 publish_resp=$(curl -i -X POST \
-  -H "Authorization: ApiKey ${CLIENT_SECRET}" \
+  -H "Authorization: ApiKey ${API_KEY}" \
   -H "Content-Type: application/json" \
   -H "X-ClientID: ${CLIENT_ID}" \
   -d '{"notes":"Auto publish from GitHub Actions"}' \
@@ -67,7 +67,7 @@ retry=0
 while [ "$publish_status" = "InProgress" ] && [ $retry -lt $RETRY_LIMIT ]; do
   sleep $RETRY_AFTER
   pub_status_resp=$(curl -s -X GET \
-    -H "Authorization: ApiKey ${CLIENT_SECRET}" \
+    -H "Authorization: ApiKey ${API_KEY}" \
     -H "Content-Type: application/json" \
     -H "X-ClientID: ${CLIENT_ID}" \
     "${publish_location}")
