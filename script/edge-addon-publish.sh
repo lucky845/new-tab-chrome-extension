@@ -9,7 +9,6 @@ API_ENDPOINT="https://api.addons.microsoftedge.microsoft.com"
 RETRY_LIMIT=10
 RETRY_AFTER=5
 
-# 上传扩展包
 upload_resp=$(curl -i -X POST \
   -H "Authorization: ApiKey ${API_KEY}" \
   -H "Content-Type: application/zip" \
