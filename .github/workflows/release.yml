@@ -8,6 +8,7 @@ on:
 jobs:
     build-and-release:
         runs-on: ubuntu-latest
+        environment: edge-publish-script
         permissions:
             contents: write # 授予创建 Release 的权限
         steps:
@@ -39,6 +40,5 @@ jobs:
                   EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
                   EDGE_EXTENSION_FILE: extension-${{ github.ref_name }}.zip
               run: |
-                  npm install axios form-data
-                  node script/edge-addon-publish.js
+                  bash script/edge-addon-publish.sh
 
