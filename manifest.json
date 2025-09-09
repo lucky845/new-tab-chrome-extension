@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
-    "name": "New Tab Pro - 智能新标签页管理器",
-    "version": "1.0.5",
+    "name": "新标签页",
+    "version": "1.0.6",
     "description": "专为浏览器设计的智能新标签页扩展，提供智能壁纸管理、多引擎搜索、个性化快捷方式管理和现代毛玻璃设计。",
     "chrome_url_overrides": {
         "newtab": "newtab.html"
