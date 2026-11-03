@@ -59,6 +59,10 @@ class WeatherManager {
                 settings && settings.settings && settings.settings.weatherApiKey
                     ? settings.settings.weatherApiKey
                     : window.WEATHER_CONFIG?.API_KEY || '';
+            // 历史占位符视为未配置（走 Open-Meteo 免密钥路径）
+            if (this.apiKey === 'your_amap_api_key_here') {
+                this.apiKey = '';
+            }
 
             // 绑定天气组件点击事件
             this.bindWeatherWidgetEvents();
@@ -91,7 +95,11 @@ class WeatherManager {
                 const adcodeKey = `amap_adcode_${this.currentCity}`;
                 const adcodeCached = await chrome.storage.local.get([adcodeKey]);
                 const cachedAd = adcodeCached && adcodeCached[adcodeKey];
-                if (cachedAd && Date.now() - cachedAd.ts < (window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000)) {
+                if (
+                    cachedAd &&
+                    Date.now() - cachedAd.ts <
+                        (window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000)
+                ) {
                     const wKey = `amap_weather_${cachedAd.adcode}`;
                     const weatherCached = await chrome.storage.local.get([wKey]);
                     const cachedW = weatherCached && weatherCached[wKey];
@@ -220,14 +228,12 @@ class WeatherManager {
         this.showLoading();
 
         try {
-            if (!this.apiKey) {
-                this.showError('未配置天气API密钥');
-                this.isLoading = false;
-                return;
-            }
             let weatherData;
 
-            if (this.currentCity) {
+            if (!this.apiKey) {
+                // 未配置高德Key：使用 Open-Meteo 免费天气接口（无需任何密钥）
+                weatherData = await this.getOpenMeteoWeather();
+            } else if (this.currentCity) {
                 // 使用指定城市 => 先换为adcode（带缓存）
                 const adcode = await this.getAdcodeByCity(this.currentCity);
                 weatherData = await this.getWeatherByAdcode(adcode);
@@ -360,7 +366,9 @@ class WeatherManager {
             });
             const adcode = regeoData?.regeocode?.addressComponent?.adcode;
             const cityCode = adcode || regeoData?.regeocode?.addressComponent?.citycode;
-            const detectedCityName = regeoData?.regeocode?.addressComponent?.city || regeoData?.regeocode?.addressComponent?.province;
+            const detectedCityName =
+                regeoData?.regeocode?.addressComponent?.city ||
+                regeoData?.regeocode?.addressComponent?.province;
             if (!adcode && !cityCode) {
                 throw new Error('逆地理失败，未获取到adcode');
             }
@@ -431,7 +439,7 @@ class WeatherManager {
                 maximumAge: window.WEATHER_CONFIG?.GEOLOCATION_MAX_AGE || 5 * 60 * 1000,
             };
 
-            const mapGeoError = (error) => {
+            const mapGeoError = error => {
                 if (!error) return '获取位置失败（未知原因）';
                 // 标准 PositionError(code) 与现代 DOMException(name)
                 const code = typeof error.code === 'number' ? error.code : undefined;
@@ -549,6 +557,193 @@ class WeatherManager {
         });
     }
 
+    /* ==================== Open-Meteo 免密钥天气（无高德Key时的默认路径） ==================== */
+
+    /**
+     * 通过 Open-Meteo 获取天气（免费、无需API Key）
+     * 优先使用设置的城市名（走 geocoding），否则使用浏览器定位坐标
+     */
+    async getOpenMeteoWeather() {
+        if (this.currentCity) {
+            return this.getOpenMeteoByCity(this.currentCity);
+        }
+        return this.getOpenMeteoByLocation();
+    }
+
+    /**
+     * 按城市名获取 Open-Meteo 天气（geocoding 结果与天气均带缓存）
+     */
+    async getOpenMeteoByCity(cityName) {
+        const { fetchJSON } = await import('../utils/request.js');
+        // 1. 城市名 -> 坐标（带 24h 缓存）
+        const geoKey = `om_geo_${cityName}`;
+        const geoCached = await chrome.storage.local.get([geoKey]);
+        const geoTtl = window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000;
+        let place = geoCached && geoCached[geoKey];
+        if (!place || Date.now() - place.ts >= geoTtl) {
+            const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+                cityName
+            )}&count=1&language=zh&format=json`;
+            const data = await fetchJSON(url, {
+                timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
+                retries: 2,
+                retryDelay: 600,
+                backoff: 2,
+            });
+            if (!data.results || data.results.length === 0) {
+                throw new Error('未查询到该城市，请检查城市名称');
+            }
+            const r = data.results[0];
+            place = {
+                name: r.name,
+                admin1: r.admin1 || '',
+                country: r.country || '',
+                latitude: r.latitude,
+                longitude: r.longitude,
+                ts: Date.now(),
+            };
+            await chrome.storage.local.set({ [geoKey]: place });
+        }
+        // 2. 坐标 -> 天气
+        return this.fetchOpenMeteoCurrent(
+            place.latitude,
+            place.longitude,
+            place.admin1 ? `${place.name}·${place.admin1}` : place.name,
+            place.country
+        );
+    }
+
+    /**
+     * 按浏览器定位获取 Open-Meteo 天气（定位失败回退上次成功坐标）
+     */
+    async getOpenMeteoByLocation() {
+        const locKey = 'om_last_location';
+        try {
+            const position = await this.getCurrentPosition();
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const data = await this.fetchOpenMeteoCurrent(latitude, longitude, '当前位置', '');
+            await chrome.storage.local.set({
+                [locKey]: { latitude, longitude, ts: Date.now() },
+            });
+            return data;
+        } catch (geoErr) {
+            console.warn('Open-Meteo 定位失败，尝试上次坐标回退:', geoErr?.message || geoErr);
+            const last = await chrome.storage.local.get([locKey]);
+            const saved = last && last[locKey];
+            if (saved) {
+                return this.fetchOpenMeteoCurrent(saved.latitude, saved.longitude, '当前位置', '');
+            }
+            throw geoErr;
+        }
+    }
+
+    /**
+     * 调用 Open-Meteo forecast 接口并格式化（带缓存）
+     */
+    async fetchOpenMeteoCurrent(latitude, longitude, cityName, country) {
+        const { fetchJSON } = await import('../utils/request.js');
+        const cacheKey = `om_weather_${latitude.toFixed(2)}_${longitude.toFixed(2)}`;
+        const cached = await chrome.storage.local.get([cacheKey]);
+        const ttl = window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
+        if (cached && cached[cacheKey] && Date.now() - cached[cacheKey].ts < ttl) {
+            return cached[cacheKey].data;
+        }
+        const url =
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+            '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,' +
+            'wind_speed_10m,wind_direction_10m,pressure_msl&timezone=auto';
+        const data = await fetchJSON(url, {
+            timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
+            retries: 2,
+            retryDelay: 600,
+            backoff: 2,
+        });
+        if (!data.current) {
+            throw new Error('Open-Meteo 返回空数据');
+        }
+        const formatted = this.formatOpenMeteoData(data.current, cityName, country);
+        await chrome.storage.local.set({ [cacheKey]: { data: formatted, ts: Date.now() } });
+        return formatted;
+    }
+
+    /**
+     * 将 Open-Meteo current 结构格式化为内部结构（对齐高德 formatter 字段）
+     */
+    formatOpenMeteoData(current, cityName, country) {
+        const code = current.weather_code;
+        const isNight = current.is_day === 0;
+        const [description, iconBase] = this.getWmoMapping(code);
+        // 夜间图标适配
+        let icon = iconBase;
+        if (isNight) {
+            if (iconBase === 'sunny') icon = 'clear-night';
+            else if (iconBase === 'cloudy-sunny') icon = 'partly-cloudy-night';
+        }
+        return {
+            temperature: Math.round(current.temperature_2m),
+            feelsLike: Math.round(current.apparent_temperature),
+            humidity:
+                current.relative_humidity_2m !== undefined
+                    ? Math.round(current.relative_humidity_2m)
+                    : undefined,
+            pressure:
+                current.pressure_msl !== undefined ? Math.round(current.pressure_msl) : undefined,
+            description,
+            icon,
+            city: cityName || '当前位置',
+            country: country || '',
+            windSpeed:
+                current.wind_speed_10m !== undefined
+                    ? Math.round(current.wind_speed_10m)
+                    : undefined,
+            windDeg:
+                current.wind_direction_10m !== undefined
+                    ? Math.round(current.wind_direction_10m)
+                    : undefined,
+            sunrise: undefined,
+            sunset: undefined,
+            timestamp: Date.now(),
+        };
+    }
+
+    /**
+     * WMO weathercode -> [中文描述, 图标类别]
+     */
+    getWmoMapping(code) {
+        const map = {
+            0: ['晴', 'sunny'],
+            1: ['晴', 'sunny'],
+            2: ['多云', 'cloudy-sunny'],
+            3: ['阴', 'cloudy'],
+            45: ['雾', 'fog'],
+            48: ['雾凇', 'fog'],
+            51: ['毛毛雨', 'rain'],
+            53: ['毛毛雨', 'rain'],
+            55: ['毛毛雨', 'rain'],
+            56: ['冻雨', 'snow'],
+            57: ['冻雨', 'snow'],
+            61: ['小雨', 'rain'],
+            63: ['中雨', 'rain'],
+            65: ['大雨', 'heavy-rain'],
+            66: ['冻雨', 'snow'],
+            67: ['冻雨', 'snow'],
+            71: ['小雪', 'snow'],
+            73: ['中雪', 'snow'],
+            75: ['大雪', 'snow'],
+            77: ['雪', 'snow'],
+            80: ['阵雨', 'rain'],
+            81: ['阵雨', 'rain'],
+            82: ['强阵雨', 'heavy-rain'],
+            85: ['阵雪', 'snow'],
+            86: ['阵雪', 'snow'],
+            95: ['雷阵雨', 'thunderstorm'],
+            96: ['雷阵雨伴冰雹', 'thunderstorm'],
+            99: ['雷阵雨伴冰雹', 'thunderstorm'],
+        };
+        return map[code] || ['未知', 'unknown'];
+    }
+
     /**
      * 将高德实况天气lives[0]格式化为内部结构
      */
@@ -595,8 +790,8 @@ class WeatherManager {
         // 显示天气描述
         weatherDescEl.textContent = weatherData.description;
 
-        // 显示位置
-        locationEl.textContent = `${weatherData.city}, ${weatherData.country}`;
+        // 显示位置（country 可能为空，如 Open-Meteo 定位路径）
+        locationEl.textContent = [weatherData.city, weatherData.country].filter(Boolean).join(', ');
 
         // 选择合适的图标（适配高德天气描述）
         const iconType = this.getIconTypeForAmap(weatherData.description);

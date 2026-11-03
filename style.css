@@ -1052,6 +1052,63 @@ body {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
+/* 壁纸网格空态/引导文案（未配置 Pexels Key 时的说明） */
+.wallpaper-empty-hint {
+    grid-column: 1 / -1;
+    padding: 40px 20px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 10px;
+}
+
+/* Toast 通知（替代 alert 的非阻塞提示） */
+#dsh-toast-container {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 99999;
+    pointer-events: none;
+}
+
+.dsh-toast {
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #fff;
+    background: rgba(20, 26, 32, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s ease;
+}
+
+.dsh-toast--visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.dsh-toast--success {
+    border-color: rgba(78, 194, 198, 0.55);
+}
+
+.dsh-toast--error {
+    border-color: rgba(232, 92, 92, 0.6);
+}
+
 .wallpaper-pagination {
     margin-top: auto;
     padding-top: 15px;
