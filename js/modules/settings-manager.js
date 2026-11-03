@@ -17,7 +17,41 @@ class SettingsManager {
 
     // 初始化设置
     async init() {
+        await this.migrateLegacySettings();
         await this.loadSettings();
+    }
+
+    // 一次性迁移与清理旧键，确保仅使用集中 settings（原 main.js 逻辑）
+    async migrateLegacySettings() {
+        const legacyKeys = ['pexelsApiKey', 'weatherCity', 'temperatureUnit', 'weatherApiKey'];
+        const data = await chrome.storage.local.get(['settings', ...legacyKeys]);
+        const settings = { ...(data.settings || {}) };
+        let changed = false;
+        legacyKeys.forEach(k => {
+            if (typeof data[k] !== 'undefined' && data[k] !== null && data[k] !== '') {
+                settings[k] = data[k];
+                changed = true;
+            }
+        });
+        if (changed) {
+            await chrome.storage.local.set({ settings });
+            await chrome.storage.local.remove(legacyKeys);
+            console.log('已迁移并清理旧设置键:', legacyKeys);
+        }
+    }
+
+    // 从设置面板一次性保存（Pexels Key 可选：清空即移除，回 Bing 免 Key 模式）
+    async saveFromPanel({ pexelsApiKey, weatherApiKey, weatherCity }) {
+        if (typeof pexelsApiKey === 'string') {
+            this.settings.pexelsApiKey = pexelsApiKey.trim();
+        }
+        if (typeof weatherApiKey === 'string' && weatherApiKey.trim()) {
+            this.settings.weatherApiKey = weatherApiKey.trim();
+        }
+        if (typeof weatherCity === 'string') {
+            this.settings.weatherCity = weatherCity.trim(); // 可为空字符串，表示自动定位
+        }
+        await this.saveSettings();
     }
 
     // 加载设置
