@@ -71,6 +71,11 @@ class QuickAccessManager {
         return this.sites;
     }
 
+    // 覆写全部项目（拖拽排序等整表变更场景；setItems 前必须先改内存数据）
+    setSites(newSites) {
+        this.sites = Array.isArray(newSites) ? newSites : this.sites;
+    }
+
     // 设置分页实例
     setPagination(pagination) {
         this.pagination = pagination;
@@ -83,24 +88,26 @@ class QuickAccessManager {
         }
     }
 
-    // 验证URL格式
+    // 验证URL格式（与设置面板 UI 同源规则，返回 {valid, message}）
     validateUrl(url) {
-        try {
-            new URL(url);
-            return true;
-        } catch {
-            return false;
+        if (!url || !url.trim()) {
+            return { valid: false, message: '请输入有效的网址。' };
         }
+        const urlPattern =
+            /^(https?:\/\/)?((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(:\d+)?(\/[-a-z\d%_.~+]*)*(\?.*)?(#[-a-z\d_]*)?$/i;
+        return {
+            valid: urlPattern.test(url.trim()),
+            message: '请输入有效的网址。',
+        };
     }
 
-    // 验证名称
+    // 验证名称（2-10 字符，与设置面板 UI 同源规则）
     validateName(name) {
-        return name.trim().length > 0 && name.trim().length <= 20;
-    }
-
-    // 验证图标
-    validateIcon(icon) {
-        return icon.trim().length > 0 && icon.trim().length <= 10;
+        const len = (name || '').trim().length;
+        return {
+            valid: len >= 2 && len <= 10,
+            message: '名称长度应在 2 到 10 个字符之间。',
+        };
     }
 }
 
