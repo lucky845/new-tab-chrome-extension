@@ -176,6 +176,9 @@
         <script src="js/components/visibility-toggle.js" type="module"></script>
         <script src="js/components/weather-icons.js" type="module"></script>
         <script src="js/config/weather-config.js"></script>
+        <script src="js/config/default-sites.js"></script>
+        <script src="js/utils/bing-wallpaper.js"></script>
+        <script src="js/utils/toast.js"></script>
 
         <!-- 功能模块 -->
         <script src="js/modules/wallpaper-manager.js"></script>
@@ -265,7 +268,7 @@
             <div class="settings-content">
                 <h2>设置</h2>
                 <div class="setting-item">
-                    <label for="api-key-input">Pexels API 密钥</label>
+                    <label for="api-key-input">Pexels API 密钥（可选）</label>
                     <div class="input-with-icon">
                         <input type="password" id="api-key-input" placeholder="在此输入您的密钥" />
                         <button id="toggle-api-key-visibility" class="visibility-toggle">
@@ -273,18 +276,17 @@
                         </button>
                     </div>
                     <p class="api-key-description">
-                        从
+                        可选增强功能：填写后可解锁壁纸搜索与分类。不填也完全可用——新标签页默认使用 Bing 每日壁纸，无需任何密钥。
                         <a
                             href="https://www.pexels.com/zh-cn/api/documentation/#authorization"
                             target="_blank"
-                            >Pexels API 文档</a
+                            >获取免费密钥</a
                         >
-                        获取您的免费密钥。
                     </p>
                 </div>
 
                 <div class="setting-item">
-                    <label for="weather-api-key-input">高德地图 Web服务 Key</label>
+                    <label for="weather-api-key-input">高德地图 Web服务 Key（可选）</label>
                     <div class="input-with-icon">
                         <input
                             type="password"
@@ -297,7 +299,8 @@
                         ></button>
                     </div>
                     <p class="api-key-description">
-                        前往 <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a> 申请
+                        可选：不填时天气功能自动使用 Open-Meteo 免费数据，无需任何密钥。如需高德数据，前往
+                        <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a> 申请
                         Web服务 Key。
                     </p>
                 </div>

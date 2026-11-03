@@ -4,8 +4,8 @@
  */
 
 const WEATHER_CONFIG = {
-    // 高德地图 Web服务 API Key - 前往 https://lbs.amap.com/ 申请
-    API_KEY: 'your_amap_api_key_here',
+    // 高德地图 Web服务 API Key - 前往 https://lbs.amap.com/ 申请（可选：留空则使用 Open-Meteo 免费天气，无需密钥）
+    API_KEY: '',
 
     // API基础URL
     BASE_URL: 'https://restapi.amap.com/v3',

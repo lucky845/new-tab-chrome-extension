@@ -73,5 +73,5 @@ export const SELECTORS = {
 };
 
 // 供非模块脚本访问
-// eslint-disable-next-line no-undef
+
 window.SELECTORS = SELECTORS;

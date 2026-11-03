@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 获取必要的DOM元素
-    const searchInput = document.getElementById(window.SELECTORS.searchInput);
     const wallpaperContainer = document.getElementById(window.SELECTORS.wallpaperContainer);
     const changeWallpaperBtn = document.getElementById(window.SELECTORS.changeWallpaperBtn);
     const settingsBtn = document.getElementById(window.SELECTORS.settingsBtn);
@@ -39,16 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.SELECTORS.wallpaperCategoriesSidebar
     );
 
-    // 搜索相关元素
-    const searchEngineSelector = document.getElementById(window.SELECTORS.searchEngineSelector);
-    const selectedEngine = document.getElementById(window.SELECTORS.selectedEngine);
-    const searchEngineDropdown = document.getElementById(window.SELECTORS.searchEngineDropdown);
+    // 搜索相关元素（搜索交互由 app.js + searchManager 模块化处理）
     const searchSubmitBtn = document.getElementById(window.SELECTORS.searchSubmitBtn);
     const clearSearchBtn = document.getElementById(window.SELECTORS.clearSearchBtn);
-    const searchHistoryDropdown = document.getElementById(window.SELECTORS.searchHistoryDropdown);
-    const historyItemsContainer = document.getElementById(window.SELECTORS.historyItemsContainer);
-    const clearHistoryContainer = document.getElementById(window.SELECTORS.clearHistoryContainer);
-    const clearAllHistoryBtn = document.getElementById(window.SELECTORS.clearAllHistoryBtn);
 
     // Quick Access Modal elements
     const addQuickAccessPanel = document.getElementById(window.SELECTORS.addQuickAccessPanel);
@@ -66,13 +58,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 常量
     const WALLPAPERS_PER_PAGE = 18;
-    const MAX_HISTORY_ITEMS = 10;
     const searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
     const clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
     // 状态管理
     let pexelsApiKey = '';
-    let currentSearchEngine = null;
     let currentWallpaperQuery = 'Nature';
     let currentWallpaperPage = 1;
     let activeCategoryElement = null;
@@ -95,20 +85,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         { name: '旅行', query: 'Travel' },
     ];
 
-    // SVG 图标
-    const eyeIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-    const eyeOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+    // SVG 图标（密钥可见性切换由 visibility-toggle 组件处理）
 
     // --- API密钥处理 ---
-    const saveApiKey = key => {
-        return new Promise(async resolve => {
-            const existing = await new Promise(r => chrome.storage.local.get(['settings'], r));
-            const merged = { ...(existing.settings || {}), pexelsApiKey: key };
-            chrome.storage.local.set({ settings: merged }, () => {
-                pexelsApiKey = key;
-                resolve();
-            });
-        });
+    const saveApiKey = async key => {
+        const existing = await new Promise(r => chrome.storage.local.get(['settings'], r));
+        const merged = { ...(existing.settings || {}), pexelsApiKey: key };
+        await new Promise(resolve => chrome.storage.local.set({ settings: merged }, resolve));
+        pexelsApiKey = key;
     };
 
     const loadApiKey = () => {
@@ -195,8 +179,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 壁纸搜索和渲染
     const searchWallpapers = async (query, page) => {
         if (!pexelsApiKey) {
-            showWallpaperPanel();
-            alert('请先在设置中输入 Pexels API 密钥');
+            // 未配置 Pexels Key：显示引导信息（Pexels 搜索为可选增强功能，壁纸仍由 Bing 提供）
+            openWallpaperPanel();
+            const wallpaperLoading = document.getElementById('wallpaper-loading');
+            if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
+            const wallpaperGrid = document.getElementById('wallpaper-grid');
+            if (wallpaperGrid) {
+                wallpaperGrid.innerHTML =
+                    '<div class="wallpaper-empty-hint">壁纸搜索需要 Pexels API 密钥（可选功能）。<br>当前新标签页已默认使用 Bing 每日壁纸，无需任何密钥。<br>如需解锁搜索与分类功能，请在设置中填写免费的 Pexels API 密钥。</div>';
+            }
             return;
         }
 
@@ -392,9 +383,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const apiKey = await loadApiKey();
 
         if (!apiKey) {
-            console.log('Pexels API 密钥未设置，请在设置中添加。');
-            openSettingsPanel();
-            wallpaperContainer.style.backgroundImage = `url('https://www.todaybing.com/api/today?${new Date().getTime()}')`;
+            // 未配置 Pexels Key：默认使用 Bing 每日壁纸（无需密钥，开箱即用）
+            await fetchBingWallpaper(false);
             return;
         }
 
@@ -411,8 +401,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             wallpaperContainer.style.backgroundImage = `url('${result.savedWallpaperUrl}')`;
             console.log('使用缓存的壁纸URL');
 
-            // 异步验证壁纸是否仍然有效
-            if (result.savedWallpaperId) {
+            // 异步验证壁纸是否仍然有效（Bing 壁纸的官方 CDN 链接长期有效，无需走 Pexels 验证）
+            const isBingWallpaper =
+                result.savedWallpaperData && result.savedWallpaperData.source === 'bing';
+            if (result.savedWallpaperId && !isBingWallpaper) {
                 setTimeout(async () => {
                     const isValid = await validateWallpaperById(result.savedWallpaperId, apiKey);
                     if (!isValid) {
@@ -553,12 +545,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    // 通过 Bing 官方接口获取壁纸（无需任何 API Key）
+    const fetchBingWallpaper = async (isRandom = true) => {
+        try {
+            const photo = isRandom
+                ? await window.BingWallpaper.fetchRandom()
+                : await window.BingWallpaper.fetchDaily();
+            if (photo && photo.url) {
+                wallpaperContainer.style.backgroundImage = `url('${photo.url}')`;
+                const bingId = `bing_${photo.startdate || Date.now()}`;
+                await new Promise(resolve => {
+                    chrome.storage.local.set(
+                        {
+                            savedWallpaperId: bingId,
+                            savedWallpaperUrl: photo.url,
+                            savedWallpaperData: {
+                                id: bingId,
+                                url: photo.url,
+                                photographer: 'Bing Daily Wallpaper',
+                                alt: photo.title || photo.copyright || '',
+                                source: 'bing',
+                            },
+                        },
+                        resolve
+                    );
+                });
+                console.log(`已应用 Bing 壁纸: ${photo.title || photo.url}`);
+                return;
+            }
+        } catch (error) {
+            console.error('获取 Bing 壁纸失败:', error);
+        }
+        // 兜底：第三方今日壁纸接口
+        wallpaperContainer.style.backgroundImage = `url('https://www.todaybing.com/api/today?${new Date().getTime()}')`;
+    };
+
     changeWallpaperBtn.addEventListener('click', async () => {
         const apiKey = await loadApiKey();
         if (apiKey) {
             await fetchRandomWallpaper(apiKey, true); // 获取新壁纸并保存
         } else {
-            fetchAndSetWallpaper(); // 触发 "no key" 逻辑
+            // 未配置 Pexels Key：从 Bing 壁纸池随机换一张（无需密钥）
+            await fetchBingWallpaper(true);
         }
     });
     settingsBtn.addEventListener('click', openSettingsPanel);
@@ -597,7 +625,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 jumpToPageInput.value = '';
                 jumpToPageInput.blur();
             } else {
-                alert(`请输入 1 到 ${totalPages} 之间的页码。`);
+                window.showToast(`请输入 1 到 ${totalPages} 之间的页码。`);
             }
         }
     });
@@ -609,42 +637,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         const weatherApiKey =
             document.getElementById(window.SELECTORS.weatherApiKeyInput)?.value.trim() || '';
 
-        if (newKey) {
-            try {
-                await saveApiKey(newKey);
+        try {
+            // Pexels Key 为可选项：填写即保存，清空即移除（回到 Bing 免密钥模式）
+            await saveApiKey(newKey);
 
-                // 保存天气城市与天气API Key
-                // 统一写入集中 settings（避免双写）
-                const existing = await new Promise(resolve =>
-                    chrome.storage.local.get(['settings'], resolve)
-                );
-                const merged = { ...(existing.settings || {}) };
-                if (weatherApiKey) merged.weatherApiKey = weatherApiKey;
-                merged.weatherCity = weatherCity; // 可为空字符串，表示自动定位
-                await chrome.storage.local.set({ settings: merged });
+            // 保存天气城市与天气API Key
+            // 统一写入集中 settings（避免双写）
+            const existing = await new Promise(resolve =>
+                chrome.storage.local.get(['settings'], resolve)
+            );
+            const merged = { ...(existing.settings || {}) };
+            if (weatherApiKey) merged.weatherApiKey = weatherApiKey;
+            merged.weatherCity = weatherCity; // 可为空字符串，表示自动定位
+            await chrome.storage.local.set({ settings: merged });
 
-                // 更新天气管理器的城市设置
-                if (window.app && window.app.weatherManager) {
-                    if (weatherApiKey && window.app.weatherManager.setApiKey) {
-                        window.app.weatherManager.setApiKey(weatherApiKey);
-                    }
-                    // 触发天气刷新（会自动读取最新API Key）
-                    if (weatherCity) {
-                        await window.app.weatherManager.setCity(weatherCity);
-                    } else {
-                        await window.app.weatherManager.useCurrentLocation();
-                    }
+            // 更新天气管理器的城市设置
+            if (window.app && window.app.weatherManager) {
+                if (weatherApiKey && window.app.weatherManager.setApiKey) {
+                    window.app.weatherManager.setApiKey(weatherApiKey);
                 }
-
-                closeSettingsPanel();
-                fetchAndSetWallpaper();
-                console.log('设置已保存');
-            } catch (error) {
-                console.error('保存设置失败:', error);
-                alert('保存设置失败，请重试');
+                // 触发天气刷新（会自动读取最新API Key）
+                if (weatherCity) {
+                    await window.app.weatherManager.setCity(weatherCity);
+                } else {
+                    await window.app.weatherManager.useCurrentLocation();
+                }
             }
-        } else {
-            alert('API 密钥不能为空！');
+
+            closeSettingsPanel();
+            fetchAndSetWallpaper();
+            console.log('设置已保存');
+            window.showToast('设置已保存', 'success');
+        } catch (error) {
+            console.error('保存设置失败:', error);
+            window.showToast('保存设置失败，请重试', 'error');
         }
     });
 
@@ -683,13 +709,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 添加调试信息
     console.log('开始初始化壁纸...');
-    const cachedData = await new Promise(resolve =>
-        chrome.storage.local.get(
-            ['savedWallpaperId', 'savedWallpaperUrl', 'savedWallpaperData'],
-            resolve
-        )
-    );
-
     fetchAndSetWallpaper();
     initVisibilityToggle();
     renderCategories();
@@ -697,15 +716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchSubmitBtn.innerHTML = searchIcon;
     clearSearchBtn.innerHTML = clearIcon;
 
-    clearAllHistoryBtn.addEventListener('click', async e => {
-        e.stopPropagation(); // 阻止事件冒泡
-
-        // 添加二次确认
-        if (window.confirm('您确定要清空所有搜索记录吗？此操作无法撤销。')) {
-            await saveSearchHistory([]);
-            await renderSearchHistory();
-        }
-    });
+    // 搜索历史清空已由 app.js bindSearchEvents() 统一绑定（searchManager.clearHistory）
 
     // Event listener for the cancel button in the new quick access modal
     cancelQaBtn.addEventListener('click', () => {
@@ -823,91 +834,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     quickAccessGrid.addEventListener('click', async e => {
-        const item = e.target.closest('.quick-access-item');
-
-        if (e.target.classList.contains('edit-btn') || e.target.classList.contains('delete-btn')) {
-            e.preventDefault(); // Prevent navigation when clicking edit/delete buttons
-
-            // 检查item是否存在，避免null错误
-            if (!item) return;
-
-            const index = parseInt(item.dataset.index, 10);
-            const data = await new Promise(resolve =>
-                chrome.storage.local.get({ quickAccessSites: [] }, resolve)
-            );
-            const sites = data.quickAccessSites;
-
-            if (e.target.classList.contains('edit-btn')) {
-                const siteToEdit = sites[index];
-
-                qaPanelTitle.textContent = '编辑快捷方式';
-                qaEditIndexInput.value = index;
-                qaUrlInput.value = siteToEdit.url;
-                qaNameInput.value = siteToEdit.name;
-                qaIconInput.value = siteToEdit.icon || '';
-
-                qaIconInput.dispatchEvent(new Event('input')); // Trigger preview
-                validateQuickAccessForm();
-
-                addQuickAccessPanel.classList.remove('u-hidden');
-                exitDeleteMode();
-            } else if (e.target.classList.contains('delete-btn')) {
-                // 显示自定义删除确认弹窗
-                const deleteModal = document.getElementById(window.SELECTORS.deleteConfirmModal);
-                const deleteConfirmText = document.getElementById(
-                    window.SELECTORS.deleteConfirmText
-                );
-                const deleteConfirmDelete = document.getElementById(
-                    window.SELECTORS.deleteConfirmDelete
-                );
-                const deleteConfirmCancel = document.getElementById(
-                    window.SELECTORS.deleteConfirmCancel
-                );
-
-                if (
-                    deleteModal &&
-                    deleteConfirmText &&
-                    deleteConfirmDelete &&
-                    deleteConfirmCancel
-                ) {
-                    deleteConfirmText.textContent = `您确定要删除 "${sites[index].name}" 吗？`;
-                    deleteModal.classList.remove('u-hidden');
-
-                    // 绑定删除确认事件
-                    const handleDelete = async () => {
-                        sites.splice(index, 1);
-                        await new Promise(resolve =>
-                            chrome.storage.local.set({ quickAccessSites: sites }, resolve)
-                        );
-
-                        // 重新渲染快捷访问列表
-                        if (
-                            window.app &&
-                            window.app.quickAccessManager &&
-                            window.app.quickAccessManager.pagination
-                        ) {
-                            // 直接调用分页组件的setItems方法，避免重复渲染
-                            window.app.quickAccessManager.pagination.setItems(sites);
-                        }
-
-                        // 隐藏弹窗并清理事件
-                        deleteModal.classList.add('u-hidden');
-                        deleteConfirmDelete.removeEventListener('click', handleDelete);
-                        deleteConfirmCancel.removeEventListener('click', handleCancel);
-                    };
-
-                    // 绑定取消事件
-                    const handleCancel = () => {
-                        deleteModal.classList.add('u-hidden');
-                        deleteConfirmDelete.removeEventListener('click', handleDelete);
-                        deleteConfirmCancel.removeEventListener('click', handleCancel);
-                    };
-
-                    deleteConfirmDelete.addEventListener('click', handleDelete);
-                    deleteConfirmCancel.addEventListener('click', handleCancel);
-                }
-            }
-        } else if (e.target.closest('.add-quick-access-btn')) {
+        // 编辑/删除快捷方式由右键菜单（showContextMenu）处理；
+        // 分页组件渲染的卡片不含 edit/delete 按钮，历史遗留的分支已移除
+        if (e.target.closest('.add-quick-access-btn')) {
             qaPanelTitle.textContent = '添加快捷方式';
             qaEditIndexInput.value = '-1';
 

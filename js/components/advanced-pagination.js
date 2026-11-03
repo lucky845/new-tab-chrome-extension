@@ -406,3 +406,6 @@ class AdvancedPagination {
         });
     }
 }
+
+// 显式挂载到 window（跨 script 全局访问不再依赖经典 script 词法绑定）
+window.AdvancedPagination = AdvancedPagination;

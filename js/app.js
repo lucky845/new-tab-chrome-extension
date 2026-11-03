@@ -171,7 +171,6 @@ class NewTabApp {
     bindSearchEvents() {
         const searchInput = document.getElementById('search-input');
         const searchSubmitBtn = document.getElementById('search-submit-btn');
-        const searchEngineDropdown = document.getElementById('search-engine-dropdown');
         const searchEngineSelector = document.getElementById('search-engine-selector');
         const selectedEngine = document.getElementById('selected-engine');
         const clearSearchBtn = document.getElementById('clear-search-btn');
@@ -466,7 +465,6 @@ class NewTabApp {
         const saveWeatherSettingsBtn = document.getElementById(
             window.SELECTORS.saveWeatherSettingsBtn
         );
-        const weatherCityInput = document.getElementById(window.SELECTORS.weatherCityInput);
         const weatherCityInputPanel = document.getElementById(
             window.SELECTORS.weatherCityInputPanel
         );
