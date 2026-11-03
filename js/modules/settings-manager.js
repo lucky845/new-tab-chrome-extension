@@ -11,8 +11,12 @@ class SettingsManager {
             temperatureUnit: 'celsius',
             wallpaperQuery: 'Nature',
             searchEngine: 'Bing',
+            tagline: '',
+            wallpaperBrightness: 1,
+            wallpaperBlur: 0,
         };
         this.settings = { ...this.defaultSettings };
+        this.customEngines = []; // 自定义搜索引擎 [{name, url(%s 占位)}]
     }
 
     // 初始化设置
@@ -144,6 +148,84 @@ class SettingsManager {
     // 设置壁纸搜索关键词
     async setWallpaperQuery(query) {
         await this.setSetting('wallpaperQuery', query);
+    }
+
+    // ---------- v1.2.0 新增：标语 / 自定义引擎 / 壁纸调节 ----------
+
+    // 获取首页标语（空 = 不显示）
+    getTagline() {
+        return this.settings.tagline || '';
+    }
+
+    // 设置首页标语
+    async setTagline(tagline) {
+        await this.setSetting('tagline', tagline || '');
+    }
+
+    // 壁纸亮度（0.3 ~ 1）与模糊度（0 ~ 20px）
+    getWallpaperAdjustments() {
+        return {
+            brightness: Number(this.settings.wallpaperBrightness) || 1,
+            blur: Number(this.settings.wallpaperBlur) || 0,
+        };
+    }
+
+    // 保存壁纸调节（clamp 防越界）
+    async setWallpaperAdjustments(brightness, blur) {
+        const b = Math.min(1, Math.max(0.3, Number(brightness) || 1));
+        const bl = Math.min(20, Math.max(0, Number(blur) || 0));
+        this.settings.wallpaperBrightness = b;
+        this.settings.wallpaperBlur = bl;
+        await this.saveSettings();
+        return { brightness: b, blur: bl };
+    }
+
+    // 自定义搜索引擎（chrome.storage.local 独立键，避免混入 settings 数值型默认值）
+    async loadCustomEngines() {
+        return new Promise(resolve => {
+            chrome.storage.local.get(['customEngines'], result => {
+                this.customEngines = Array.isArray(result.customEngines)
+                    ? result.customEngines
+                    : [];
+                resolve(this.customEngines);
+            });
+        });
+    }
+
+    getCustomEngines() {
+        return this.customEngines;
+    }
+
+    async saveCustomEngines(engines) {
+        this.customEngines = Array.isArray(engines) ? engines : [];
+        return new Promise(resolve => {
+            chrome.storage.local.set({ customEngines: this.customEngines }, resolve);
+        });
+    }
+
+    // 添加自定义引擎（name 非空、url 必须含 %s 占位；重名拒绝）
+    async addCustomEngine(name, url) {
+        const n = (name || '').trim();
+        const u = (url || '').trim();
+        if (!n || !u || !u.includes('%s')) {
+            return { ok: false, message: '名称与搜索链接（含 %s 占位符）均不能为空' };
+        }
+        if (!/^https?:\/\//i.test(u)) {
+            return { ok: false, message: '搜索链接必须以 http(s):// 开头' };
+        }
+        if (this.customEngines.some(e => e.name.toLowerCase() === n.toLowerCase())) {
+            return { ok: false, message: `已存在同名引擎「${n}」` };
+        }
+        this.customEngines.push({ name: n, url: u });
+        await this.saveCustomEngines(this.customEngines);
+        return { ok: true };
+    }
+
+    async removeCustomEngine(name) {
+        const before = this.customEngines.length;
+        this.customEngines = this.customEngines.filter(e => e.name !== name);
+        await this.saveCustomEngines(this.customEngines);
+        return this.customEngines.length < before;
     }
 
     // 获取搜索引擎

@@ -33,16 +33,35 @@ class SearchManager {
         this.currentSearchEngine = this.searchEngines[0];
         this.searchHistory = [];
         this.maxHistoryItems = 10;
+        this.customEngines = []; // 自定义引擎（{name,url}，url 用 %s 占位），由 settings 注入
     }
 
-    // 获取所有搜索引擎
+    // 注入 / 刷新自定义搜索引擎（v1.2.0）
+    setCustomEngines(engines) {
+        this.customEngines = Array.isArray(engines) ? engines : [];
+        // 当前引擎若已被删除则回落到内置默认
+        const stillExists = this.getSearchEngines().some(
+            e => e.name === this.currentSearchEngine.name
+        );
+        if (!stillExists) {
+            this.currentSearchEngine = this.searchEngines[0];
+        }
+    }
+
+    // 内置 + 自定义合并（自定义项标记 isCustom 并使用通用图标）
     getSearchEngines() {
-        return this.searchEngines;
+        const custom = this.customEngines.map(engine => ({
+            name: engine.name,
+            url: engine.url,
+            isCustom: true,
+            icon: SearchManager.CUSTOM_ENGINE_ICON,
+        }));
+        return [...this.searchEngines, ...custom];
     }
 
-    // 设置当前搜索引擎
+    // 设置当前搜索引擎（支持内置与自定义）
     setCurrentSearchEngine(engineName) {
-        const engine = this.searchEngines.find(e => e.name === engineName);
+        const engine = this.getSearchEngines().find(e => e.name === engineName);
         if (engine) {
             this.currentSearchEngine = engine;
             return true;
@@ -62,8 +81,10 @@ class SearchManager {
         // 添加到搜索历史
         this.addToHistory(query);
 
-        // 构建搜索URL
-        const searchUrl = this.currentSearchEngine.url + encodeURIComponent(query);
+        // 构建搜索URL：自定义引擎用 %s 替换，内置引擎直接拼接
+        const encoded = encodeURIComponent(query);
+        const { url } = this.currentSearchEngine;
+        const searchUrl = url.includes('%s') ? url.replace('%s', encoded) : url + encoded;
 
         // 在新标签页中打开
         window.open(searchUrl, '_blank');
@@ -127,3 +148,6 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
     window.SearchManager = SearchManager;
 }
+
+// 自定义引擎通用图标（放大镜）
+SearchManager.CUSTOM_ENGINE_ICON = `<svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="200" height="200"><path d="M448 128a320 320 0 1 0 0 640 320 320 0 0 0 0-640z m0 576a256 256 0 1 1 0-512 256 256 0 0 1 0 512z" fill="#8AB4F8"></path><path d="M726.6 662.6l-51.3 51.3 179.5 179.5 51.3-51.3z" fill="#8AB4F8"></path></svg>`;

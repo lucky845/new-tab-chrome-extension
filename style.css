@@ -1804,3 +1804,394 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* ==================== 时钟 / 问候 / 标语 ==================== */
+.clock-container {
+    position: fixed;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    z-index: 5;
+    pointer-events: none;
+    user-select: none;
+}
+
+.clock-time {
+    font-size: 64px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.clock-date {
+    margin-top: 6px;
+    font-size: 16px;
+    opacity: 0.92;
+}
+
+.clock-greeting {
+    margin-top: 4px;
+    font-size: 15px;
+    opacity: 0.8;
+}
+
+.tagline {
+    margin-top: 10px;
+    font-size: 14px;
+    opacity: 0.72;
+    font-style: italic;
+}
+
+/* ==================== 小组件面板（待办 / 便签 / 番茄钟） ==================== */
+.widget-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    opacity: 1;
+    transition:
+        opacity 0.3s ease,
+        visibility 0.3s ease;
+}
+
+.widget-panel.u-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.widget-content {
+    width: min(440px, 92vw);
+    max-height: 76vh;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+    color: #ffffff;
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.widget-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.widget-close-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- 待办事项 ---------- */
+.todo-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.todo-important-btn {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.todo-important-btn.active {
+    color: #ffd166;
+    border-color: rgba(255, 209, 102, 0.6);
+    background: rgba(255, 209, 102, 0.14);
+}
+
+.todo-input-row input {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+}
+
+.todo-input-row input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.todo-input-row input:focus {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.todo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 60px;
+    max-height: 46vh;
+    overflow-y: auto;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.2s ease;
+}
+
+.todo-item:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.todo-item.important {
+    border-left: 3px solid #ffd166;
+}
+
+.todo-item input[type='checkbox'] {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: #4ec2c6;
+    cursor: pointer;
+}
+
+.todo-star {
+    flex-shrink: 0;
+    color: #ffd166;
+    font-size: 14px;
+    min-width: 14px;
+}
+
+.todo-text {
+    flex: 1;
+    font-size: 14px;
+    word-break: break-all;
+}
+
+.todo-item.done .todo-text {
+    text-decoration: line-through;
+    opacity: 0.45;
+}
+
+.todo-delete-btn {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    transition: color 0.2s ease;
+}
+
+.todo-delete-btn:hover {
+    color: #ff6b6b;
+}
+
+.todo-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.link-btn {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.link-btn:hover {
+    opacity: 0.8;
+}
+
+/* ---------- 备忘录 ---------- */
+.notes-textarea {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1.6;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.notes-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.notes-textarea:focus {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.notes-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    opacity: 0.7;
+    text-align: right;
+}
+
+/* ---------- 番茄钟 ---------- */
+.pomodoro-display {
+    font-size: 72px;
+    font-weight: 200;
+    text-align: center;
+    letter-spacing: 3px;
+    font-variant-numeric: tabular-nums;
+    margin: 18px 0 4px;
+}
+
+.pomodoro-state {
+    text-align: center;
+    font-size: 14px;
+    opacity: 0.8;
+    margin-bottom: 18px;
+}
+
+.pomodoro-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* ---------- 设置面板：新控件（滑杆 / 自定义引擎） ---------- */
+.setting-item input[type='range'] {
+    width: 100%;
+    margin: 6px 0 12px;
+    accent-color: #4ec2c6;
+    cursor: pointer;
+}
+
+.setting-item label span {
+    float: right;
+    font-weight: 400;
+    opacity: 0.75;
+    font-size: 12px;
+}
+
+.custom-engine-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.custom-engine-row input {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 13px;
+    outline: none;
+}
+
+.custom-engine-row input:focus {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.custom-engine-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.custom-engine-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+}
+
+.custom-engine-list .engine-host {
+    opacity: 0.55;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-engine-list .engine-remove {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.custom-engine-list .engine-remove:hover {
+    color: #ff6b6b;
+}
+
+/* 壁纸调节目标层 */
+.wallpaper {
+    transition:
+        filter 0.3s ease,
+        opacity 0.3s ease;
+}

@@ -12,10 +12,15 @@ class NewTabApp {
         this.quickAccessManager = new QuickAccessManager();
         this.settingsManager = new SettingsManager();
         this.weatherManager = new WeatherManager();
+        this.todoManager = new TodoManager();
+        this.notesManager = new NotesManager();
+        this.pomodoroManager = new PomodoroManager();
 
         // UI 状态（纯渲染层）
         this.activeCategoryElement = null;
         this.lastActiveCategoryQuery = 'Nature';
+        this.todoImportantActive = false;
+        this.clockTimerId = null;
         this.searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
         this.clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
@@ -29,7 +34,12 @@ class NewTabApp {
             console.log('正在初始化新标签页应用...');
 
             // 初始化各个模块（settings.init 内含旧键迁移）
-            await Promise.all([this.settingsManager.init(), this.quickAccessManager.init()]);
+            await Promise.all([
+                this.settingsManager.init(),
+                this.quickAccessManager.init(),
+                this.todoManager.init(),
+                this.notesManager.init(),
+            ]);
 
             // 设置壁纸管理器的API密钥
             const apiKey = this.settingsManager.getPexelsApiKey();
@@ -39,6 +49,10 @@ class NewTabApp {
             // 设置搜索引擎
             const searchEngine = this.settingsManager.getSearchEngine();
             this.searchManager.setCurrentSearchEngine(searchEngine);
+
+            // 加载自定义搜索引擎并注入搜索管理器
+            await this.settingsManager.loadCustomEngines();
+            this.searchManager.setCustomEngines(this.settingsManager.getCustomEngines());
 
             // 加载搜索历史
             await this.searchManager.loadHistory();
@@ -68,8 +82,27 @@ class NewTabApp {
         // 渲染壁纸分类侧栏
         this.renderWallpaperCategories();
 
+        // 时钟 / 问候 / 标语
+        this.startClock();
+
+        // 壁纸亮度 / 模糊
+        this.applyWallpaperAdjustments();
+
         // 密钥可见性切换
         this.initVisibilityToggle();
+    }
+
+    // 应用壁纸亮度与模糊（filter 叠加在壁纸层，不影响前景可读性之外的元素）
+    applyWallpaperAdjustments() {
+        const container = document.getElementById(window.SELECTORS.wallpaperContainer);
+        if (!container) return;
+        const { brightness, blur } = this.settingsManager.getWallpaperAdjustments();
+        const filters = [];
+        if (brightness !== 1) filters.push(`brightness(${brightness})`);
+        if (blur > 0) filters.push(`blur(${blur}px)`);
+        container.style.filter = filters.join(' ');
+        // 模糊时轻微放大，避免边缘透明
+        container.style.transform = blur > 0 ? 'scale(1.04)' : '';
     }
 
     // ---------- 搜索域 ----------
@@ -1013,6 +1046,119 @@ class NewTabApp {
                 }
             });
         }
+
+        this.bindWallpaperAdjustmentEvents();
+        this.bindCustomEngineEvents();
+    }
+
+    // 壁纸亮度 / 模糊滑杆（实时应用 + 防抖持久化）
+    bindWallpaperAdjustmentEvents() {
+        const brightnessInput = document.getElementById(window.SELECTORS.wallpaperBrightnessInput);
+        const blurInput = document.getElementById(window.SELECTORS.wallpaperBlurInput);
+        const brightnessValue = document.getElementById(window.SELECTORS.brightnessValue);
+        const blurValue = document.getElementById(window.SELECTORS.blurValue);
+        if (!brightnessInput || !blurInput) return;
+
+        let timerId = null;
+        const persist = () => {
+            if (timerId) clearTimeout(timerId);
+            timerId = setTimeout(async () => {
+                await this.settingsManager.setWallpaperAdjustments(
+                    parseFloat(brightnessInput.value),
+                    parseInt(blurInput.value, 10)
+                );
+            }, 400);
+        };
+
+        const apply = () => {
+            const brightness = parseFloat(brightnessInput.value);
+            const blur = parseInt(blurInput.value, 10);
+            const container = document.getElementById(window.SELECTORS.wallpaperContainer);
+            if (container) {
+                const filters = [];
+                if (brightness !== 1) filters.push(`brightness(${brightness})`);
+                if (blur > 0) filters.push(`blur(${blur}px)`);
+                container.style.filter = filters.join(' ');
+                container.style.transform = blur > 0 ? 'scale(1.04)' : '';
+            }
+            if (brightnessValue) brightnessValue.textContent = `${Math.round(brightness * 100)}%`;
+            if (blurValue) blurValue.textContent = `${blur}px`;
+            persist();
+        };
+
+        brightnessInput.addEventListener('input', apply);
+        blurInput.addEventListener('input', apply);
+    }
+
+    // 自定义搜索引擎：添加 / 删除 / 列表渲染
+    bindCustomEngineEvents() {
+        const nameInput = document.getElementById(window.SELECTORS.customEngineNameInput);
+        const urlInput = document.getElementById(window.SELECTORS.customEngineUrlInput);
+        const addBtn = document.getElementById(window.SELECTORS.customEngineAddBtn);
+        if (!addBtn || !nameInput || !urlInput) return;
+
+        addBtn.addEventListener('click', async () => {
+            const result = await this.settingsManager.addCustomEngine(
+                nameInput.value,
+                urlInput.value
+            );
+            if (!result.ok) {
+                window.showToast(result.message, 'error');
+                return;
+            }
+            nameInput.value = '';
+            urlInput.value = '';
+            this.refreshCustomEngines();
+            window.showToast('自定义引擎已添加', 'success');
+        });
+    }
+
+    // 刷新自定义引擎列表与搜索下拉
+    refreshCustomEngines() {
+        const list = document.getElementById(window.SELECTORS.customEngineList);
+        const engines = this.settingsManager.getCustomEngines();
+
+        this.searchManager.setCustomEngines(engines);
+        this.renderSearchEngineDropdown();
+
+        if (!list) return;
+        list.innerHTML = '';
+        if (engines.length === 0) {
+            const empty = document.createElement('li');
+            empty.className = 'engine-host';
+            empty.textContent = '暂无自定义引擎';
+            list.appendChild(empty);
+            return;
+        }
+        engines.forEach(engine => {
+            const li = document.createElement('li');
+            const info = document.createElement('span');
+            info.textContent = engine.name;
+            const host = document.createElement('span');
+            host.className = 'engine-host';
+            try {
+                host.textContent = new URL(engine.url.replace('%s', '')).hostname;
+            } catch {
+                host.textContent = '';
+            }
+            const remove = document.createElement('button');
+            remove.className = 'engine-remove';
+            remove.textContent = '×';
+            remove.title = '删除';
+            remove.addEventListener('click', async () => {
+                await this.settingsManager.removeCustomEngine(engine.name);
+                this.refreshCustomEngines();
+                window.showToast(`已删除引擎「${engine.name}」`, 'success');
+            });
+
+            const left = document.createElement('span');
+            left.appendChild(info);
+            left.appendChild(document.createTextNode(' '));
+            left.appendChild(host);
+            li.appendChild(left);
+            li.appendChild(remove);
+            list.appendChild(li);
+        });
     }
 
     // 打开设置面板（回显当前配置）
@@ -1040,6 +1186,22 @@ class NewTabApp {
             console.warn('回显天气配置失败:', e);
         }
 
+        // 回显标语 / 壁纸调节 / 自定义引擎
+        const taglineInput = document.getElementById(window.SELECTORS.taglineInput);
+        if (taglineInput) taglineInput.value = this.settingsManager.getTagline();
+
+        const { brightness, blur } = this.settingsManager.getWallpaperAdjustments();
+        const brightnessInput = document.getElementById(window.SELECTORS.wallpaperBrightnessInput);
+        const blurInput = document.getElementById(window.SELECTORS.wallpaperBlurInput);
+        const brightnessValue = document.getElementById(window.SELECTORS.brightnessValue);
+        const blurValue = document.getElementById(window.SELECTORS.blurValue);
+        if (brightnessInput) brightnessInput.value = String(brightness);
+        if (blurInput) blurInput.value = String(blur);
+        if (brightnessValue) brightnessValue.textContent = `${Math.round(brightness * 100)}%`;
+        if (blurValue) blurValue.textContent = `${blur}px`;
+
+        this.refreshCustomEngines();
+
         settingsPanel.classList.remove('u-hidden');
     }
 
@@ -1054,10 +1216,12 @@ class NewTabApp {
         const apiKeyInput = document.getElementById(window.SELECTORS.pexelsApiKeyInput);
         const weatherCityInput = document.getElementById(window.SELECTORS.weatherCityInput);
         const weatherApiKeyInput = document.getElementById(window.SELECTORS.weatherApiKeyInput);
+        const taglineInput = document.getElementById(window.SELECTORS.taglineInput);
 
         const pexelsKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         const weatherCity = weatherCityInput ? weatherCityInput.value.trim() : '';
         const weatherApiKey = weatherApiKeyInput ? weatherApiKeyInput.value.trim() : '';
+        const tagline = taglineInput ? taglineInput.value.trim() : '';
 
         try {
             // Pexels Key 为可选项：填写即保存，清空即移除（回到 Bing 免密钥模式）
@@ -1066,6 +1230,14 @@ class NewTabApp {
                 weatherApiKey,
                 weatherCity,
             });
+
+            // 标语：即时生效于时钟下方
+            await this.settingsManager.setTagline(tagline);
+            const taglineEl = document.getElementById(window.SELECTORS.tagline);
+            if (taglineEl) {
+                taglineEl.textContent = tagline;
+                taglineEl.classList.toggle('u-hidden', !tagline);
+            }
 
             // 联动天气管理器
             if (weatherApiKey && this.weatherManager.setApiKey) {
@@ -1153,6 +1325,292 @@ class NewTabApp {
         }
     }
 
+    // ---------- 小组件域（时钟 / 待办 / 便签 / 番茄钟） ----------
+
+    // 启动时钟（每秒刷新；标签页隐藏时浏览器会自动节流，无需人工降频）
+    startClock() {
+        const render = () => this.renderClock();
+        render();
+        this.clockTimerId = setInterval(render, 1000);
+    }
+
+    // 渲染时钟 / 日期 / 问候 / 标语
+    renderClock() {
+        const timeEl = document.getElementById(window.SELECTORS.clockTime);
+        const dateEl = document.getElementById(window.SELECTORS.clockDate);
+        const greetEl = document.getElementById(window.SELECTORS.clockGreeting);
+        const taglineEl = document.getElementById(window.SELECTORS.tagline);
+        const now = new Date();
+
+        if (timeEl) {
+            timeEl.textContent = now.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            });
+        }
+        if (dateEl) {
+            dateEl.textContent = now.toLocaleDateString('zh-CN', {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long',
+            });
+        }
+        if (greetEl) {
+            const h = now.getHours();
+            let greeting = '晚上好';
+            if (h < 5) greeting = '夜深了';
+            else if (h < 9) greeting = '早上好';
+            else if (h < 12) greeting = '上午好';
+            else if (h < 14) greeting = '中午好';
+            else if (h < 18) greeting = '下午好';
+            greetEl.textContent = greeting;
+        }
+        if (taglineEl && !taglineEl.textContent) {
+            // 标语仅在设置里配置后显示（openSettingsPanel/saveSettings 同步）
+            const tagline = this.settingsManager.getTagline();
+            if (tagline) {
+                taglineEl.textContent = tagline;
+                taglineEl.classList.remove('u-hidden');
+            }
+        }
+    }
+
+    // 绑定小组件事件
+    bindWidgetEvents() {
+        this.bindTodoEvents();
+        this.bindNotesEvents();
+        this.bindPomodoroEvents();
+    }
+
+    // 待办事项
+    bindTodoEvents() {
+        const todoBtn = document.getElementById(window.SELECTORS.todoBtn);
+        const todoPanel = document.getElementById(window.SELECTORS.todoPanel);
+        const closeTodoBtn = document.getElementById(window.SELECTORS.closeTodoBtn);
+        const todoInput = document.getElementById(window.SELECTORS.todoInput);
+        const todoAddBtn = document.getElementById(window.SELECTORS.todoAddBtn);
+        const todoImportantBtn = document.getElementById(window.SELECTORS.todoImportantBtn);
+        const todoClearDoneBtn = document.getElementById(window.SELECTORS.todoClearDoneBtn);
+
+        if (todoBtn && todoPanel) {
+            todoBtn.addEventListener('click', () => {
+                todoPanel.classList.remove('u-hidden');
+                this.renderTodoList();
+                if (todoInput) todoInput.focus();
+            });
+        }
+        if (closeTodoBtn && todoPanel) {
+            closeTodoBtn.addEventListener('click', () => todoPanel.classList.add('u-hidden'));
+        }
+        if (todoPanel) {
+            // 点击遮罩关闭
+            todoPanel.addEventListener('click', e => {
+                if (e.target === todoPanel) todoPanel.classList.add('u-hidden');
+            });
+        }
+
+        // 重要标记切换
+        if (todoImportantBtn) {
+            todoImportantBtn.addEventListener('click', () => {
+                this.todoImportantActive = !this.todoImportantActive;
+                todoImportantBtn.classList.toggle('active', this.todoImportantActive);
+            });
+        }
+
+        // 添加（按钮 + 回车）
+        const add = async () => {
+            if (!todoInput) return;
+            const content = todoInput.value.trim();
+            if (!content) {
+                window.showToast('请输入待办内容', 'error');
+                return;
+            }
+            await this.todoManager.addTodo(content, this.todoImportantActive);
+            todoInput.value = '';
+            this.renderTodoList();
+        };
+        if (todoAddBtn) todoAddBtn.addEventListener('click', add);
+        if (todoInput) {
+            todoInput.addEventListener('keypress', e => {
+                if (e.key === 'Enter') add();
+            });
+        }
+
+        // 清除已完成
+        if (todoClearDoneBtn) {
+            todoClearDoneBtn.addEventListener('click', async () => {
+                const removed = await this.todoManager.clearDone();
+                if (removed > 0) window.showToast(`已清除 ${removed} 条已完成待办`, 'success');
+                this.renderTodoList();
+            });
+        }
+    }
+
+    // 渲染待办列表
+    renderTodoList() {
+        const todoList = document.getElementById(window.SELECTORS.todoList);
+        const todoCount = document.getElementById(window.SELECTORS.todoCount);
+        if (!todoList) return;
+
+        const todos = this.todoManager.getTodos();
+        todoList.innerHTML = '';
+        todos.forEach(todo => {
+            const li = document.createElement('li');
+            li.className = `todo-item${todo.done ? ' done' : ''}${todo.important ? ' important' : ''}`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = todo.done;
+            checkbox.addEventListener('change', async () => {
+                await this.todoManager.toggleTodo(todo.id);
+                this.renderTodoList();
+            });
+
+            const star = document.createElement('span');
+            star.className = 'todo-star';
+            star.textContent = todo.important ? '★' : '';
+            star.title = todo.important ? '重要' : '';
+
+            const text = document.createElement('span');
+            text.className = 'todo-text';
+            text.textContent = todo.content;
+
+            const del = document.createElement('button');
+            del.className = 'todo-delete-btn';
+            del.textContent = '×';
+            del.title = '删除';
+            del.addEventListener('click', async () => {
+                await this.todoManager.removeTodo(todo.id);
+                this.renderTodoList();
+            });
+
+            li.appendChild(checkbox);
+            li.appendChild(star);
+            li.appendChild(text);
+            li.appendChild(del);
+            todoList.appendChild(li);
+        });
+
+        if (todoCount) {
+            const active = this.todoManager.getActiveCount();
+            todoCount.textContent = todos.length === 0 ? '暂无待办' : `${active} 项待完成`;
+        }
+    }
+
+    // 备忘录
+    bindNotesEvents() {
+        const notesBtn = document.getElementById(window.SELECTORS.notesBtn);
+        const notesPanel = document.getElementById(window.SELECTORS.notesPanel);
+        const closeNotesBtn = document.getElementById(window.SELECTORS.closeNotesBtn);
+        const notesTextarea = document.getElementById(window.SELECTORS.notesTextarea);
+        const notesMeta = document.getElementById(window.SELECTORS.notesMeta);
+        if (!notesBtn || !notesPanel || !notesTextarea) return;
+
+        let saveTimerId = null;
+
+        const renderMeta = () => {
+            if (!notesMeta) return;
+            const len = notesTextarea.value.length;
+            const updatedAt = this.notesManager.getUpdatedAt();
+            const timeStr = updatedAt
+                ? new Date(updatedAt).toLocaleString('zh-CN', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                  })
+                : '';
+            notesMeta.textContent = `${len} 字${timeStr ? ` · 保存于 ${timeStr}` : ''}`;
+        };
+
+        notesBtn.addEventListener('click', () => {
+            notesPanel.classList.remove('u-hidden');
+            notesTextarea.value = this.notesManager.getContent();
+            renderMeta();
+            notesTextarea.focus();
+        });
+        if (closeNotesBtn) {
+            closeNotesBtn.addEventListener('click', () => notesPanel.classList.add('u-hidden'));
+        }
+        notesPanel.addEventListener('click', e => {
+            if (e.target === notesPanel) notesPanel.classList.add('u-hidden');
+        });
+
+        // 输入防抖自动保存（500ms）
+        notesTextarea.addEventListener('input', () => {
+            renderMeta();
+            if (saveTimerId) clearTimeout(saveTimerId);
+            saveTimerId = setTimeout(async () => {
+                await this.notesManager.save(notesTextarea.value);
+                renderMeta();
+            }, 500);
+        });
+    }
+
+    // 番茄钟
+    bindPomodoroEvents() {
+        const pomodoroBtn = document.getElementById(window.SELECTORS.pomodoroBtn);
+        const pomodoroPanel = document.getElementById(window.SELECTORS.pomodoroPanel);
+        const closePomodoroBtn = document.getElementById(window.SELECTORS.closePomodoroBtn);
+        const display = document.getElementById(window.SELECTORS.pomodoroDisplay);
+        const stateEl = document.getElementById(window.SELECTORS.pomodoroState);
+        const startBtn = document.getElementById(window.SELECTORS.pomodoroStartBtn);
+        const resetBtn = document.getElementById(window.SELECTORS.pomodoroResetBtn);
+        if (!pomodoroBtn || !pomodoroPanel || !display || !stateEl || !startBtn || !resetBtn) {
+            return;
+        }
+
+        const pm = this.pomodoroManager;
+        const render = () => {
+            display.textContent = pm.format(pm.remainingSeconds);
+            stateEl.textContent = pm.getStateLabel();
+            startBtn.textContent = pm.isRunning()
+                ? '暂停'
+                : pm.state === 'paused'
+                  ? '继续'
+                  : '开始';
+        };
+
+        // 阶段完成提示
+        pm.onPhaseComplete = nextPhase => {
+            window.showToast(
+                nextPhase === 'break' ? '🍅 专注完成！休息 5 分钟' : '⏰ 休息结束，开始新一轮专注',
+                'success',
+                4000
+            );
+        };
+        pm.onTick = render;
+
+        pomodoroBtn.addEventListener('click', () => {
+            pomodoroPanel.classList.remove('u-hidden');
+            render();
+        });
+        if (closePomodoroBtn) {
+            closePomodoroBtn.addEventListener('click', () =>
+                pomodoroPanel.classList.add('u-hidden')
+            );
+        }
+        pomodoroPanel.addEventListener('click', e => {
+            if (e.target === pomodoroPanel) pomodoroPanel.classList.add('u-hidden');
+        });
+
+        // 开始/暂停/继续（单按钮状态机）
+        startBtn.addEventListener('click', () => {
+            if (pm.isRunning()) {
+                pm.pause();
+            } else {
+                pm.start();
+            }
+            render();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            pm.reset();
+            render();
+        });
+    }
+
     // ---------- 总入口 ----------
 
     // 绑定事件
@@ -1171,6 +1629,9 @@ class NewTabApp {
 
         // 天气事件
         this.bindWeatherEvents();
+
+        // 小组件事件
+        this.bindWidgetEvents();
     }
 
     // 渲染快捷访问
