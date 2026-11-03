@@ -70,6 +70,48 @@ export const SELECTORS = {
     deleteConfirmText: 'delete-confirm-text',
     deleteConfirmDelete: 'delete-confirm-delete',
     deleteConfirmCancel: 'delete-confirm-cancel',
+
+    // 时钟 / 问候 / 标语
+    clockTime: 'clock-time',
+    clockDate: 'clock-date',
+    clockGreeting: 'clock-greeting',
+    tagline: 'tagline',
+
+    // 工具栏：待办 / 便签 / 番茄钟
+    todoBtn: 'todo-btn',
+    todoPanel: 'todo-panel',
+    closeTodoBtn: 'close-todo-btn',
+    todoInput: 'todo-input',
+    todoAddBtn: 'todo-add-btn',
+    todoImportantBtn: 'todo-important-btn',
+    todoList: 'todo-list',
+    todoCount: 'todo-count',
+    todoClearDoneBtn: 'todo-clear-done-btn',
+
+    notesBtn: 'notes-btn',
+    notesPanel: 'notes-panel',
+    closeNotesBtn: 'close-notes-btn',
+    notesTextarea: 'notes-textarea',
+    notesMeta: 'notes-meta',
+
+    pomodoroBtn: 'pomodoro-btn',
+    pomodoroPanel: 'pomodoro-panel',
+    closePomodoroBtn: 'close-pomodoro-btn',
+    pomodoroDisplay: 'pomodoro-display',
+    pomodoroState: 'pomodoro-state',
+    pomodoroStartBtn: 'pomodoro-start-btn',
+    pomodoroResetBtn: 'pomodoro-reset-btn',
+
+    // 设置面板：自定义搜索引擎 / 壁纸调节 / 标语
+    customEngineNameInput: 'custom-engine-name-input',
+    customEngineUrlInput: 'custom-engine-url-input',
+    customEngineAddBtn: 'custom-engine-add-btn',
+    customEngineList: 'custom-engine-list',
+    wallpaperBrightnessInput: 'wallpaper-brightness-input',
+    wallpaperBlurInput: 'wallpaper-blur-input',
+    brightnessValue: 'brightness-value',
+    blurValue: 'blur-value',
+    taglineInput: 'tagline-input',
 };
 
 // 供非模块脚本访问

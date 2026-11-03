@@ -56,6 +56,58 @@
         </div>
 
         <div class="top-right-controls">
+            <button id="todo-btn" class="control-btn" title="待办事项">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            </button>
+            <button id="notes-btn" class="control-btn" title="备忘录">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+            </button>
+            <button id="pomodoro-btn" class="control-btn" title="番茄专注钟">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <circle cx="12" cy="13" r="8"></circle>
+                    <path d="M12 9v4l2 2"></path>
+                    <path d="M9 2h6"></path>
+                    <path d="M12 2v3"></path>
+                </svg>
+            </button>
             <button id="wallpaper-settings-btn" class="control-btn" title="壁纸设置">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -92,6 +144,14 @@
                     ></path>
                 </svg>
             </button>
+        </div>
+
+        <!-- 时钟 / 问候 / 标语 -->
+        <div class="clock-container" id="clock-container">
+            <div class="clock-time" id="clock-time">--:--</div>
+            <div class="clock-date" id="clock-date"></div>
+            <div class="clock-greeting" id="clock-greeting"></div>
+            <div class="tagline u-hidden" id="tagline"></div>
         </div>
 
         <main class="main-container">
@@ -170,6 +230,73 @@
             </button>
         </div>
 
+        <!-- 待办事项面板 -->
+        <div id="todo-panel" class="widget-panel u-hidden">
+            <div class="widget-content">
+                <div class="widget-header">
+                    <h2>待办事项</h2>
+                    <button id="close-todo-btn" class="control-btn widget-close-btn" title="关闭">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="todo-input-row">
+                    <button id="todo-important-btn" class="todo-important-btn" title="重要标记">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                    </button>
+                    <input type="text" id="todo-input" placeholder="添加一个待办…" maxlength="100" />
+                    <button id="todo-add-btn" class="settings-btn">添加</button>
+                </div>
+                <ul id="todo-list" class="todo-list"></ul>
+                <div class="todo-footer">
+                    <span id="todo-count"></span>
+                    <button id="todo-clear-done-btn" class="link-btn">清除已完成</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 备忘录面板 -->
+        <div id="notes-panel" class="widget-panel u-hidden">
+            <div class="widget-content">
+                <div class="widget-header">
+                    <h2>备忘录</h2>
+                    <button id="close-notes-btn" class="control-btn widget-close-btn" title="关闭">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <textarea id="notes-textarea" class="notes-textarea" placeholder="随手记点什么…（自动保存）"></textarea>
+                <div class="notes-meta" id="notes-meta"></div>
+            </div>
+        </div>
+
+        <!-- 番茄钟面板 -->
+        <div id="pomodoro-panel" class="widget-panel u-hidden">
+            <div class="widget-content">
+                <div class="widget-header">
+                    <h2>番茄专注钟</h2>
+                    <button id="close-pomodoro-btn" class="control-btn widget-close-btn" title="关闭">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="pomodoro-display" id="pomodoro-display">25:00</div>
+                <div class="pomodoro-state" id="pomodoro-state">专注</div>
+                <div class="pomodoro-actions">
+                    <button id="pomodoro-start-btn" class="settings-btn">开始</button>
+                    <button id="pomodoro-reset-btn" class="settings-btn secondary">重置</button>
+                </div>
+            </div>
+        </div>
+
         <script src="js/components/sortable.min.js"></script>
         <script src="js/components/advanced-pagination.js"></script>
         <script src="js/constants/selectors.js" type="module"></script>
@@ -183,6 +310,9 @@
         <!-- 功能模块 -->
         <script src="js/modules/wallpaper-manager.js"></script>
         <script src="js/modules/search-manager.js"></script>
+        <script src="js/modules/todo-manager.js"></script>
+        <script src="js/modules/notes-manager.js"></script>
+        <script src="js/modules/pomodoro-manager.js"></script>
         <script src="js/modules/quick-access-manager.js"></script>
         <script src="js/modules/settings-manager.js"></script>
         <script src="js/modules/weather-manager.js"></script>
@@ -316,6 +446,69 @@
                     </div>
                     <p class="api-key-description">留空将自动使用您的位置，或手动输入城市名称。</p>
                 </div>
+
+                <div class="setting-item">
+                    <label for="tagline-input">首页标语</label>
+                    <div class="input-with-icon">
+                        <input
+                            type="text"
+                            id="tagline-input"
+                            maxlength="40"
+                            placeholder="例如：今天也要好好写代码"
+                        />
+                    </div>
+                    <p class="api-key-description">显示在时钟下方，留空则隐藏。</p>
+                </div>
+
+                <div class="setting-item">
+                    <label for="wallpaper-brightness-input">
+                        壁纸亮度 <span id="brightness-value">100%</span>
+                    </label>
+                    <input
+                        type="range"
+                        id="wallpaper-brightness-input"
+                        min="0.3"
+                        max="1"
+                        step="0.01"
+                        value="1"
+                    />
+                    <label for="wallpaper-blur-input">
+                        壁纸模糊 <span id="blur-value">0px</span>
+                    </label>
+                    <input
+                        type="range"
+                        id="wallpaper-blur-input"
+                        min="0"
+                        max="20"
+                        step="1"
+                        value="0"
+                    />
+                    <p class="api-key-description">
+                        调整壁纸观感，文字更易读。修改后立即生效并自动保存。
+                    </p>
+                </div>
+
+                <div class="setting-item">
+                    <label>自定义搜索引擎</label>
+                    <div class="custom-engine-row">
+                        <input
+                            type="text"
+                            id="custom-engine-name-input"
+                            placeholder="名称，如 知乎"
+                        />
+                        <input
+                            type="text"
+                            id="custom-engine-url-input"
+                            placeholder="https://www.zhihu.com/search?type=content&q=%s"
+                        />
+                        <button id="custom-engine-add-btn" class="settings-btn">添加</button>
+                    </div>
+                    <ul id="custom-engine-list" class="custom-engine-list"></ul>
+                    <p class="api-key-description">
+                        搜索链接中用 %s 代表关键词占位符，添加后可在搜索框下拉中选择。
+                    </p>
+                </div>
+
                 <div class="settings-actions">
                     <button id="save-settings-btn" class="settings-btn">保存</button>
                     <button id="close-settings-btn" class="settings-btn secondary">关闭</button>
