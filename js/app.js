@@ -39,6 +39,7 @@ class NewTabApp {
                 this.quickAccessManager.init(),
                 this.todoManager.init(),
                 this.notesManager.init(),
+                this.pomodoroManager.init(),
             ]);
 
             // 设置壁纸管理器的API密钥
@@ -70,7 +71,7 @@ class NewTabApp {
 
     // 初始化UI
     initUI() {
-        // 加载壁纸（缓存优先 / Bing 免 Key / Pexels 随机，全链路在 manager 内）
+        // 加载壁纸（缓存优先 → Picsum/Pexels 随机，全链路在 manager 内）
         this.wallpaperManager.fetchAndSetWallpaper();
 
         // 渲染快捷访问
@@ -85,11 +86,31 @@ class NewTabApp {
         // 时钟 / 问候 / 标语
         this.startClock();
 
+        // 主页右侧常驻小组件（可开关）
+        this.initSideWidgets();
+
         // 壁纸亮度 / 模糊
         this.applyWallpaperAdjustments();
 
         // 密钥可见性切换
         this.initVisibilityToggle();
+    }
+
+    // 主页右侧常驻小组件：可见性 + 首次渲染
+    initSideWidgets() {
+        this.applySideWidgetsVisibility();
+        this.renderTodoCard();
+        this.renderNotesCard();
+        this.renderPomodoroCard();
+    }
+
+    // 依据设置显隐主页小组件（左右两翼）
+    applySideWidgetsVisibility() {
+        const hidden = this.settingsManager.settings.showSideWidgets === false;
+        [window.SELECTORS.sideWidgets, window.SELECTORS.sideWidgetsRight].forEach(id => {
+            const aside = document.getElementById(id);
+            if (aside) aside.classList.toggle('u-hidden', hidden);
+        });
     }
 
     // 应用壁纸亮度与模糊（filter 叠加在壁纸层，不影响前景可读性之外的元素）
@@ -375,14 +396,10 @@ class NewTabApp {
             window.SELECTORS.closeWallpaperPanelBtn
         );
 
-        // "换一张"：有 Key 走 Pexels 随机；无 Key 走 Bing 随机（免密钥）
+        // "换一张"：manager 内部自动选源（有 Key 走 Pexels 随机；无 Key 走 Picsum 随机，免密钥）
         if (changeWallpaperBtn) {
             changeWallpaperBtn.addEventListener('click', async () => {
-                if (this.wallpaperManager.pexelsApiKey) {
-                    await this.wallpaperManager.fetchRandomWallpaper(true);
-                } else {
-                    await this.wallpaperManager.fetchBingWallpaper(true);
-                }
+                await this.wallpaperManager.fetchRandomWallpaper(true);
             });
         }
 
@@ -462,18 +479,7 @@ class NewTabApp {
     async searchWallpapers(query, page, { skipCategoryHighlight = false } = {}) {
         const wm = this.wallpaperManager;
 
-        if (!wm.pexelsApiKey) {
-            // 未配置 Pexels Key：显示引导信息（Pexels 搜索为可选增强功能，壁纸仍由 Bing 提供）
-            this.openWallpaperPanel();
-            const wallpaperLoading = document.getElementById(window.SELECTORS.wallpaperLoading);
-            if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
-            const wallpaperGrid = document.getElementById(window.SELECTORS.wallpaperGrid);
-            if (wallpaperGrid) {
-                wallpaperGrid.innerHTML =
-                    '<div class="wallpaper-empty-hint">壁纸搜索需要 Pexels API 密钥（可选功能）。<br>当前新标签页已默认使用 Bing 每日壁纸，无需任何密钥。<br>如需解锁搜索与分类功能，请在设置中填写免费的 Pexels API 密钥。</div>';
-            }
-            return;
-        }
+        // 无 Pexels Key 时 manager 自动切换 Picsum 免 Key 图库，UI 流程完全一致
 
         // 更新UI中的高亮分类
         if (!skipCategoryHighlight) {
@@ -506,8 +512,10 @@ class NewTabApp {
 
         if (result.photos === null) {
             if (wallpaperGrid) {
-                wallpaperGrid.innerHTML = '加载失败，请检查API密钥或网络。';
+                wallpaperGrid.innerHTML =
+                    '<div class="wallpaper-empty-hint">图库加载失败，请检查网络连接后重试。<br>若使用代理，请确认代理节点可用。</div>';
             }
+            window.showToast(result.error || '壁纸加载失败，请检查网络', 'error', 4000);
             return;
         }
 
@@ -670,7 +678,8 @@ class NewTabApp {
         const toggleVisibilityBtn = document.getElementById(window.SELECTORS.pexelsToggleBtn);
         const weatherApiKeyInput = document.getElementById(window.SELECTORS.weatherApiKeyInput);
 
-        import('./js/components/visibility-toggle.js')
+        // 相对路径以 app.js 自身目录（js/）为基准解析
+        import('./components/visibility-toggle.js')
             .then(({ initVisibilityToggle }) => {
                 initVisibilityToggle(apiKeyInput, toggleVisibilityBtn, {});
                 const toggleWeatherBtn = document.getElementById(window.SELECTORS.weatherToggleBtn);
@@ -678,8 +687,12 @@ class NewTabApp {
                     initVisibilityToggle(weatherApiKeyInput, toggleWeatherBtn, {});
                 }
             })
-            .catch(() => {
-                // 回退：不影响其他功能
+            .catch(error => {
+                // 回退：不影响其他功能，但留痕便于排查
+                console.warn(
+                    '[app] visibility-toggle 加载失败（密钥可见性切换不可用）:',
+                    error?.message || error
+                );
             });
     }
 
@@ -1200,6 +1213,12 @@ class NewTabApp {
         if (brightnessValue) brightnessValue.textContent = `${Math.round(brightness * 100)}%`;
         if (blurValue) blurValue.textContent = `${blur}px`;
 
+        // 回显壁纸图源
+        const sourceValue = this.settingsManager.getWallpaperSource();
+        document
+            .querySelectorAll('input[name="wallpaper-source"]')
+            .forEach(radio => (radio.checked = radio.value === sourceValue));
+
         this.refreshCustomEngines();
 
         settingsPanel.classList.remove('u-hidden');
@@ -1222,14 +1241,20 @@ class NewTabApp {
         const weatherCity = weatherCityInput ? weatherCityInput.value.trim() : '';
         const weatherApiKey = weatherApiKeyInput ? weatherApiKeyInput.value.trim() : '';
         const tagline = taglineInput ? taglineInput.value.trim() : '';
+        const checkedSource = document.querySelector('input[name="wallpaper-source"]:checked');
+        const wallpaperSource = checkedSource ? checkedSource.value : 'picsum';
 
         try {
-            // Pexels Key 为可选项：填写即保存，清空即移除（回到 Bing 免密钥模式）
+            // Pexels Key 为可选项：填写即保存，清空即移除（回到免密钥图源）
             await this.settingsManager.saveFromPanel({
                 pexelsApiKey: pexelsKey,
                 weatherApiKey,
                 weatherCity,
+                wallpaperSource,
             });
+
+            // 图源切换即时同步到壁纸管理器
+            this.wallpaperManager.wallpaperSource = wallpaperSource;
 
             // 标语：即时生效于时钟下方
             await this.settingsManager.setTagline(tagline);
@@ -1381,6 +1406,7 @@ class NewTabApp {
         this.bindTodoEvents();
         this.bindNotesEvents();
         this.bindPomodoroEvents();
+        this.bindSideWidgets();
     }
 
     // 待办事项
@@ -1392,6 +1418,12 @@ class NewTabApp {
         const todoAddBtn = document.getElementById(window.SELECTORS.todoAddBtn);
         const todoImportantBtn = document.getElementById(window.SELECTORS.todoImportantBtn);
         const todoClearDoneBtn = document.getElementById(window.SELECTORS.todoClearDoneBtn);
+        const todoFilterBar = document.getElementById(window.SELECTORS.todoFilterBar);
+        const todoCategorySelect = document.getElementById(window.SELECTORS.todoCategorySelect);
+        const todoDueDateInput = document.getElementById(window.SELECTORS.todoDueDateInput);
+        const todoList = document.getElementById(window.SELECTORS.todoList);
+
+        this.todoFilter = 'all';
 
         if (todoBtn && todoPanel) {
             todoBtn.addEventListener('click', () => {
@@ -1407,6 +1439,19 @@ class NewTabApp {
             // 点击遮罩关闭
             todoPanel.addEventListener('click', e => {
                 if (e.target === todoPanel) todoPanel.classList.add('u-hidden');
+            });
+        }
+
+        // 分类过滤 tab（事件委托）
+        if (todoFilterBar) {
+            todoFilterBar.addEventListener('click', e => {
+                const tab = e.target.closest('.todo-filter-tab');
+                if (!tab) return;
+                this.todoFilter = tab.dataset.filter || 'all';
+                todoFilterBar
+                    .querySelectorAll('.todo-filter-tab')
+                    .forEach(t => t.classList.toggle('active', t === tab));
+                this.renderTodoList();
             });
         }
 
@@ -1426,8 +1471,16 @@ class NewTabApp {
                 window.showToast('请输入待办内容', 'error');
                 return;
             }
-            await this.todoManager.addTodo(content, this.todoImportantActive);
+            const category = todoCategorySelect ? todoCategorySelect.value : 'normal';
+            const dueDate =
+                todoDueDateInput && todoDueDateInput.value ? todoDueDateInput.value : null;
+            await this.todoManager.addTodo(content, {
+                important: this.todoImportantActive,
+                category,
+                dueDate,
+            });
             todoInput.value = '';
+            if (todoDueDateInput) todoDueDateInput.value = '';
             this.renderTodoList();
         };
         if (todoAddBtn) todoAddBtn.addEventListener('click', add);
@@ -1445,19 +1498,35 @@ class NewTabApp {
                 this.renderTodoList();
             });
         }
+
+        // 拖拽排序（SortableJS，仅初始化一次）
+        if (todoList && typeof Sortable !== 'undefined' && !this.todoSortable) {
+            this.todoSortable = Sortable.create(todoList, {
+                animation: 150,
+                onEnd: async () => {
+                    const ids = [...todoList.children]
+                        .map(li => li.dataset && li.dataset.id)
+                        .filter(Boolean);
+                    if (ids.length) {
+                        await this.todoManager.updateOrder(ids);
+                        window.showToast('排序已保存', 'success', 1200);
+                    }
+                },
+            });
+        }
     }
 
-    // 渲染待办列表
-    renderTodoList() {
-        const todoList = document.getElementById(window.SELECTORS.todoList);
-        const todoCount = document.getElementById(window.SELECTORS.todoCount);
-        if (!todoList) return;
-
-        const todos = this.todoManager.getTodos();
-        todoList.innerHTML = '';
+    // 渲染待办条目到指定容器（面板与主页卡片共用）
+    renderTodoInto(listEl, todos) {
+        if (!listEl) return;
+        listEl.innerHTML = '';
         todos.forEach(todo => {
             const li = document.createElement('li');
-            li.className = `todo-item${todo.done ? ' done' : ''}${todo.important ? ' important' : ''}`;
+            li.className = `todo-item cat-${todo.category || 'normal'}${todo.done ? ' done' : ''}${
+                todo.important ? ' important' : ''
+            }`;
+            li.dataset.id = todo.id;
+            if (window.TodoManager.isOverdue(todo)) li.classList.add('overdue');
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -1476,6 +1545,20 @@ class NewTabApp {
             text.className = 'todo-text';
             text.textContent = todo.content;
 
+            const catIcon = { work: '💼', life: '🏠', normal: '📝' }[todo.category] || '📝';
+            const badge = document.createElement('span');
+            badge.className = 'todo-cat-badge';
+            badge.textContent = catIcon;
+            badge.title = { work: '工作', life: '生活', normal: '普通' }[todo.category] || '普通';
+
+            const due = document.createElement('span');
+            due.className = 'todo-due';
+            if (todo.dueDate) {
+                due.textContent = window.TodoManager.isOverdue(todo)
+                    ? `⚠️ ${todo.dueDate} 已逾期`
+                    : `📅 ${todo.dueDate}`;
+            }
+
             const del = document.createElement('button');
             del.className = 'todo-delete-btn';
             del.textContent = '×';
@@ -1487,48 +1570,64 @@ class NewTabApp {
 
             li.appendChild(checkbox);
             li.appendChild(star);
+            li.appendChild(badge);
             li.appendChild(text);
+            li.appendChild(due);
             li.appendChild(del);
-            todoList.appendChild(li);
+            listEl.appendChild(li);
         });
+    }
+
+    // 渲染面板待办列表（含过滤与统计条）
+    renderTodoList() {
+        const todoList = document.getElementById(window.SELECTORS.todoList);
+        const todoCount = document.getElementById(window.SELECTORS.todoCount);
+        if (!todoList) return;
+
+        const filter = this.todoFilter || 'all';
+        const todos = this.todoManager
+            .getTodos()
+            .filter(t => filter === 'all' || t.category === filter);
+        this.renderTodoInto(todoList, todos);
 
         if (todoCount) {
-            const active = this.todoManager.getActiveCount();
-            todoCount.textContent = todos.length === 0 ? '暂无待办' : `${active} 项待完成`;
+            const stats = this.todoManager.getStats();
+            const parts = [`${stats.active} 项待完成`, `今日完成 ${stats.doneToday}`];
+            if (stats.overdue > 0) parts.push(`⚠️ ${stats.overdue} 项已逾期`);
+            todoCount.textContent = parts.join(' · ');
+        }
+
+        // 同步主页卡片
+        this.renderTodoCard();
+    }
+
+    // 主页右侧待办卡片
+    renderTodoCard() {
+        const listEl = document.getElementById(window.SELECTORS.todoCardList);
+        const badge = document.getElementById(window.SELECTORS.todoCardBadge);
+        if (!listEl) return;
+        this.renderTodoInto(listEl, this.todoManager.getTodos());
+        if (badge) {
+            badge.textContent = String(this.todoManager.getStats().active);
         }
     }
 
-    // 备忘录
+    // 备忘录（多便签）
     bindNotesEvents() {
         const notesBtn = document.getElementById(window.SELECTORS.notesBtn);
         const notesPanel = document.getElementById(window.SELECTORS.notesPanel);
         const closeNotesBtn = document.getElementById(window.SELECTORS.closeNotesBtn);
-        const notesTextarea = document.getElementById(window.SELECTORS.notesTextarea);
-        const notesMeta = document.getElementById(window.SELECTORS.notesMeta);
-        if (!notesBtn || !notesPanel || !notesTextarea) return;
+        const notesSearchInput = document.getElementById(window.SELECTORS.notesSearchInput);
+        const notesAddBtn = document.getElementById(window.SELECTORS.notesAddBtn);
+        const notesList = document.getElementById(window.SELECTORS.notesList);
+        if (!notesBtn || !notesPanel || !notesList) return;
 
-        let saveTimerId = null;
-
-        const renderMeta = () => {
-            if (!notesMeta) return;
-            const len = notesTextarea.value.length;
-            const updatedAt = this.notesManager.getUpdatedAt();
-            const timeStr = updatedAt
-                ? new Date(updatedAt).toLocaleString('zh-CN', {
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                  })
-                : '';
-            notesMeta.textContent = `${len} 字${timeStr ? ` · 保存于 ${timeStr}` : ''}`;
-        };
+        this.notesKeyword = '';
+        this.noteSaveTimers = new Map(); // noteId -> timerId（面板与卡片共享）
 
         notesBtn.addEventListener('click', () => {
             notesPanel.classList.remove('u-hidden');
-            notesTextarea.value = this.notesManager.getContent();
-            renderMeta();
-            notesTextarea.focus();
+            this.renderNotesList();
         });
         if (closeNotesBtn) {
             closeNotesBtn.addEventListener('click', () => notesPanel.classList.add('u-hidden'));
@@ -1537,15 +1636,132 @@ class NewTabApp {
             if (e.target === notesPanel) notesPanel.classList.add('u-hidden');
         });
 
-        // 输入防抖自动保存（500ms）
-        notesTextarea.addEventListener('input', () => {
-            renderMeta();
-            if (saveTimerId) clearTimeout(saveTimerId);
-            saveTimerId = setTimeout(async () => {
-                await this.notesManager.save(notesTextarea.value);
-                renderMeta();
-            }, 500);
+        // 搜索（实时过滤）
+        if (notesSearchInput) {
+            notesSearchInput.addEventListener('input', () => {
+                this.notesKeyword = notesSearchInput.value;
+                this.renderNotesList();
+            });
+        }
+
+        // 新建便签
+        if (notesAddBtn) {
+            notesAddBtn.addEventListener('click', async () => {
+                const note = await this.notesManager.addNote('');
+                this.renderNotesList();
+                const card = notesList.querySelector(`li[data-id="${note.id}"] textarea`);
+                if (card) card.focus();
+            });
+        }
+    }
+
+    // 渲染便签条目到指定容器（面板与主页卡片共用）
+    renderNotesInto(listEl, notes, { emptyText = '还没有便签，点「＋ 新便签」开始记录' } = {}) {
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (notes.length === 0) {
+            const empty = document.createElement('li');
+            empty.className = 'notes-empty';
+            empty.textContent = emptyText;
+            listEl.appendChild(empty);
+            return;
+        }
+        notes.forEach(note => {
+            const li = document.createElement('li');
+            li.className = `note-card${note.pinned ? ' pinned' : ''}`;
+            li.dataset.id = note.id;
+
+            const toolbar = document.createElement('div');
+            toolbar.className = 'note-toolbar';
+
+            const pin = document.createElement('button');
+            pin.className = `note-pin-btn${note.pinned ? ' active' : ''}`;
+            pin.textContent = '📌';
+            pin.title = note.pinned ? '取消置顶' : '置顶';
+            pin.addEventListener('click', async () => {
+                await this.notesManager.togglePin(note.id);
+                this.renderNotesList();
+            });
+
+            const del = document.createElement('button');
+            del.className = 'note-delete-btn';
+            del.textContent = '🗑';
+            del.title = '删除便签';
+            del.addEventListener('click', async () => {
+                await this.notesManager.removeNote(note.id);
+                window.showToast('便签已删除', 'success', 1500);
+                this.renderNotesList();
+            });
+
+            toolbar.appendChild(pin);
+            toolbar.appendChild(del);
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'note-content';
+            textarea.placeholder = '随手记点什么…（自动保存）';
+            textarea.value = note.content || '';
+            textarea.addEventListener('input', () => {
+                if (this.noteSaveTimers.has(note.id)) {
+                    clearTimeout(this.noteSaveTimers.get(note.id));
+                }
+                this.noteSaveTimers.set(
+                    note.id,
+                    setTimeout(async () => {
+                        await this.notesManager.updateNote(note.id, textarea.value);
+                        this.noteSaveTimers.delete(note.id);
+                        this.renderNotesCard();
+                    }, 500)
+                );
+            });
+
+            const meta = document.createElement('div');
+            meta.className = 'note-meta';
+            meta.textContent = note.updatedAt
+                ? new Date(note.updatedAt).toLocaleString('zh-CN', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                  })
+                : '新便签';
+
+            li.appendChild(toolbar);
+            li.appendChild(textarea);
+            li.appendChild(meta);
+            listEl.appendChild(li);
         });
+    }
+
+    // 渲染面板便签列表（含搜索与统计）
+    renderNotesList() {
+        const notesList = document.getElementById(window.SELECTORS.notesList);
+        const notesMeta = document.getElementById(window.SELECTORS.notesMeta);
+        const notes = this.notesManager.searchNotes(this.notesKeyword);
+        this.renderNotesInto(notesList, notes, {
+            emptyText: this.notesKeyword ? '没有匹配的便签' : '还没有便签，点「＋ 新便签」开始记录',
+        });
+        if (notesMeta) {
+            const total = this.notesManager.getNotes().length;
+            const chars = this.notesManager
+                .getNotes()
+                .reduce((sum, n) => sum + (n.content || '').length, 0);
+            notesMeta.textContent = `共 ${total} 条便签 · ${chars} 字（自动保存）`;
+        }
+        // 同步主页卡片
+        this.renderNotesCard();
+    }
+
+    // 主页右侧便签卡片
+    renderNotesCard() {
+        const listEl = document.getElementById(window.SELECTORS.notesCardList);
+        const badge = document.getElementById(window.SELECTORS.notesCardBadge);
+        if (!listEl) return;
+        this.renderNotesInto(listEl, this.notesManager.getNotes(), {
+            emptyText: '还没有便签',
+        });
+        if (badge) {
+            badge.textContent = String(this.notesManager.getNotes().length);
+        }
     }
 
     // 番茄钟
@@ -1553,33 +1769,111 @@ class NewTabApp {
         const pomodoroBtn = document.getElementById(window.SELECTORS.pomodoroBtn);
         const pomodoroPanel = document.getElementById(window.SELECTORS.pomodoroPanel);
         const closePomodoroBtn = document.getElementById(window.SELECTORS.closePomodoroBtn);
+        const ringBar = document.getElementById(window.SELECTORS.pomodoroRingProgress);
         const display = document.getElementById(window.SELECTORS.pomodoroDisplay);
         const stateEl = document.getElementById(window.SELECTORS.pomodoroState);
+        const todayCountEl = document.getElementById(window.SELECTORS.pomodoroTodayCount);
+        const roundsEl = document.getElementById(window.SELECTORS.pomodoroRounds);
         const startBtn = document.getElementById(window.SELECTORS.pomodoroStartBtn);
+        const skipBtn = document.getElementById(window.SELECTORS.pomodoroSkipBtn);
         const resetBtn = document.getElementById(window.SELECTORS.pomodoroResetBtn);
+        const settingsToggle = document.getElementById(window.SELECTORS.pomodoroSettingsToggle);
+        const settingsBox = document.getElementById(window.SELECTORS.pomodoroSettingsBox);
+        const workInput = document.getElementById(window.SELECTORS.pomodoroWorkInput);
+        const breakInput = document.getElementById(window.SELECTORS.pomodoroBreakInput);
+        const longBreakInput = document.getElementById(window.SELECTORS.pomodoroLongBreakInput);
+        const roundsInput = document.getElementById(window.SELECTORS.pomodoroRoundsInput);
         if (!pomodoroBtn || !pomodoroPanel || !display || !stateEl || !startBtn || !resetBtn) {
             return;
         }
 
         const pm = this.pomodoroManager;
+        const RING_RADIUS = 88;
+        const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+        const DEFAULT_TITLE = document.title;
+        if (ringBar) {
+            ringBar.style.strokeDasharray = String(RING_CIRCUMFERENCE);
+            ringBar.style.strokeDashoffset = '0';
+        }
+
+        // Web Audio 完成提示音（三音上行，无资源文件）
+        const playChime = () => {
+            try {
+                const ctx =
+                    this.pomodoroAudioCtx ||
+                    (this.pomodoroAudioCtx = new (window.AudioContext ||
+                        window.webkitAudioContext)());
+                const notes = [659.25, 830.61, 987.77]; // E5 G#5 B5
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    const t0 = ctx.currentTime + i * 0.18;
+                    gain.gain.setValueAtTime(0.0001, t0);
+                    gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(t0);
+                    osc.stop(t0 + 0.5);
+                });
+            } catch (error) {
+                console.warn('[pomodoro] 提示音播放失败:', error?.message || error);
+            }
+        };
+
+        const renderRounds = () => {
+            if (!roundsEl) return;
+            const rounds = pm.getSettings().roundsBeforeLongBreak;
+            const cycleInRound = (pm.getStats().cycleCount || 0) % rounds;
+            roundsEl.innerHTML = '';
+            for (let i = 0; i < rounds; i++) {
+                const dot = document.createElement('span');
+                dot.className = `pomodoro-round-dot${i < cycleInRound ? ' filled' : ''}`;
+                roundsEl.appendChild(dot);
+            }
+        };
+
         const render = () => {
-            display.textContent = pm.format(pm.remainingSeconds);
+            const progress = pm.getProgress();
+            display.textContent = pm.format(progress.remaining);
             stateEl.textContent = pm.getStateLabel();
             startBtn.textContent = pm.isRunning()
                 ? '暂停'
                 : pm.state === 'paused'
                   ? '继续'
                   : '开始';
+            if (ringBar) {
+                ringBar.style.strokeDashoffset = String(
+                    RING_CIRCUMFERENCE * (1 - progress.progress)
+                );
+                ringBar.classList.toggle('break', progress.phaseType !== 'work');
+            }
+            if (todayCountEl) {
+                todayCountEl.textContent = `今日 🍅 × ${pm.getStats().completedToday || 0}`;
+            }
+            renderRounds();
+            // 标题联动：运行中显示倒计时，否则恢复
+            if (pm.isRunning()) {
+                document.title = `${pm.format(progress.remaining)} · ${pm.getStateLabel()}`;
+            } else if (document.title !== DEFAULT_TITLE) {
+                document.title = DEFAULT_TITLE;
+            }
+            // 同步主页卡片
+            this.renderPomodoroCard();
         };
 
-        // 阶段完成提示
+        // 阶段完成提示：声音 + toast
         pm.onPhaseComplete = nextPhase => {
-            window.showToast(
-                nextPhase === 'break' ? '🍅 专注完成！休息 5 分钟' : '⏰ 休息结束，开始新一轮专注',
-                'success',
-                4000
-            );
+            playChime();
+            const msg = {
+                break: '🍅 专注完成！休息一下',
+                longBreak: '🎉 完成一整轮！进入长休息',
+                work: '⏰ 休息结束，开始新一轮专注',
+            }[nextPhase];
+            window.showToast(msg, 'success', 4000);
         };
+        pm.onStatsChanged = () => render();
         pm.onTick = render;
 
         pomodoroBtn.addEventListener('click', () => {
@@ -1605,10 +1899,149 @@ class NewTabApp {
             render();
         });
 
+        // 跳过当前阶段
+        if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+                pm.skipPhase();
+                render();
+            });
+        }
+
         resetBtn.addEventListener('click', () => {
             pm.reset();
             render();
         });
+
+        // 时长设置折叠区
+        const fillSettings = () => {
+            const s = pm.getSettings();
+            if (workInput) workInput.value = s.workMinutes;
+            if (breakInput) breakInput.value = s.breakMinutes;
+            if (longBreakInput) longBreakInput.value = s.longBreakMinutes;
+            if (roundsInput) roundsInput.value = s.roundsBeforeLongBreak;
+        };
+        if (settingsToggle && settingsBox) {
+            settingsToggle.addEventListener('click', () => {
+                const hidden = settingsBox.classList.toggle('u-hidden');
+                settingsToggle.textContent = hidden ? '⚙ 时长设置' : '⚙ 收起设置';
+                if (!hidden) fillSettings();
+            });
+        }
+        const applySettings = async () => {
+            await pm.setSettings({
+                workMinutes: workInput ? workInput.value : undefined,
+                breakMinutes: breakInput ? breakInput.value : undefined,
+                longBreakMinutes: longBreakInput ? longBreakInput.value : undefined,
+                roundsBeforeLongBreak: roundsInput ? roundsInput.value : undefined,
+            });
+            fillSettings();
+            render();
+            window.showToast('番茄钟设置已保存', 'success', 1500);
+        };
+        [workInput, breakInput, longBreakInput, roundsInput].forEach(input => {
+            if (input) input.addEventListener('change', applySettings);
+        });
+    }
+
+    // 主页右侧番茄钟卡片（面板 render/onTick 已同步调用）
+    renderPomodoroCard() {
+        const timeEl = document.getElementById(window.SELECTORS.pomodoroCardTime);
+        if (!timeEl) return;
+        const stateEl = document.getElementById(window.SELECTORS.pomodoroCardState);
+        const todayEl = document.getElementById(window.SELECTORS.pomodoroCardToday);
+        const ringEl = document.getElementById(window.SELECTORS.pomodoroCardRing);
+        const startEl = document.getElementById(window.SELECTORS.pomodoroCardStart);
+        const pm = this.pomodoroManager;
+        const progress = pm.getProgress();
+
+        timeEl.textContent = pm.format(progress.remaining);
+        if (stateEl) stateEl.textContent = pm.getStateLabel();
+        if (todayEl) todayEl.textContent = `今日 🍅 × ${pm.getStats().completedToday || 0}`;
+        if (startEl) {
+            startEl.textContent = pm.isRunning() ? '暂停' : pm.state === 'paused' ? '继续' : '开始';
+        }
+        if (ringEl) {
+            const CIRC = 2 * Math.PI * 34;
+            if (!this.pomoCardRingReady) {
+                ringEl.style.strokeDasharray = String(CIRC);
+                this.pomoCardRingReady = true;
+            }
+            ringEl.style.strokeDashoffset = String(CIRC * (1 - progress.progress));
+            ringEl.classList.toggle('break', progress.phaseType !== 'work');
+        }
+    }
+
+    // 主页右侧常驻小组件：卡片交互 + 面板直达 + 设置开关
+    bindSideWidgets() {
+        const SELECT = window.SELECTORS;
+
+        // 待办卡：快速添加
+        const todoInput = document.getElementById(SELECT.todoCardInput);
+        if (todoInput) {
+            todoInput.addEventListener('keypress', async e => {
+                if (e.key !== 'Enter') return;
+                const content = todoInput.value.trim();
+                if (!content) {
+                    window.showToast('请输入待办内容', 'error');
+                    return;
+                }
+                await this.todoManager.addTodo(content, { category: 'normal' });
+                todoInput.value = '';
+                this.renderTodoList();
+            });
+        }
+
+        // 面板直达（复用顶右按钮的打开逻辑）
+        const expandMap = [
+            [SELECT.todoCardExpand, SELECT.todoBtn],
+            [SELECT.notesCardExpand, SELECT.notesBtn],
+            [SELECT.pomodoroCardExpand, SELECT.pomodoroBtn],
+        ];
+        expandMap.forEach(([cardBtnId, panelBtnId]) => {
+            const cardBtn = document.getElementById(cardBtnId);
+            if (!cardBtn) return;
+            cardBtn.addEventListener('click', () => {
+                const panelBtn = document.getElementById(panelBtnId);
+                if (panelBtn) panelBtn.click();
+            });
+        });
+
+        // 番茄钟卡：开始/暂停 + 跳过
+        const startBtn = document.getElementById(SELECT.pomodoroCardStart);
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                const pm = this.pomodoroManager;
+                if (pm.isRunning()) {
+                    pm.pause();
+                } else {
+                    pm.start();
+                }
+                this.renderPomodoroCard();
+            });
+        }
+        const skipBtn = document.getElementById(SELECT.pomodoroCardSkip);
+        if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+                this.pomodoroManager.skipPhase();
+                this.renderPomodoroCard();
+            });
+        }
+
+        // 设置开关：主页显示小组件
+        const toggle = document.getElementById(SELECT.showSideWidgetsToggle);
+        if (toggle) {
+            toggle.checked = this.settingsManager.settings.showSideWidgets !== false;
+            toggle.addEventListener('change', async () => {
+                this.settingsManager.settings.showSideWidgets = toggle.checked;
+                await this.settingsManager.saveSettings();
+                this.applySideWidgetsVisibility();
+                window.showToast(
+                    toggle.checked ? '主页小组件已显示' : '主页小组件已隐藏',
+                    'success',
+                    1500
+                );
+            });
+        }
     }
 
     // ---------- 总入口 ----------

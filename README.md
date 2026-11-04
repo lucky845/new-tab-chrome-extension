@@ -1,10 +1,10 @@
 # New Tab Pro
 
-> 一个纯本地、零后端的浏览器新标签页扩展：每天一张 Bing 壁纸，时钟、天气、待办、便签、番茄钟，一个页面全都有。
+> 一个纯本地、零后端的浏览器新标签页扩展：Picsum 精选壁纸、时钟、天气、待办、便签、番茄钟，左右两翼常驻，一个页面全都有。
 
 ![preview](img/preview.png)
 
-**无需任何 API Key 即可完整使用。** 天气走 Open-Meteo、壁纸走 Bing 每日图，全部免密钥；Pexels 与高德只是可选增强。所有数据保存在 `chrome.storage.local`，不联网上报、不收集任何信息。
+**无需任何 API Key 即可完整使用。** 天气走 Open-Meteo、壁纸走 Picsum，全部免密钥；Pexels 与高德只是可选增强（入口在设置最下方）。所有数据保存在 `chrome.storage.local`，不联网上报、不收集任何信息。
 
 ---
 
@@ -14,8 +14,9 @@
 <tr><td width="50%" valign="top">
 
 **🖼️ 壁纸**
-- Bing 每日壁纸，免 Key 开箱即用
-- Pexels 搜索（可选 Key）：12 个分类 + 分页浏览
+- Picsum 免 Key 图库（Unsplash 精选）：分类浏览 + 分页 + 随机换壁纸（默认）
+- Wallhaven 图源可选：设置中切换，支持关键词搜索，需能访问境外网络
+- Pexels（可选 Key）：填写后切换为 Pexels 图源
 - 缓存优先加载，刷新无闪烁
 - 亮度 30%–100%、模糊 0–20px 实时调节
 
@@ -32,14 +33,15 @@
 
 **🌤️ 天气**
 - Open-Meteo 免 Key，自动定位或手动城市
-- 高德 Key 可选：填写后切换为高德数据
+- 高德 Key 可选（设置最下方）：填写后切换为高德数据
 - 中文天气现象 + 内置 SVG 图标，20 分钟缓存
 
-**⏱️ 小组件（v1.2.0 新增）**
+**⏱️ 小组件与主页两翼（v1.3.0）**
 - 时钟 / 日期 / 时段问候
-- 待办清单（重要标记、清除已完成）
-- 备忘录（自动保存、字数统计）
-- 番茄钟（25 分钟专注 / 5 分钟休息）
+- 待办：分类（工作/生活/普通）、截止日期与逾期高亮、拖拽排序、今日完成统计
+- 备忘录：多便签、置顶、搜索、自动保存
+- 番茄钟：可配置时长、长休息轮转、今日 🍅 统计、提示音、环形进度
+- 左右两翼常驻主页（可在设置中关闭），点 ⤢ 打开完整面板
 
 </td></tr>
 </table>
@@ -73,7 +75,8 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 
 | 配置 | 作用 | 不填会怎样 |
 | --- | --- | --- |
-| Pexels API Key | 解锁壁纸搜索与分类浏览 | 只用 Bing 每日壁纸 |
+| 壁纸图源 | Picsum（默认）/ Wallhaven 二选一 | 默认 Picsum，国内直连稳定 |
+| Pexels API Key | 关键词搜索壁纸（Pexels 图源） | 使用所选免 Key 图源浏览 |
 | 高德 Web 服务 Key | 切换天气数据源为高德 | 使用 Open-Meteo 免费数据 |
 | 天气城市 | 固定城市 | 自动定位（失败回退上次城市） |
 | 首页标语 | 时钟下方一句话 | 不显示 |
@@ -85,7 +88,7 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 | --- | --- |
 | `storage` | 保存设置、壁纸缓存、待办、便签 |
 | `geolocation` | 天气自动定位（可拒绝，改用城市名） |
-| `host_permissions` | 仅 `bing.com`、`pexels.com`、`amap.com`、`open-meteo.com` |
+| `host_permissions` | 仅 `picsum.photos`、`wallhaven.cc`（可选图源）、`pexels.com`、`amap.com`、`open-meteo.com` |
 
 ---
 
@@ -99,7 +102,7 @@ newtab.html                 单页结构
 └── js/
     ├── app.js              NewTabApp：组合根 + 全部 UI 绑定
     ├── modules/            业务数据层（8 个 manager）
-    │   ├── wallpaper-manager.js    壁纸：缓存链 / Bing 免 Key / Pexels 搜索
+    │   ├── wallpaper-manager.js    壁纸：缓存链 / Picsum 免 Key / Pexels 可选
     │   ├── search-manager.js       搜索：引擎合并 / 历史
     │   ├── quick-access-manager.js 快捷方式：校验 / 分页数据
     │   ├── settings-manager.js     设置：统一存储 + 旧键迁移
@@ -110,7 +113,7 @@ newtab.html                 单页结构
     ├── components/         advanced-pagination / weather-icons / visibility-toggle
     ├── config/             weather-config / default-sites
     ├── constants/          selectors.js（window.SELECTORS 单一来源）
-    └── utils/              request（超时/重试/退避）、toast、bing-wallpaper
+    └── utils/              request（超时/重试/退避）、toast
 ```
 
 **设计原则**
@@ -118,7 +121,7 @@ newtab.html                 单页结构
 - **单向依赖**：`main.js → app.js → modules`，manager 不碰 DOM
 - **UI 与业务分离**：manager 只做数据与存储，渲染全部在 `app.js`
 - **选择器常量化**：所有 `getElementById` 走 `window.SELECTORS`，杜绝拼写错误导致的静默失败
-- **失败兜底**：Bing → todaybing → 纯色；天气 → Open-Meteo → 高德 → 缓存
+- **失败兜底**：壁纸 → Pexels(可选) → Picsum 随机 → 保留当前；天气 → Open-Meteo → 高德 → 缓存
 
 ---
 
@@ -140,6 +143,7 @@ npm run format     # Prettier
 - [x] 免 API Key 完整可用（v1.1.0）
 - [x] 双轨架构合并，main.js 收敛为 bootstrap（v1.1.0）
 - [x] 时钟 / 待办 / 便签 / 番茄钟 / 自定义引擎 / 壁纸调节（v1.2.0）
+- [x] 左右两翼布局、Picsum 免 Key 图源、Wallhaven 可选、移除 Bing（v1.3.0）
 - [ ] 快捷方式文件夹分组
 - [ ] 数据导入导出
 - [ ] 主题切换
