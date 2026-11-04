@@ -14,6 +14,8 @@ class SettingsManager {
             tagline: '',
             wallpaperBrightness: 1,
             wallpaperBlur: 0,
+            showSideWidgets: true, // 主页常驻小组件（待办/便签/番茄钟）
+            wallpaperSource: 'picsum', // 壁纸图源：picsum（国内直连稳定）/ wallhaven（可搜索，需境外网络）
         };
         this.settings = { ...this.defaultSettings };
         this.customEngines = []; // 自定义搜索引擎 [{name, url(%s 占位)}]
@@ -45,7 +47,7 @@ class SettingsManager {
     }
 
     // 从设置面板一次性保存（Pexels Key 可选：清空即移除，回 Bing 免 Key 模式）
-    async saveFromPanel({ pexelsApiKey, weatherApiKey, weatherCity }) {
+    async saveFromPanel({ pexelsApiKey, weatherApiKey, weatherCity, wallpaperSource }) {
         if (typeof pexelsApiKey === 'string') {
             this.settings.pexelsApiKey = pexelsApiKey.trim();
         }
@@ -54,6 +56,9 @@ class SettingsManager {
         }
         if (typeof weatherCity === 'string') {
             this.settings.weatherCity = weatherCity.trim(); // 可为空字符串，表示自动定位
+        }
+        if (wallpaperSource === 'picsum' || wallpaperSource === 'wallhaven') {
+            this.settings.wallpaperSource = wallpaperSource;
         }
         await this.saveSettings();
     }
@@ -163,6 +168,11 @@ class SettingsManager {
     }
 
     // 壁纸亮度（0.3 ~ 1）与模糊度（0 ~ 20px）
+    // 壁纸图源：picsum（默认）| wallhaven
+    getWallpaperSource() {
+        return this.settings.wallpaperSource === 'wallhaven' ? 'wallhaven' : 'picsum';
+    }
+
     getWallpaperAdjustments() {
         return {
             brightness: Number(this.settings.wallpaperBrightness) || 1,
@@ -182,14 +192,9 @@ class SettingsManager {
 
     // 自定义搜索引擎（chrome.storage.local 独立键，避免混入 settings 数值型默认值）
     async loadCustomEngines() {
-        return new Promise(resolve => {
-            chrome.storage.local.get(['customEngines'], result => {
-                this.customEngines = Array.isArray(result.customEngines)
-                    ? result.customEngines
-                    : [];
-                resolve(this.customEngines);
-            });
-        });
+        const result = await chrome.storage.local.get(['customEngines']);
+        this.customEngines = Array.isArray(result.customEngines) ? result.customEngines : [];
+        return this.customEngines;
     }
 
     getCustomEngines() {
@@ -198,9 +203,7 @@ class SettingsManager {
 
     async saveCustomEngines(engines) {
         this.customEngines = Array.isArray(engines) ? engines : [];
-        return new Promise(resolve => {
-            chrome.storage.local.set({ customEngines: this.customEngines }, resolve);
-        });
+        await chrome.storage.local.set({ customEngines: this.customEngines });
     }
 
     // 添加自定义引擎（name 非空、url 必须含 %s 占位；重名拒绝）

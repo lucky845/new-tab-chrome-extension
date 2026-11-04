@@ -1,14 +1,11 @@
 /**
  * 壁纸管理模块
- * 壁纸域唯一业务归属：默认壁纸加载（Bing 免 Key / Pexels 缓存优先）、
- * Pexels 搜索数据层、随机换图、缓存校验。
+ * 壁纸域唯一业务归属：默认壁纸加载（Picsum 免 Key / Pexels 可选增强）、
+ * 双源搜索数据层、随机换图、缓存校验。
  * UI 渲染（面板、网格、分页控件）由 app.js 通过回调/直接调用完成。
  */
 // 模块常量（static class field 语法不被当前 espree 解析，改用类外赋值）
 const WALLPAPERS_PER_PAGE = 18;
-
-// 兜底：第三方今日壁纸接口
-const FALLBACK_URL = 'https://www.todaybing.com/api/today';
 
 class WallpaperManager {
     constructor() {
@@ -17,6 +14,7 @@ class WallpaperManager {
         this.currentPage = 1;
         this.totalPages = 1;
         this.totalWallpapers = 0;
+        this.wallpaperSource = 'picsum'; // 壁纸图源：picsum | wallhaven（由 settings 同步）
         this.wallpaperCategories = [
             { name: '自然', query: 'Nature' },
             { name: '城市', query: 'Cityscape' },
@@ -58,6 +56,10 @@ class WallpaperManager {
         try {
             const data = await chrome.storage.local.get(['settings']);
             this.pexelsApiKey = (data.settings && data.settings.pexelsApiKey) || '';
+            this.wallpaperSource =
+                data.settings && data.settings.wallpaperSource === 'wallhaven'
+                    ? 'wallhaven'
+                    : 'picsum';
         } catch (error) {
             console.error('同步壁纸密钥失败:', error);
         }
@@ -71,18 +73,11 @@ class WallpaperManager {
     // ---------- 默认壁纸链路 ----------
 
     /**
-     * 主入口：加载并应用壁纸（行为与原 main.js fetchAndSetWallpaper 一致）
-     * 优先级：缓存 URL → 仅缓存 ID → 无 Key 走 Bing / 有 Key 走 Pexels 随机
+     * 主入口：加载并应用壁纸
+     * 优先级：缓存 URL → 仅缓存 ID（Pexels 来源）→ Picsum/Pexels 随机
      */
     async fetchAndSetWallpaper() {
         await this.syncApiKey();
-        const apiKey = this.pexelsApiKey;
-
-        if (!apiKey) {
-            // 未配置 Pexels Key：默认使用 Bing 每日壁纸（无需密钥，开箱即用）
-            await this.fetchBingWallpaper(false);
-            return;
-        }
 
         // 1. 尝试加载已缓存的壁纸
         const result = await chrome.storage.local.get([
@@ -96,14 +91,15 @@ class WallpaperManager {
             this.setWallpaper(result.savedWallpaperUrl);
             console.log('使用缓存的壁纸URL');
 
-            // 异步验证壁纸是否仍然有效（Bing 壁纸的官方 CDN 链接长期有效，无需走 Pexels 验证）
-            const isBingWallpaper =
-                result.savedWallpaperData && result.savedWallpaperData.source === 'bing';
-            if (result.savedWallpaperId && !isBingWallpaper) {
+            // 异步验证：Picsum 图床链接长期有效无需验证；Pexels 来源的缓存需验证 ID 有效性
+            const savedId = String(result.savedWallpaperId || '');
+            const isPexelsWallpaper =
+                savedId.length > 0 && !savedId.startsWith('pic_') && !savedId.startsWith('wh_');
+            if (isPexelsWallpaper && this.pexelsApiKey) {
                 setTimeout(async () => {
                     const isValid = await this.validateWallpaperById(
                         result.savedWallpaperId,
-                        apiKey
+                        this.pexelsApiKey
                     );
                     if (!isValid) {
                         console.log('缓存的壁纸已失效，获取新壁纸');
@@ -114,51 +110,32 @@ class WallpaperManager {
             return;
         }
 
-        // 2. 如果有ID但没有URL，尝试获取URL
+        // 2. 如果有 Pexels ID 但没有 URL，尝试按 ID 恢复
+        const savedId = String(result.savedWallpaperId || '');
         if (result.savedWallpaperId && !result.savedWallpaperUrl) {
-            const success = await this.fetchWallpaperById(result.savedWallpaperId, apiKey);
-            if (success) {
-                return;
+            if (savedId.startsWith('pic_')) {
+                // Picsum 记录异常（无 URL）：清掉重来
+                await chrome.storage.local.remove([
+                    'savedWallpaperId',
+                    'savedWallpaperUrl',
+                    'savedWallpaperData',
+                ]);
+            } else if (this.pexelsApiKey) {
+                const success = await this.fetchWallpaperById(
+                    result.savedWallpaperId,
+                    this.pexelsApiKey
+                );
+                if (success) {
+                    return;
+                }
             }
         }
 
-        // 3. 如果没有保存的壁纸或加载失败，则获取随机壁纸
+        // 3. 没有保存的壁纸或恢复失败：随机壁纸（有 Key 走 Pexels，无 Key 走 Picsum）
         await this.fetchRandomWallpaper(true);
     }
 
-    /**
-     * 无 Key 默认路径：Bing 官方接口（随机或每日）
-     */
-    async fetchBingWallpaper(isRandom = true) {
-        try {
-            const photo = isRandom
-                ? await window.BingWallpaper.fetchRandom()
-                : await window.BingWallpaper.fetchDaily();
-            if (photo && photo.url) {
-                this.setWallpaper(photo.url);
-                const bingId = `bing_${photo.startdate || Date.now()}`;
-                await chrome.storage.local.set({
-                    savedWallpaperId: bingId,
-                    savedWallpaperUrl: photo.url,
-                    savedWallpaperData: {
-                        id: bingId,
-                        url: photo.url,
-                        photographer: 'Bing Daily Wallpaper',
-                        alt: photo.title || photo.copyright || '',
-                        source: 'bing',
-                    },
-                });
-                console.log(`已应用 Bing 壁纸: ${photo.title || photo.url}`);
-                return;
-            }
-        } catch (error) {
-            console.error('获取 Bing 壁纸失败:', error);
-        }
-        // 兜底：第三方今日壁纸接口
-        this.setWallpaper(`${FALLBACK_URL}?${Date.now()}`);
-    }
-
-    // 验证壁纸是否仍然有效
+    // 验证 Pexels 壁纸是否仍然有效
     async validateWallpaperById(id, apiKey) {
         try {
             const response = await fetch(`https://api.pexels.com/v1/photos/${id}`, {
@@ -171,7 +148,7 @@ class WallpaperManager {
         }
     }
 
-    // 仅剩缓存 ID 时的恢复路径
+    // 仅剩 Pexels 缓存 ID 时的恢复路径
     async fetchWallpaperById(id, apiKey) {
         try {
             const response = await fetch(`https://api.pexels.com/v1/photos/${id}`, {
@@ -199,34 +176,80 @@ class WallpaperManager {
     }
 
     /**
-     * "换一张"：有 Key 走 Pexels 随机并保存；401 触发 onAuthError 回调
+     * "换一张"：有 Key 走 Pexels 随机；无 Key 走 Picsum 随机（免密钥）。
+     * 失败时回落另一源，全部失败则保留当前壁纸。
      */
     async fetchRandomWallpaper(shouldSave = false) {
-        const apiKey = this.pexelsApiKey;
         const randomQuery =
             this.RANDOM_QUERIES[Math.floor(Math.random() * this.RANDOM_QUERIES.length)];
-        const page = Math.floor(Math.random() * 100) + 1;
-        const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(randomQuery)}&orientation=landscape&per_page=1&page=${page}`;
 
-        try {
-            const response = await fetch(url, { headers: { Authorization: apiKey } });
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.error('Pexels API 密钥无效或已过期。');
-                    if (this.onAuthError) this.onAuthError();
+        if (this.pexelsApiKey) {
+            const page = Math.floor(Math.random() * 100) + 1;
+            const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(randomQuery)}&orientation=landscape&per_page=1&page=${page}`;
+            try {
+                const response = await fetch(url, {
+                    headers: { Authorization: this.pexelsApiKey },
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.error('Pexels API 密钥无效或已过期。');
+                        if (this.onAuthError) this.onAuthError();
+                    }
+                    throw new Error(`Pexels API 请求失败: ${response.status}`);
                 }
-                throw new Error(`Pexels API 请求失败: ${response.status}`);
+                const data = await response.json();
+                if (data.photos && data.photos.length > 0) {
+                    this.applyPexelsWallpaper(data.photos[0], shouldSave);
+                    return;
+                }
+            } catch (error) {
+                console.error('Pexels 随机壁纸失败，回落 Picsum:', error.message);
             }
+        }
 
-            const data = await response.json();
-            if (data.photos && data.photos.length > 0) {
-                this.applyPexelsWallpaper(data.photos[0], shouldSave);
+        // Wallhaven 图源（可选）随机
+        if (this.wallpaperSource === 'wallhaven') {
+            const result = await this.searchWallhaven(
+                randomQuery,
+                Math.floor(Math.random() * 20) + 1
+            );
+            if (result.photos && result.photos.length > 0) {
+                const photo = result.photos[Math.floor(Math.random() * result.photos.length)];
+                this.applyPexelsWallpaper(photo, shouldSave);
+                console.log(`已应用 Wallhaven 随机壁纸 (ID: ${photo.id})`);
                 return;
             }
-            throw new Error('Pexels API 未返回照片。');
+            console.warn('Wallhaven 随机失败，回落 Picsum:', result.error || '无结果');
+        }
+
+        // Picsum 随机（默认 / 回落）
+        try {
+            const randomSeed = Math.floor(Math.random() * 1e9);
+            const part1 = Math.floor(Math.random() * 1084);
+            const part2 = Math.floor(Math.random() * 1084);
+            let wallpaperUrl = `https://picsum.photos/seed/${randomSeed}/1920/1080`;
+            // 尝试用真实图 id 生成更稳定的 URL（失败则用 seed 方案）
+            const probe = await fetch(`https://picsum.photos/id/${part1}/1200/675`, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(8000),
+            }).catch(() => null);
+            if (probe && probe.ok) {
+                wallpaperUrl = `https://picsum.photos/id/${part1}/1920/1080`;
+            } else {
+                void part2;
+            }
+            this.setWallpaper(wallpaperUrl);
+            if (shouldSave) {
+                await this.cacheWallpaper(
+                    `pic_random_${randomSeed}`,
+                    wallpaperUrl,
+                    'Picsum',
+                    '随机精选摄影'
+                );
+            }
+            console.log(`已应用 Picsum 随机壁纸: ${wallpaperUrl}`);
         } catch (error) {
-            console.error('获取 Pexels 壁纸失败:', error);
-            this.setWallpaper(`${FALLBACK_URL}?${Date.now()}`);
+            console.error('随机壁纸获取失败，保留当前壁纸:', error.message);
         }
     }
 
@@ -252,12 +275,15 @@ class WallpaperManager {
     // ---------- Pexels 搜索数据层 ----------
 
     /**
-     * Pexels 搜索（仅数据层，渲染由 app.js 完成）
-     * 返回 { photos, totalPages, total, unauthorized }
+     * 壁纸搜索（仅数据层，渲染由 app.js 完成）
+     * 双源：有 Pexels Key 走 Pexels；无 Key 按设置走 Picsum（默认）或 Wallhaven（可选）。
+     * 返回 { photos, totalPages, total, unauthorized, source }
      */
     async searchPhotos(query, page = 1) {
         if (!this.pexelsApiKey) {
-            return { photos: [], totalPages: 1, total: 0, unauthorized: true };
+            return this.wallpaperSource === 'wallhaven'
+                ? this.searchWallhaven(query, page)
+                : this.searchPicsum(query, page);
         }
 
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${WALLPAPERS_PER_PAGE}&page=${page}&orientation=landscape`;
@@ -279,10 +305,165 @@ class WallpaperManager {
                 totalPages: this.totalPages,
                 total: this.totalWallpapers,
                 unauthorized: false,
+                source: 'pexels',
             };
         } catch (error) {
             console.error('搜索壁纸失败:', error);
-            return { photos: null, totalPages: 1, total: 0, unauthorized: false };
+            return { photos: null, totalPages: 1, total: 0, unauthorized: false, source: 'pexels' };
+        }
+    }
+
+    /**
+     * Picsum Photos 免 Key 图库浏览（https://picsum.photos，Unsplash 精选图，国内直连可达）
+     * 说明：Picsum 不提供关键词搜索，按「页码」浏览精选图库；
+     * 无 Key 时搜索词/分类词会映射到稳定的页码，保证每次点同一分类看到同一组图。
+     * 结果映射为 Pexels 同构格式，渲染层零感知。
+     */
+    async searchPicsum(query, page = 1) {
+        const q = (query || '').trim();
+        const PICSUM_TOTAL_PAGES = 60; // 图库约 1080 张，每页 18 张
+
+        // 有搜索词/分类词时，用词做确定性页码偏移（同一词 → 同一页），翻页在此基础上递增
+        const seed = q
+            ? [...q].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % PICSUM_TOTAL_PAGES
+            : 0;
+        const realPage = ((seed + page - 1) % PICSUM_TOTAL_PAGES) + 1;
+
+        try {
+            const response = await fetch(
+                `https://picsum.photos/v2/list?page=${realPage}&limit=${WALLPAPERS_PER_PAGE}`,
+                { signal: AbortSignal.timeout(12000) }
+            );
+            if (!response.ok) {
+                throw new Error(`Picsum 请求失败（${response.status}）`);
+            }
+
+            const list = await response.json();
+            if (!Array.isArray(list) || list.length === 0) {
+                throw new Error('Picsum 返回空列表');
+            }
+
+            this.currentQuery = q || this.currentQuery;
+            this.currentPage = page;
+            this.totalWallpapers = PICSUM_TOTAL_PAGES * WALLPAPERS_PER_PAGE;
+            this.totalPages = PICSUM_TOTAL_PAGES;
+
+            const photos = list.map(item => {
+                const id = String(item.id);
+                return {
+                    id: `pic_${id}`,
+                    src: {
+                        // 渲染层网格用 medium 作缩略图，应用壁纸用 large2x/original
+                        original: `https://picsum.photos/id/${id}/1920/1080`,
+                        large2x: `https://picsum.photos/id/${id}/1920/1080`,
+                        large: `https://picsum.photos/id/${id}/1280/720`,
+                        medium: `https://picsum.photos/id/${id}/640/360`,
+                        small: `https://picsum.photos/id/${id}/320/180`,
+                        landscape: `https://picsum.photos/id/${id}/1920/1080`,
+                        tiny: `https://picsum.photos/id/${id}/160/90`,
+                    },
+                    photographer: item.author || 'Picsum',
+                    alt: `${item.author || 'Picsum'} 摄影作品`,
+                    avg_color: '#4EC2C6',
+                    width: 1920,
+                    height: 1080,
+                };
+            });
+
+            return {
+                photos,
+                totalPages: this.totalPages,
+                total: this.totalWallpapers,
+                unauthorized: false,
+                source: 'picsum',
+            };
+        } catch (error) {
+            console.error('Picsum 图库加载失败:', error);
+            return {
+                photos: null,
+                totalPages: 1,
+                total: 0,
+                unauthorized: false,
+                source: 'picsum',
+                error: error?.message || '图库加载失败',
+            };
+        }
+    }
+
+    /**
+     * Wallhaven 免 Key 搜索（可选图源，https://wallhaven.cc/api/v1）
+     * 支持关键词搜索；需能访问境外网络（wallhaven.cc 国内直连不稳定）。
+     * 仅 general 分类 + SFW（purity=100），横屏 1920x1080 起。结果映射为 Pexels 同构格式。
+     */
+    async searchWallhaven(query, page = 1) {
+        const q = (query || '').trim();
+        const params = new URLSearchParams({
+            categories: '100',
+            purity: '100',
+            atleast: '1920x1080',
+            per_page: String(WALLPAPERS_PER_PAGE),
+            page: String(page),
+        });
+        if (q) {
+            params.set('q', q);
+            params.set('sorting', 'relevance');
+        } else {
+            params.set('sorting', 'toplist');
+            params.set('topRange', '1M');
+        }
+
+        try {
+            const response = await fetch(`https://wallhaven.cc/api/v1/search?${params}`, {
+                signal: AbortSignal.timeout(12000),
+            });
+            if (response.status === 429) {
+                throw new Error('Wallhaven 请求太频繁，请稍后再试');
+            }
+            if (!response.ok) {
+                throw new Error(`Wallhaven 请求失败（${response.status}）`);
+            }
+
+            const data = await response.json();
+            this.currentQuery = q || this.currentQuery;
+            this.currentPage = page;
+            this.totalWallpapers = data.meta?.total ?? data.data.length;
+            this.totalPages = Math.max(1, data.meta?.last_page ?? 1);
+
+            const photos = (data.data || []).map(item => ({
+                id: `wh_${item.id}`,
+                src: {
+                    original: item.path,
+                    large2x: item.path,
+                    large: item.thumbs?.original || item.path,
+                    medium: item.thumbs?.large || item.path,
+                    small: item.thumbs?.small || item.path,
+                    landscape: item.path,
+                    tiny: item.thumbs?.small || item.path,
+                },
+                photographer: 'Wallhaven',
+                alt: `Wallhaven ${item.resolution || ''} 壁纸`.trim(),
+                avg_color: (item.colors && item.colors[0]) || '#4EC2C6',
+                width: item.dimension_x,
+                height: item.dimension_y,
+            }));
+
+            return {
+                photos,
+                totalPages: this.totalPages,
+                total: this.totalWallpapers,
+                unauthorized: false,
+                source: 'wallhaven',
+            };
+        } catch (error) {
+            console.error('Wallhaven 搜索失败:', error);
+            return {
+                photos: null,
+                totalPages: 1,
+                total: 0,
+                unauthorized: false,
+                source: 'wallhaven',
+                error: 'Wallhaven 不可访问。该图源需要能访问境外网络，可在设置中切回 Picsum。',
+            };
         }
     }
 
@@ -320,7 +501,6 @@ class WallpaperManager {
 
 // 导出模块（含常量，供 UI 层分页计算引用）
 WallpaperManager.WALLPAPERS_PER_PAGE = WALLPAPERS_PER_PAGE;
-WallpaperManager.FALLBACK_URL = FALLBACK_URL;
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = WallpaperManager;

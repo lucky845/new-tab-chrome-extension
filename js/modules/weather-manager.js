@@ -188,6 +188,12 @@ class WeatherManager {
             const result = await chrome.storage.local.get(['settings']);
             const s = (result && result.settings) || {};
             this.currentCity = s.weatherCity || '';
+            // 清洗历史污染数据：早期版本把定位占位文案「当前位置」误存为城市名，
+            // 会导致 geocoding 查询「当前位置」永远失败且不再尝试定位
+            if (this.currentCity === '当前位置') {
+                this.currentCity = '';
+                this.saveSettings(); // 写回清洗结果（fire-and-forget，失败不影响启动）
+            }
             this.temperatureUnit = s.temperatureUnit || 'celsius';
         } catch (error) {
             console.error('加载天气设置失败:', error);
@@ -246,7 +252,9 @@ class WeatherManager {
                 this.weatherData = weatherData;
                 this.displayWeather(weatherData);
                 // 若当前未指定城市且成功从定位/IP 获取到城市名，持久化保存，避免频繁请求
-                if (!this.currentCity && weatherData.city) {
+                // 注意：「当前位置」是定位路径的显示占位文案，不是真实城市名，
+                // 持久化它会让下次启动误走城市查询（geocoding 查不到）→ 永远失败
+                if (!this.currentCity && weatherData.city && weatherData.city !== '当前位置') {
                     try {
                         await this.persistDetectedCity(weatherData.city);
                     } catch (e) {
@@ -256,7 +264,8 @@ class WeatherManager {
             }
         } catch (error) {
             console.error('获取天气信息失败:', error);
-            this.showError('获取天气信息失败');
+            // 透出具体原因（权限被拒 / 超时 / 城市名查询失败…），不再统一吞成一句话
+            this.showError(error?.message || '获取天气信息失败');
         } finally {
             this.isLoading = false;
         }
@@ -1003,7 +1012,12 @@ class WeatherManager {
 
         if (temperatureEl) temperatureEl.textContent = '--°C';
         if (weatherDescEl) weatherDescEl.textContent = message;
-        if (locationEl) locationEl.textContent = '获取失败';
+        if (locationEl) {
+            // 城市名相关的错误直接给下一步动作引导
+            locationEl.textContent = /城市/.test(message)
+                ? '打开右上角 ⚙️ 设置可修改天气城市'
+                : '获取失败';
+        }
 
         // 根据错误类型显示不同提示
         if (message.includes('权限') || message.includes('Permission')) {

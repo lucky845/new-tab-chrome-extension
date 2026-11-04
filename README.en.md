@@ -2,42 +2,55 @@
 
 ![Plugin Screenshot](img/preview.png)
 
-New Tab Pro turns your new tab into a clean and efficient workspace: modern UI, wallpaper management, multi-engine search, shortcut management, and weather.
+New Tab Pro turns your new tab into a clean and efficient workspace: Picsum wallpapers, clock, weather, todo, notes and pomodoro widgets in two side wings — all in one page, all local.
+
+**Fully usable with zero API keys.** Weather uses Open-Meteo, wallpapers use Picsum. Pexels and AMap are optional enhancements only. Everything is stored in `chrome.storage.local`; no telemetry, no data collection.
 
 ## 🚀 Core Features
 
 ### 🌟 Wallpaper
 
-- Bing daily (default) and Pexels search
-- Preference memory and cached selected wallpaper
-- Categories and paginated browsing
+- Picsum keyless gallery by default (Unsplash curated photos): category browsing, pagination, random switch
+- Wallhaven as an optional source (settings switch; supports keyword search, needs access to wallhaven.cc)
+- Pexels (optional key) for keyword search
+- Cached-first loading with no flicker; brightness 30–100% and blur 0–20px
 
 ### 🔍 Search
 
 - One-click switch among Baidu, Google, Bing, Sogou, DuckDuckGo
 - Search history (click-to-fill, clear all, remove single)
+- Custom engines with `%s` placeholder
 
 ### 🎯 Shortcuts
 
 - 10 per page (9 items + 1 add button), unified sizing
 - Drag-and-drop sort (same page), right-click edit/delete
-- Single DOM update per pagination action
+- Responsive grid: 5 / 4 / 3 columns by viewport, square at any zoom level
 
-### 🌤️ Weather (Gaode/AMap)
+### 🌤️ Weather (Open-Meteo by default)
 
-- Auto location or manual city (city name converted to adcode)
-- Caching & rate limiting: adcode cache, weather TTL, min request interval
-- Unified request wrapper: timeout, retries (exponential backoff), error parsing
-- Chinese phenomenon → built-in SVG icons
+- Keyless Open-Meteo data, auto location or manual city
+- AMap Key optional (bottom of settings) to switch data source
+- Caching and rate limiting, built-in SVG icons
+
+### ⏱️ Widgets and side wings
+
+- Clock / date / time greeting
+- Todo: categories, due dates with overdue highlight, drag sort, daily stats
+- Notes: multiple notes, pin, search, autosave
+- Pomodoro: configurable durations, long-break rotation, daily 🍅 stats, ring progress
+- Always-on left/right side wings (toggle in settings); ⤢ opens the full panel
 
 ## ⚙️ Config & Permissions
 
-- In settings panel:
-    - Pexels API Key (optional)
-    - Gaode (AMap) Weather Key (required for weather) and City (leave empty to auto locate)
+- All settings are optional:
+    - Wallpaper source: Picsum (default) / Wallhaven
+    - Pexels API Key (enhancement only)
+    - AMap Weather Key (enhancement only) and city
+    - Homepage tagline, custom search engines, side-widget toggle
 - `manifest.json` permissions:
-    - `geolocation`
-    - `host_permissions`: `https://restapi.amap.com/`
+    - `storage`, `geolocation`
+    - `host_permissions`: `picsum.photos`, `wallhaven.cc`, `pexels.com`, `amap.com`, `open-meteo.com`
 - CSP: favicon icons come from target sites, `img-src * data:` allows broad compatibility.
 
 ## 🧱 Architecture & Conventions
@@ -69,7 +82,7 @@ New Tab Pro turns your new tab into a clean and efficient workspace: modern UI, 
 
 ### Wallpaper cache verification
 
-1. Set Pexels API Key
+1. Open the wallpaper library (no key needed)
 2. Pick a wallpaper and refresh the tab
 3. Observe flicker-free loading and persistence
 

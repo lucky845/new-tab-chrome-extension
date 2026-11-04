@@ -146,15 +146,15 @@
             </button>
         </div>
 
-        <!-- 时钟 / 问候 / 标语 -->
-        <div class="clock-container" id="clock-container">
-            <div class="clock-time" id="clock-time">--:--</div>
-            <div class="clock-date" id="clock-date"></div>
-            <div class="clock-greeting" id="clock-greeting"></div>
-            <div class="tagline u-hidden" id="tagline"></div>
-        </div>
-
         <main class="main-container">
+            <!-- 时钟 / 问候 / 标语（文档流内，位于搜索框上方） -->
+            <div class="clock-container" id="clock-container">
+                <div class="clock-time" id="clock-time">--:--</div>
+                <div class="clock-date" id="clock-date"></div>
+                <div class="clock-greeting" id="clock-greeting"></div>
+                <div class="tagline u-hidden" id="tagline"></div>
+            </div>
+
             <div class="content-wrapper">
                 <div class="search-container">
                     <div class="search-bar">
@@ -242,6 +242,12 @@
                         </svg>
                     </button>
                 </div>
+                <div id="todo-filter-bar" class="todo-filter-bar">
+                    <button class="todo-filter-tab active" data-filter="all">全部</button>
+                    <button class="todo-filter-tab" data-filter="work">💼 工作</button>
+                    <button class="todo-filter-tab" data-filter="life">🏠 生活</button>
+                    <button class="todo-filter-tab" data-filter="normal">📝 普通</button>
+                </div>
                 <div class="todo-input-row">
                     <button id="todo-important-btn" class="todo-important-btn" title="重要标记">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -249,6 +255,12 @@
                         </svg>
                     </button>
                     <input type="text" id="todo-input" placeholder="添加一个待办…" maxlength="100" />
+                    <select id="todo-category-select" class="todo-category-select" title="分类">
+                        <option value="normal">📝 普通</option>
+                        <option value="work">💼 工作</option>
+                        <option value="life">🏠 生活</option>
+                    </select>
+                    <input type="date" id="todo-due-date" class="todo-due-date" title="截止日期（可选）" />
                     <button id="todo-add-btn" class="settings-btn">添加</button>
                 </div>
                 <ul id="todo-list" class="todo-list"></ul>
@@ -271,7 +283,11 @@
                         </svg>
                     </button>
                 </div>
-                <textarea id="notes-textarea" class="notes-textarea" placeholder="随手记点什么…（自动保存）"></textarea>
+                <div class="notes-toolbar">
+                    <input type="text" id="notes-search-input" class="notes-search-input" placeholder="搜索便签…" maxlength="50" />
+                    <button id="notes-add-btn" class="settings-btn" title="新建便签">＋ 新便签</button>
+                </div>
+                <ul id="notes-list" class="notes-list"></ul>
                 <div class="notes-meta" id="notes-meta"></div>
             </div>
         </div>
@@ -288,14 +304,83 @@
                         </svg>
                     </button>
                 </div>
-                <div class="pomodoro-display" id="pomodoro-display">25:00</div>
-                <div class="pomodoro-state" id="pomodoro-state">专注</div>
+                <div class="pomodoro-timer-area">
+                    <svg class="pomodoro-ring" viewBox="0 0 200 200" aria-hidden="true">
+                        <circle class="pomodoro-ring-track" cx="100" cy="100" r="88"></circle>
+                        <circle class="pomodoro-ring-bar" id="pomodoro-ring-progress" cx="100" cy="100" r="88"></circle>
+                    </svg>
+                    <div class="pomodoro-timer-center">
+                        <div class="pomodoro-display" id="pomodoro-display">25:00</div>
+                        <div class="pomodoro-state" id="pomodoro-state">专注</div>
+                    </div>
+                </div>
+                <div class="pomodoro-rounds-row">
+                    <span class="pomodoro-rounds" id="pomodoro-rounds"></span>
+                    <span class="pomodoro-today-count" id="pomodoro-today-count">今日 🍅 × 0</span>
+                </div>
                 <div class="pomodoro-actions">
                     <button id="pomodoro-start-btn" class="settings-btn">开始</button>
+                    <button id="pomodoro-skip-btn" class="settings-btn secondary">跳过</button>
                     <button id="pomodoro-reset-btn" class="settings-btn secondary">重置</button>
+                </div>
+                <button id="pomodoro-settings-toggle" class="link-btn pomodoro-settings-toggle">⚙ 时长设置</button>
+                <div id="pomodoro-settings-box" class="pomodoro-settings-box u-hidden">
+                    <label>专注 <input type="number" id="pomodoro-work-input" min="1" max="180" /> 分钟</label>
+                    <label>短休 <input type="number" id="pomodoro-break-input" min="1" max="60" /> 分钟</label>
+                    <label>长休 <input type="number" id="pomodoro-long-break-input" min="1" max="90" /> 分钟</label>
+                    <label>长休间隔 <input type="number" id="pomodoro-rounds-input" min="2" max="8" /> 轮</label>
                 </div>
             </div>
         </div>
+
+        <!-- 主页常驻小组件：左翼（待办 / 番茄钟） -->
+        <aside id="side-widgets" class="side-widgets wing-left">
+            <section class="side-card" id="side-card-todo">
+                <header class="side-card-header">
+                    <h3>待办<span id="todo-card-badge" class="side-badge">0</span></h3>
+                    <button id="todo-card-expand" class="side-expand-btn" title="打开完整面板">⤢</button>
+                </header>
+                <div class="side-todo-add">
+                    <input type="text" id="todo-card-input" placeholder="快速添加待办，回车确认" maxlength="100" />
+                </div>
+                <ul id="todo-card-list" class="side-todo-list todo-list"></ul>
+            </section>
+
+            <section class="side-card" id="side-card-pomodoro">
+                <header class="side-card-header">
+                    <h3>番茄钟</h3>
+                    <button id="pomodoro-card-expand" class="side-expand-btn" title="打开完整面板">⤢</button>
+                </header>
+                <div class="pomodoro-mini">
+                    <div class="pomodoro-mini-ring">
+                        <svg viewBox="0 0 80 80" aria-hidden="true">
+                            <circle class="pomodoro-mini-track" cx="40" cy="40" r="34"></circle>
+                            <circle class="pomodoro-mini-bar" id="pomodoro-card-ring" cx="40" cy="40" r="34"></circle>
+                        </svg>
+                        <span id="pomodoro-card-time" class="pomodoro-mini-time">25:00</span>
+                    </div>
+                    <div class="pomodoro-mini-info">
+                        <span id="pomodoro-card-state" class="pomodoro-mini-state">专注</span>
+                        <span id="pomodoro-card-today" class="pomodoro-mini-today">今日 🍅 × 0</span>
+                        <div class="pomodoro-mini-actions">
+                            <button id="pomodoro-card-start" class="mini-btn primary">开始</button>
+                            <button id="pomodoro-card-skip" class="mini-btn">跳过</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- 主页常驻小组件：右翼（便签） -->
+        <aside id="side-widgets-right" class="side-widgets wing-right">
+            <section class="side-card" id="side-card-notes">
+                <header class="side-card-header">
+                    <h3>便签<span id="notes-card-badge" class="side-badge">0</span></h3>
+                    <button id="notes-card-expand" class="side-expand-btn" title="打开完整面板">⤢</button>
+                </header>
+                <ul id="notes-card-list" class="side-notes-list notes-list"></ul>
+            </section>
+        </aside>
 
         <script src="js/components/sortable.min.js"></script>
         <script src="js/components/advanced-pagination.js"></script>
@@ -304,7 +389,6 @@
         <script src="js/components/weather-icons.js" type="module"></script>
         <script src="js/config/weather-config.js"></script>
         <script src="js/config/default-sites.js"></script>
-        <script src="js/utils/bing-wallpaper.js"></script>
         <script src="js/utils/toast.js"></script>
 
         <!-- 功能模块 -->
@@ -398,40 +482,23 @@
             <div class="settings-content">
                 <h2>设置</h2>
                 <div class="setting-item">
-                    <label for="api-key-input">Pexels API 密钥（可选）</label>
-                    <div class="input-with-icon">
-                        <input type="password" id="api-key-input" placeholder="在此输入您的密钥" />
-                        <button id="toggle-api-key-visibility" class="visibility-toggle">
-                            <!-- SVG for 'eye-off' will be here -->
-                        </button>
-                    </div>
-                    <p class="api-key-description">
-                        可选增强功能：填写后可解锁壁纸搜索与分类。不填也完全可用——新标签页默认使用 Bing 每日壁纸，无需任何密钥。
-                        <a
-                            href="https://www.pexels.com/zh-cn/api/documentation/#authorization"
-                            target="_blank"
-                            >获取免费密钥</a
-                        >
-                    </p>
-                </div>
-
-                <div class="setting-item">
-                    <label for="weather-api-key-input">高德地图 Web服务 Key（可选）</label>
-                    <div class="input-with-icon">
+                    <label>自定义搜索引擎</label>
+                    <div class="custom-engine-row">
                         <input
-                            type="password"
-                            id="weather-api-key-input"
-                            placeholder="在此输入您的高德Web服务Key"
+                            type="text"
+                            id="custom-engine-name-input"
+                            placeholder="名称，如 知乎"
                         />
-                        <button
-                            id="toggle-weather-key-visibility"
-                            class="visibility-toggle"
-                        ></button>
+                        <input
+                            type="text"
+                            id="custom-engine-url-input"
+                            placeholder="https://www.zhihu.com/search?type=content&q=%s"
+                        />
+                        <button id="custom-engine-add-btn" class="settings-btn">添加</button>
                     </div>
+                    <ul id="custom-engine-list" class="custom-engine-list"></ul>
                     <p class="api-key-description">
-                        可选：不填时天气功能自动使用 Open-Meteo 免费数据，无需任何密钥。如需高德数据，前往
-                        <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a> 申请
-                        Web服务 Key。
+                        搜索链接中用 %s 代表关键词占位符，添加后可在搜索框下拉中选择。
                     </p>
                 </div>
 
@@ -489,23 +556,78 @@
                 </div>
 
                 <div class="setting-item">
-                    <label>自定义搜索引擎</label>
-                    <div class="custom-engine-row">
-                        <input
-                            type="text"
-                            id="custom-engine-name-input"
-                            placeholder="名称，如 知乎"
-                        />
-                        <input
-                            type="text"
-                            id="custom-engine-url-input"
-                            placeholder="https://www.zhihu.com/search?type=content&q=%s"
-                        />
-                        <button id="custom-engine-add-btn" class="settings-btn">添加</button>
+                    <label>壁纸图源</label>
+                    <div id="wallpaper-source-options" class="wallpaper-source-options">
+                        <label class="source-option">
+                            <input type="radio" name="wallpaper-source" value="picsum" checked />
+                            <span class="source-option-text">
+                                <strong>Picsum 精选（默认）</strong>
+                                <small
+                                    >国内直连稳定可达，Unsplash 精选摄影图，按分类浏览与翻页，无需任何密钥。</small
+                                >
+                            </span>
+                        </label>
+                        <label class="source-option">
+                            <input type="radio" name="wallpaper-source" value="wallhaven" />
+                            <span class="source-option-text">
+                                <strong>Wallhaven</strong>
+                                <small
+                                    >支持关键词搜索、壁纸质量高；需要能访问境外网络（wallhaven.cc
+                                    国内直连不稳定，网络受限时建议用 Picsum）。</small
+                                >
+                            </span>
+                        </label>
                     </div>
-                    <ul id="custom-engine-list" class="custom-engine-list"></ul>
                     <p class="api-key-description">
-                        搜索链接中用 %s 代表关键词占位符，添加后可在搜索框下拉中选择。
+                        切换后重新打开壁纸库生效；启动壁纸与「换一张」也会使用所选图源。
+                    </p>
+                </div>
+
+                <div class="setting-item">
+                    <label for="show-side-widgets-toggle">
+                        主页显示小组件 <span>待办 / 便签 / 番茄钟常驻两侧</span>
+                    </label>
+                    <input type="checkbox" id="show-side-widgets-toggle" />
+                    <p class="api-key-description">关闭后可随时点右上角按钮打开对应面板。</p>
+                </div>
+
+                <!-- 可选增强（高级）：以下两项均无需配置，扩展开箱即用 -->
+                <div class="setting-item">
+                    <label for="api-key-input">Pexels API 密钥（可选增强）</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="api-key-input" placeholder="在此输入您的密钥" />
+                        <button id="toggle-api-key-visibility" class="visibility-toggle">
+                            <!-- SVG for 'eye-off' will be here -->
+                        </button>
+                    </div>
+                    <p class="api-key-description">
+                        可选增强功能：填写后壁纸搜索与分类改用 Pexels 图源。不填完全可用——默认使用
+                        Picsum 免费图库，无需任何密钥。
+                        <a
+                            href="https://www.pexels.com/zh-cn/api/documentation/#authorization"
+                            target="_blank"
+                            >获取免费密钥</a
+                        >
+                    </p>
+                </div>
+
+                <div class="setting-item">
+                    <label for="weather-api-key-input">高德地图 Web服务 Key（可选增强）</label>
+                    <div class="input-with-icon">
+                        <input
+                            type="password"
+                            id="weather-api-key-input"
+                            placeholder="在此输入您的高德Web服务Key"
+                        />
+                        <button
+                            id="toggle-weather-key-visibility"
+                            class="visibility-toggle"
+                        ></button>
+                    </div>
+                    <p class="api-key-description">
+                        可选：不填时天气功能自动使用 Open-Meteo 免费数据，无需任何密钥。如需高德数据，前往
+                        <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a> 申请
+                        Web服务 Key。
                     </p>
                 </div>
 
