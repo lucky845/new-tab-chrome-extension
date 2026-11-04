@@ -39,6 +39,7 @@ New Tab Pro turns your new tab into a clean and efficient workspace: Picsum wall
 - Todo: categories, due dates with overdue highlight, drag sort, daily stats
 - Notes: multiple notes, pin, search, autosave
 - Pomodoro: configurable durations, long-break rotation, daily 🍅 stats, ring progress
+- Tools: timestamp / JSON / Base64 / URL / SHA-256 / radix / case / dedupe / word count / color / password / UUID, fully local
 - Always-on left/right side wings (toggle in settings); ⤢ opens the full panel
 
 ## ⚙️ Config & Permissions

@@ -2916,3 +2916,210 @@ body {
     opacity: 0.65;
     line-height: 1.5;
 }
+
+/* ---------- 右翼小工具 ---------- */
+.side-card#side-card-tools {
+    padding-bottom: 12px;
+}
+
+.tools-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 4px 12px 8px;
+}
+
+.tool-mini-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.tool-mini-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.tool-mini-icon {
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 600;
+}
+
+.tool-mini-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- 小工具面板 ---------- */
+.tools-content {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.tools-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.tools-panel-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.tools-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tools-panel-header-actions button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.tool-grid-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.15s ease;
+}
+
+.tool-grid-btn:hover {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(78, 194, 198, 0.6);
+    transform: translateY(-1px);
+}
+
+.tool-grid-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.tool-grid-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tool-grid-desc {
+    font-size: 12px;
+    opacity: 0.65;
+    line-height: 1.4;
+}
+
+.tool-input,
+.tool-output {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.28);
+    color: #fff;
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.tool-input:focus,
+.tool-output:focus {
+    outline: none;
+    border-color: #4ec2c6;
+}
+
+.tool-output {
+    min-height: 96px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: auto;
+    max-height: 40vh;
+}
+
+.tool-output:empty {
+    display: none;
+}
+
+.tools-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.tools-actions button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.09);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.tools-actions button:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.tools-actions button.primary {
+    background: #4ec2c6;
+    border-color: #4ec2c6;
+    color: #0c1216;
+    font-weight: 600;
+}
+
+.tools-actions button.primary:hover {
+    background: #63d3d7;
+}
+
+@media (max-width: 700px) {
+    .tools-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .tools-mini-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
