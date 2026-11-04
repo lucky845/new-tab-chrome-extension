@@ -16,6 +16,10 @@ class NewTabApp {
         this.notesManager = new NotesManager();
         this.pomodoroManager = new PomodoroManager();
 
+        // 小工具（纯前端，无需 manager）
+        this.quickTools = window.QUICK_TOOLS || [];
+        this.activeToolId = null;
+
         // UI 状态（纯渲染层）
         this.activeCategoryElement = null;
         this.lastActiveCategoryQuery = 'Nature';
@@ -88,6 +92,9 @@ class NewTabApp {
 
         // 主页右侧常驻小组件（可开关）
         this.initSideWidgets();
+
+        // 右翼小工具宫格
+        this.renderToolsCard();
 
         // 壁纸亮度 / 模糊
         this.applyWallpaperAdjustments();
@@ -1406,7 +1413,207 @@ class NewTabApp {
         this.bindTodoEvents();
         this.bindNotesEvents();
         this.bindPomodoroEvents();
+        this.bindToolsEvents();
         this.bindSideWidgets();
+    }
+
+    // ---------- 小工具 ----------
+
+    renderToolsCard() {
+        const grid = document.getElementById(window.SELECTORS.toolsCardGrid);
+        if (!grid) return;
+        const featured = window.QUICK_TOOLS_FEATURED || [];
+        const tools = featured.map(id => this.quickTools.find(t => t.id === id)).filter(Boolean);
+        grid.innerHTML = '';
+        tools.forEach(tool => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'tool-mini-btn';
+            btn.dataset.toolId = tool.id;
+            btn.title = `${tool.name} · ${tool.desc}`;
+            btn.innerHTML = `<span class="tool-mini-icon">${tool.icon}</span><span class="tool-mini-name">${tool.name}</span>`;
+            btn.addEventListener('click', () => this.openToolsPanel(tool.id));
+            grid.appendChild(btn);
+        });
+    }
+
+    renderToolsGrid() {
+        const grid = document.getElementById(window.SELECTORS.toolsGrid);
+        if (!grid) return;
+        grid.innerHTML = '';
+        this.quickTools.forEach(tool => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'tool-grid-btn';
+            btn.dataset.toolId = tool.id;
+            btn.innerHTML = `
+                <span class="tool-grid-icon">${tool.icon}</span>
+                <span class="tool-grid-name">${tool.name}</span>
+                <span class="tool-grid-desc">${tool.desc}</span>`;
+            btn.addEventListener('click', () => this.showToolDetail(tool.id));
+            grid.appendChild(btn);
+        });
+    }
+
+    bindToolsEvents() {
+        const S = window.SELECTORS;
+        const panel = document.getElementById(S.toolsPanel);
+        const expandBtn = document.getElementById(S.toolsCardExpand);
+        const closeBtn = document.getElementById(S.closeToolsBtn);
+        const backBtn = document.getElementById(S.toolsBackBtn);
+        const runBtn = document.getElementById(S.toolRunBtn);
+        const genBtn = document.getElementById(S.toolGenerateBtn);
+        const copyBtn = document.getElementById(S.toolCopyBtn);
+        const clearBtn = document.getElementById(S.toolClearBtn);
+        const input = document.getElementById(S.toolInput);
+
+        if (expandBtn) expandBtn.addEventListener('click', () => this.openToolsPanel());
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closeToolsPanel());
+        if (backBtn) backBtn.addEventListener('click', () => this.showToolsGridView());
+        if (runBtn) runBtn.addEventListener('click', () => this.runActiveTool());
+        if (genBtn) genBtn.addEventListener('click', () => this.runActiveTool());
+        if (copyBtn) copyBtn.addEventListener('click', () => this.copyToolResult());
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (input) input.value = '';
+                const out = document.getElementById(S.toolOutput);
+                if (out) out.textContent = '';
+            });
+        }
+        if (input) {
+            input.addEventListener('keydown', e => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    this.runActiveTool();
+                }
+            });
+        }
+        if (panel) {
+            panel.addEventListener('click', e => {
+                if (e.target === panel) this.closeToolsPanel();
+            });
+        }
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && panel && !panel.classList.contains('u-hidden')) {
+                this.closeToolsPanel();
+            }
+        });
+    }
+
+    openToolsPanel(toolId = null) {
+        const S = window.SELECTORS;
+        const panel = document.getElementById(S.toolsPanel);
+        if (!panel) return;
+        this.renderToolsGrid();
+        panel.classList.remove('u-hidden');
+        if (toolId) {
+            this.showToolDetail(toolId);
+        } else {
+            this.showToolsGridView();
+        }
+    }
+
+    closeToolsPanel() {
+        const panel = document.getElementById(window.SELECTORS.toolsPanel);
+        if (panel) panel.classList.add('u-hidden');
+        this.activeToolId = null;
+    }
+
+    showToolsGridView() {
+        const S = window.SELECTORS;
+        const gridView = document.getElementById(S.toolsGridView);
+        const detailView = document.getElementById(S.toolsDetailView);
+        const backBtn = document.getElementById(S.toolsBackBtn);
+        const title = document.getElementById(S.toolsPanelTitle);
+        if (gridView) gridView.classList.remove('u-hidden');
+        if (detailView) detailView.classList.add('u-hidden');
+        if (backBtn) backBtn.classList.add('u-hidden');
+        if (title) title.textContent = '小工具';
+        this.activeToolId = null;
+    }
+
+    showToolDetail(toolId) {
+        const S = window.SELECTORS;
+        const tool = this.quickTools.find(t => t.id === toolId);
+        if (!tool) return;
+        this.activeToolId = toolId;
+
+        const gridView = document.getElementById(S.toolsGridView);
+        const detailView = document.getElementById(S.toolsDetailView);
+        const backBtn = document.getElementById(S.toolsBackBtn);
+        const title = document.getElementById(S.toolsPanelTitle);
+        const desc = document.getElementById(S.toolDesc);
+        const input = document.getElementById(S.toolInput);
+        const out = document.getElementById(S.toolOutput);
+        const runBtn = document.getElementById(S.toolRunBtn);
+        const genBtn = document.getElementById(S.toolGenerateBtn);
+
+        if (gridView) gridView.classList.add('u-hidden');
+        if (detailView) detailView.classList.remove('u-hidden');
+        if (backBtn) backBtn.classList.remove('u-hidden');
+        if (title) title.textContent = tool.name;
+        if (desc) desc.textContent = tool.desc;
+        if (input) {
+            input.value = '';
+            input.placeholder = tool.placeholder || '';
+        }
+        if (out) out.textContent = '';
+
+        const isGenerate = tool.kind === 'generate';
+        if (runBtn) runBtn.classList.toggle('u-hidden', isGenerate);
+        if (genBtn) genBtn.classList.toggle('u-hidden', !isGenerate);
+
+        if (isGenerate) this.runActiveTool();
+        else if (input) input.focus();
+    }
+
+    async runActiveTool() {
+        const S = window.SELECTORS;
+        const tool = this.quickTools.find(t => t.id === this.activeToolId);
+        if (!tool) return;
+        const input = document.getElementById(S.toolInput);
+        const out = document.getElementById(S.toolOutput);
+        try {
+            let result;
+            if (tool.kind === 'generate') {
+                result = tool.action();
+            } else {
+                const value = input ? input.value : '';
+                if (!value.trim()) {
+                    if (out) out.textContent = '';
+                    return;
+                }
+                result = await tool.run(value);
+            }
+            if (out) out.textContent = result;
+        } catch (error) {
+            if (out) out.textContent = `执行失败: ${error.message}`;
+        }
+    }
+
+    async copyToolResult() {
+        const out = document.getElementById(window.SELECTORS.toolOutput);
+        const text = out ? out.textContent : '';
+        if (!text) {
+            window.showToast('没有可复制的结果', 'warning', 1800);
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            window.showToast('已复制到剪贴板', 'success', 1600);
+        } catch {
+            // 剪贴板 API 不可用时的兜底（扩展页面/部分环境）
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            ta.remove();
+            if (ok) window.showToast('已复制到剪贴板', 'success', 1600);
+            else window.showToast('复制失败，请手动选择复制', 'error', 2200);
+        }
     }
 
     // 待办事项

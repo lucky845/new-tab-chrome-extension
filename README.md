@@ -41,6 +41,7 @@
 - 待办：分类（工作/生活/普通）、截止日期与逾期高亮、拖拽排序、今日完成统计
 - 备忘录：多便签、置顶、搜索、自动保存
 - 番茄钟：可配置时长、长休息轮转、今日 🍅 统计、提示音、环形进度
+- 小工具：时间戳 / JSON / Base64 / URL 编解码 / SHA-256 / 进制 / 大小写 / 去重 / 字数 / 颜色 / 密码 / UUID，纯本地运行
 - 左右两翼常驻主页（可在设置中关闭），点 ⤢ 打开完整面板
 
 </td></tr>
@@ -111,7 +112,7 @@ newtab.html                 单页结构
     │   ├── notes-manager.js        便签
     │   └── pomodoro-manager.js     番茄钟状态机
     ├── components/         advanced-pagination / weather-icons / visibility-toggle
-    ├── config/             weather-config / default-sites
+    ├── config/             weather-config / default-sites / tools（小工具定义）
     ├── constants/          selectors.js（window.SELECTORS 单一来源）
     └── utils/              request（超时/重试/退避）、toast
 ```

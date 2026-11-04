@@ -380,6 +380,14 @@
                 </header>
                 <ul id="notes-card-list" class="side-notes-list notes-list"></ul>
             </section>
+
+            <section class="side-card" id="side-card-tools">
+                <header class="side-card-header">
+                    <h3>小工具</h3>
+                    <button id="tools-card-expand" class="side-expand-btn" title="打开全部工具">⤢</button>
+                </header>
+                <div id="tools-card-grid" class="tools-mini-grid"></div>
+            </section>
         </aside>
 
         <script src="js/components/sortable.min.js"></script>
@@ -389,6 +397,7 @@
         <script src="js/components/weather-icons.js" type="module"></script>
         <script src="js/config/weather-config.js"></script>
         <script src="js/config/default-sites.js"></script>
+        <script src="js/config/tools.js"></script>
         <script src="js/utils/toast.js"></script>
 
         <!-- 功能模块 -->
@@ -478,6 +487,38 @@
         </div>
 
         <!-- 设置面板 (默认隐藏) -->
+                <!-- 小工具面板 -->
+        <div id="tools-panel" class="settings-panel u-hidden">
+            <div class="settings-content tools-content">
+                <div class="tools-panel-header">
+                    <h2 id="tools-panel-title">小工具</h2>
+                    <div class="tools-panel-header-actions">
+                        <button id="tools-back-btn" class="u-hidden" title="返回工具列表">← 返回</button>
+                        <button id="close-tools-btn" class="close-btn" title="关闭">✕</button>
+                    </div>
+                </div>
+
+                <div id="tools-grid-view">
+                    <p class="api-key-description">
+                        纯本地运行，不联网、不上传。输入内容后点「转换 / 生成」，结果可一键复制。
+                    </p>
+                    <div id="tools-grid" class="tools-grid"></div>
+                </div>
+
+                <div id="tools-detail-view" class="u-hidden">
+                    <p id="tool-desc" class="api-key-description"></p>
+                    <textarea id="tool-input" class="tool-input" rows="5" spellcheck="false"></textarea>
+                    <div class="tools-actions">
+                        <button id="tool-run-btn" class="primary">转换</button>
+                        <button id="tool-generate-btn" class="primary u-hidden">生成</button>
+                        <button id="tool-copy-btn">复制结果</button>
+                        <button id="tool-clear-btn">清空</button>
+                    </div>
+                    <pre id="tool-output" class="tool-output"></pre>
+                </div>
+            </div>
+        </div>
+
         <div id="settings-panel" class="settings-panel u-hidden">
             <div class="settings-content">
                 <h2>设置</h2>
