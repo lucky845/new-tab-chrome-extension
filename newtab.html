@@ -700,6 +700,23 @@
         </div>
 
         <!-- 添加/编辑快捷方式面板 (默认隐藏) -->
+        <!-- 文件夹内容弹层 -->
+        <div id="folder-overlay" class="folder-overlay u-hidden">
+            <div class="folder-popover">
+                <div class="folder-popover-header">
+                    <h3 id="folder-overlay-title">文件夹</h3>
+                    <div class="folder-popover-actions">
+                        <button id="folder-add-site-btn" title="向文件夹添加">＋</button>
+                        <button id="close-folder-btn" title="关闭">✕</button>
+                    </div>
+                </div>
+                <div id="folder-items-grid" class="folder-items-grid"></div>
+                <p id="folder-empty-hint" class="folder-empty-hint u-hidden">
+                    空文件夹 — 点右上角 ＋ 添加，或右键其他快捷方式「移入文件夹」。
+                </p>
+            </div>
+        </div>
+
         <div id="add-quick-access-panel" class="settings-panel u-hidden">
             <div class="settings-content">
                 <h2 id="qa-panel-title">添加快捷方式</h2>
@@ -747,6 +764,15 @@
                         </div>
                     </div>
                     <p class="api-key-description">如果留空，将自动获取网站图标。</p>
+                </div>
+                <div class="setting-item" id="qa-folder-item">
+                    <label for="qa-folder-select">所属文件夹</label>
+                    <select id="qa-folder-select">
+                        <option value="-1">根目录（不放入文件夹）</option>
+                    </select>
+                    <p class="api-key-description">
+                        也可以保存后在快捷方式上右键，选择「移入文件夹」或「新建文件夹」。
+                    </p>
                 </div>
                 <div class="settings-actions">
                     <button id="save-qa-btn" class="settings-btn">保存</button>

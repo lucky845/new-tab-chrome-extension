@@ -16,6 +16,9 @@ class NewTabApp {
         this.notesManager = new NotesManager();
         this.pomodoroManager = new PomodoroManager();
 
+        // 快捷方式文件夹
+        this.activeFolderIndex = null;
+
         // 小工具（纯前端，无需 manager）
         this.quickTools = window.QUICK_TOOLS || [];
         this.activeToolId = null;
@@ -720,6 +723,12 @@ class NewTabApp {
             quickAccessGrid.addEventListener('click', e => {
                 if (e.target.closest('.add-quick-access-btn')) {
                     this.openAddQuickAccessModal();
+                    return;
+                }
+                const folderEl = e.target.closest('.folder-item');
+                if (folderEl) {
+                    e.preventDefault();
+                    this.openFolderOverlay(parseInt(folderEl.dataset.index, 10));
                 }
             });
 
@@ -761,6 +770,30 @@ class NewTabApp {
         if (saveQaBtn) {
             saveQaBtn.addEventListener('click', () => this.saveQuickAccess());
         }
+
+        // 文件夹弹层：关闭 / 点遮罩关闭 / ＋ 添加到当前文件夹
+        const folderOverlay = document.getElementById(window.SELECTORS.folderOverlay);
+        const closeFolderBtn = document.getElementById(window.SELECTORS.closeFolderBtn);
+        const folderAddSiteBtn = document.getElementById(window.SELECTORS.folderAddSiteBtn);
+        if (closeFolderBtn)
+            closeFolderBtn.addEventListener('click', () => this.closeFolderOverlay());
+        if (folderOverlay) {
+            folderOverlay.addEventListener('click', e => {
+                if (e.target === folderOverlay) this.closeFolderOverlay();
+            });
+        }
+        if (folderAddSiteBtn) {
+            folderAddSiteBtn.addEventListener('click', () => {
+                const folderIndex = this.activeFolderIndex;
+                this.closeFolderOverlay();
+                this.openAddQuickAccessModal();
+                const select = document.getElementById(window.SELECTORS.qaFolderSelect);
+                if (select && folderIndex !== null) select.value = String(folderIndex);
+            });
+        }
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') this.closeFolderOverlay();
+        });
     }
 
     // 显示添加快捷访问模态框（重置表单为"添加"模式）
@@ -793,9 +826,27 @@ class NewTabApp {
         if (qaNameInput) qaNameInput.classList.remove('invalid');
         if (qaUrlError) qaUrlError.classList.add('u-hidden');
         if (qaNameError) qaNameError.classList.add('u-hidden');
+        this.refreshFolderSelect();
         this.validateQuickAccessForm();
 
         addQuickAccessPanel.classList.remove('u-hidden');
+    }
+
+    // 刷新「所属文件夹」下拉
+    refreshFolderSelect(preselect = -1) {
+        const select = document.getElementById(window.SELECTORS.qaFolderSelect);
+        const folderItem = document.getElementById(window.SELECTORS.qaFolderItem);
+        if (!select) return;
+        const folders = this.quickAccessManager.getFolders();
+        select.innerHTML = '<option value="-1">根目录（不放入文件夹）</option>';
+        folders.forEach(folder => {
+            const opt = document.createElement('option');
+            opt.value = String(folder.index);
+            opt.textContent = `${folder.name}（${(folder.items || []).length}）`;
+            select.appendChild(opt);
+        });
+        select.value = folders.some(f => f.index === preselect) ? String(preselect) : '-1';
+        if (folderItem) folderItem.classList.toggle('u-hidden', folders.length === 0);
     }
 
     // 显示编辑快捷访问模态框
@@ -909,7 +960,13 @@ class NewTabApp {
         if (editIndex > -1) {
             await this.quickAccessManager.editSite(editIndex, name, url, icon);
         } else {
-            await this.quickAccessManager.addSite(name, url, icon);
+            const folderSelect = document.getElementById(window.SELECTORS.qaFolderSelect);
+            const folderIndex = folderSelect ? parseInt(folderSelect.value, 10) : -1;
+            if (folderIndex >= 0) {
+                await this.quickAccessManager.addSiteToFolder(folderIndex, name, url, icon);
+            } else {
+                await this.quickAccessManager.addSite(name, url, icon);
+            }
         }
 
         // 重新渲染快捷访问列表
@@ -917,17 +974,17 @@ class NewTabApp {
         if (addQuickAccessPanel) addQuickAccessPanel.classList.add('u-hidden');
     }
 
-    // 右键菜单（编辑 / 删除）
+    // 右键菜单（编辑 / 删除 / 文件夹操作）
     showContextMenu(e, item) {
         e.preventDefault();
 
-        // 移除现有的右键菜单
         const existingMenu = document.querySelector('.context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
+        if (existingMenu) existingMenu.remove();
 
-        // 创建右键菜单
+        const index = parseInt(item.dataset.index, 10);
+        const site = this.quickAccessManager.getSites()[index];
+        if (!site) return;
+
         const menu = document.createElement('div');
         menu.className = 'context-menu';
         menu.style.cssText = `
@@ -936,72 +993,229 @@ class NewTabApp {
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 8px;
-            padding: 8px 0;
+            padding: 6px 0;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             z-index: 10000;
-            min-width: 120px;
+            min-width: 140px;
             font-size: 14px;
             color: #000000;
         `;
 
-        const index = parseInt(item.dataset.index, 10);
-        const siteName = item.querySelector('.name').textContent;
-
-        // 编辑选项
-        const editOption = document.createElement('div');
-        editOption.textContent = '编辑';
-        editOption.style.cssText = `
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        `;
-        editOption.onmouseover = () => (editOption.style.backgroundColor = 'rgba(0, 0, 0, 0.1)');
-        editOption.onmouseout = () => (editOption.style.backgroundColor = 'transparent');
-        editOption.onclick = () => {
-            this.openEditQuickAccessModal(index);
-            menu.remove();
+        const addMenuRow = (
+            label,
+            onClick,
+            { danger = false, disabled = false, small = false } = {}
+        ) => {
+            const row = document.createElement('div');
+            row.textContent = label;
+            row.style.cssText = `
+                padding: ${small ? '6px 16px 6px 28px' : '8px 16px'};
+                cursor: ${disabled ? 'default' : 'pointer'};
+                transition: background-color 0.2s;
+                color: ${danger ? '#e74c3c' : disabled ? 'rgba(0,0,0,0.35)' : '#000'};
+                font-size: ${small ? '13px' : '14px'};
+                white-space: nowrap;
+            `;
+            if (!disabled) {
+                row.onmouseover = () =>
+                    (row.style.backgroundColor = danger
+                        ? 'rgba(231, 76, 60, 0.1)'
+                        : 'rgba(0, 0, 0, 0.08)');
+                row.onmouseout = () => (row.style.backgroundColor = 'transparent');
+                row.onclick = () => {
+                    menu.remove();
+                    onClick();
+                };
+            }
+            menu.appendChild(row);
+            return row;
         };
 
-        // 删除选项
-        const deleteOption = document.createElement('div');
-        deleteOption.textContent = '删除';
-        deleteOption.style.cssText = `
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            color: #e74c3c;
-        `;
-        deleteOption.onmouseover = () =>
-            (deleteOption.style.backgroundColor = 'rgba(231, 76, 60, 0.1)');
-        deleteOption.onmouseout = () => (deleteOption.style.backgroundColor = 'transparent');
-        deleteOption.onclick = () => {
-            this.confirmDeleteQuickAccess(index, siteName);
-            menu.remove();
-        };
+        if (site.isFolder) {
+            addMenuRow('打开文件夹', () => this.openFolderOverlay(index));
+            addMenuRow('重命名文件夹', () => this.renameQuickFolder(index));
+            addMenuRow('解散文件夹', () => this.dissolveQuickFolder(index));
+            addMenuRow('删除文件夹', () => this.confirmDeleteQuickAccess(index, site.name), {
+                danger: true,
+            });
+        } else {
+            addMenuRow('编辑', () => this.openEditQuickAccessModal(index));
+            addMenuRow('新建文件夹…', () => this.createFolderAndMove(index === -1 ? null : index));
+            const folders = this.quickAccessManager.getFolders();
+            if (folders.length > 0) {
+                addMenuRow('移入文件夹', () => {}, { disabled: true });
+                folders.forEach(folder => {
+                    addMenuRow(
+                        `　${folder.name}（${(folder.items || []).length}）`,
+                        () => this.moveQuickItemToFolder(index, folder.index),
+                        { small: true }
+                    );
+                });
+            }
+            addMenuRow('删除', () => this.confirmDeleteQuickAccess(index, site.name), {
+                danger: true,
+            });
+        }
 
-        // 添加选项到菜单
-        menu.appendChild(editOption);
-        menu.appendChild(deleteOption);
-
-        // 设置菜单位置
-        menu.style.left = e.clientX + 'px';
-        menu.style.top = e.clientY + 'px';
-
-        // 添加到页面
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
         document.body.appendChild(menu);
 
-        // 点击其他地方关闭菜单
         const closeMenu = ev => {
             if (!menu.contains(ev.target)) {
                 menu.remove();
                 document.removeEventListener('click', closeMenu);
             }
         };
+        setTimeout(() => document.addEventListener('click', closeMenu), 100);
+    }
 
-        // 延迟添加事件监听器，避免立即触发
-        setTimeout(() => {
-            document.addEventListener('click', closeMenu);
-        }, 100);
+    // ---------- 文件夹操作 ----------
+
+    // 新建文件夹并（可选）把某个根站点移入
+    async createFolderAndMove(siteIndex = null) {
+        const name = window.prompt('文件夹名称（2-10 个字符）');
+        if (name === null) return;
+        const trimmed = name.trim();
+        const check = this.quickAccessManager.validateName(trimmed);
+        if (!check.valid) {
+            window.showToast(check.message, 'warning', 2200);
+            return;
+        }
+        const folder = await this.quickAccessManager.addFolder(trimmed);
+        if (siteIndex !== null && siteIndex >= 0) {
+            const folderIndex = this.quickAccessManager.getSites().indexOf(folder);
+            await this.quickAccessManager.moveSiteToFolder(siteIndex, folderIndex);
+        }
+        this.quickAccessManager.renderQuickAccess();
+        window.showToast(`已创建文件夹「${trimmed}」`, 'success', 1800);
+    }
+
+    // 重命名文件夹
+    async renameQuickFolder(index) {
+        const folder = this.quickAccessManager.getSites()[index];
+        if (!folder || !folder.isFolder) return;
+        const name = window.prompt('新的文件夹名称', folder.name);
+        if (name === null) return;
+        const trimmed = name.trim();
+        const check = this.quickAccessManager.validateName(trimmed);
+        if (!check.valid) {
+            window.showToast(check.message, 'warning', 2200);
+            return;
+        }
+        await this.quickAccessManager.renameFolder(index, trimmed);
+        this.quickAccessManager.renderQuickAccess();
+        this.renderFolderOverlay();
+    }
+
+    // 解散文件夹：内部站点回填到根
+    async dissolveQuickFolder(index) {
+        const folder = this.quickAccessManager.getSites()[index];
+        if (!folder || !folder.isFolder) return;
+        const items = await this.quickAccessManager.dissolveFolder(index);
+        this.quickAccessManager.renderQuickAccess();
+        this.closeFolderOverlay();
+        window.showToast(`已解散文件夹，${items.length} 个站点已回到主面板`, 'success', 2200);
+    }
+
+    // 把根站点移入文件夹
+    async moveQuickItemToFolder(siteIndex, folderIndex) {
+        const ok = await this.quickAccessManager.moveSiteToFolder(siteIndex, folderIndex);
+        if (ok) {
+            this.quickAccessManager.renderQuickAccess();
+            const folder = this.quickAccessManager.getSites()[folderIndex];
+            window.showToast(`已移入「${folder ? folder.name : '文件夹'}」`, 'success', 1800);
+        }
+    }
+
+    // 打开文件夹弹层
+    openFolderOverlay(index) {
+        this.activeFolderIndex = index;
+        const overlay = document.getElementById(window.SELECTORS.folderOverlay);
+        if (!overlay) return;
+        overlay.classList.remove('u-hidden');
+        this.renderFolderOverlay();
+    }
+
+    closeFolderOverlay() {
+        const overlay = document.getElementById(window.SELECTORS.folderOverlay);
+        if (overlay) overlay.classList.add('u-hidden');
+        this.activeFolderIndex = null;
+    }
+
+    // 渲染文件夹内容
+    renderFolderOverlay() {
+        const S = window.SELECTORS;
+        const titleEl = document.getElementById(S.folderOverlayTitle);
+        const grid = document.getElementById(S.folderItemsGrid);
+        const emptyHint = document.getElementById(S.folderEmptyHint);
+        if (!grid || this.activeFolderIndex === null) return;
+
+        const folder = this.quickAccessManager.getSites()[this.activeFolderIndex];
+        if (!folder || !folder.isFolder) {
+            this.closeFolderOverlay();
+            return;
+        }
+        if (titleEl) titleEl.textContent = folder.name;
+
+        const items = folder.items || [];
+        if (emptyHint) emptyHint.classList.toggle('u-hidden', items.length > 0);
+        grid.innerHTML = '';
+
+        items.forEach((site, itemIndex) => {
+            const cell = document.createElement('a');
+            cell.className = 'folder-site';
+            cell.href = site.url;
+            cell.target = '_blank';
+            cell.rel = 'noopener noreferrer';
+            cell.title = site.url;
+
+            const iconWrap = document.createElement('div');
+            iconWrap.className = 'folder-site-icon';
+            if (site.icon && /^https?:|<svg/.test(site.icon)) {
+                iconWrap.innerHTML = site.icon.trim().startsWith('<svg')
+                    ? site.icon
+                    : `<img src="${site.icon}" alt="" />`;
+            } else {
+                const img = document.createElement('img');
+                img.alt = '';
+                img.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
+                img.onerror = () => {
+                    iconWrap.innerHTML = '';
+                    const fb = document.createElement('span');
+                    fb.className = 'fallback-icon';
+                    fb.textContent = site.name.charAt(0).toUpperCase();
+                    iconWrap.appendChild(fb);
+                };
+                iconWrap.appendChild(img);
+            }
+
+            const label = document.createElement('span');
+            label.className = 'folder-site-name';
+            label.textContent = site.name;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'folder-site-remove';
+            removeBtn.textContent = '✕';
+            removeBtn.title = '移出文件夹（回到主面板）';
+            removeBtn.addEventListener('click', async ev => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const moved = await this.quickAccessManager.moveFromFolderToRoot(
+                    this.activeFolderIndex,
+                    itemIndex
+                );
+                this.quickAccessManager.renderQuickAccess();
+                this.renderFolderOverlay();
+                if (moved) window.showToast(`「${moved.name}」已移回主面板`, 'success', 1800);
+            });
+
+            cell.appendChild(iconWrap);
+            cell.appendChild(label);
+            cell.appendChild(removeBtn);
+            grid.appendChild(cell);
+        });
     }
 
     // 删除确认弹窗
