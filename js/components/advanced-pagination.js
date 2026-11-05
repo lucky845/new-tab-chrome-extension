@@ -80,6 +80,51 @@ class AdvancedPagination {
 
     // 创建项目元素
     createItemElement(item, globalIndex) {
+        // 文件夹：渲染为 2x2 迷你预览格，点击由 app 层接管弹层
+        if (item.isFolder) {
+            const folderElement = document.createElement('div');
+            folderElement.className = 'quick-access-item folder-item';
+            folderElement.dataset.index = globalIndex;
+            folderElement.dataset.isFolder = 'true';
+            folderElement.dataset.page = this.currentPage;
+            folderElement.title = item.name;
+
+            const preview = document.createElement('div');
+            preview.className = 'folder-preview';
+            const items = item.items || [];
+            for (let i = 0; i < 4; i += 1) {
+                const cell = document.createElement('div');
+                cell.className = 'folder-cell';
+                const site = items[i];
+                if (site) {
+                    const icon = document.createElement('img');
+                    icon.className = 'icon';
+                    icon.alt = '';
+                    icon.src =
+                        site.icon && /^https?:|<svg/.test(site.icon)
+                            ? site.icon
+                            : `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
+                    cell.appendChild(icon);
+                }
+                preview.appendChild(cell);
+            }
+            folderElement.appendChild(preview);
+
+            const folderName = document.createElement('span');
+            folderName.className = 'name';
+            folderName.textContent = item.name;
+            folderElement.appendChild(folderName);
+
+            if (items.length > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'folder-count';
+                badge.textContent = String(items.length);
+                folderElement.appendChild(badge);
+            }
+
+            return folderElement;
+        }
+
         const itemElement = document.createElement('a');
         itemElement.href = item.url;
         itemElement.className = 'quick-access-item';

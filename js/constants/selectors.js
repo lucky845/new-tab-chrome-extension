@@ -143,6 +143,16 @@ export const SELECTORS = {
     customEngineAddBtn: 'custom-engine-add-btn',
     customEngineList: 'custom-engine-list',
     wallpaperBrightnessInput: 'wallpaper-brightness-input',
+    // 文件夹分组
+    qaFolderSelect: 'qa-folder-select',
+    qaFolderItem: 'qa-folder-item',
+    folderOverlay: 'folder-overlay',
+    folderOverlayTitle: 'folder-overlay-title',
+    folderItemsGrid: 'folder-items-grid',
+    folderEmptyHint: 'folder-empty-hint',
+    folderAddSiteBtn: 'folder-add-site-btn',
+    closeFolderBtn: 'close-folder-btn',
+
     // 小工具
     toolsPanel: 'tools-panel',
     toolsPanelTitle: 'tools-panel-title',

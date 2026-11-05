@@ -66,6 +66,81 @@ class QuickAccessManager {
         return null;
     }
 
+    // ---------- 文件夹 ----------
+
+    // 新建文件夹
+    async addFolder(name) {
+        const folder = { name: name.trim(), isFolder: true, items: [] };
+        this.sites.push(folder);
+        await this.saveSites();
+        return folder;
+    }
+
+    // 重命名文件夹
+    async renameFolder(index, name) {
+        const folder = this.sites[index];
+        if (!folder || !folder.isFolder) return null;
+        folder.name = name.trim();
+        await this.saveSites();
+        return folder;
+    }
+
+    // 向文件夹内添加快捷方式
+    async addSiteToFolder(folderIndex, name, url, icon) {
+        const folder = this.sites[folderIndex];
+        if (!folder || !folder.isFolder) return null;
+        const item = { name, url, icon: icon || null };
+        folder.items.push(item);
+        await this.saveSites();
+        return item;
+    }
+
+    // 从文件夹中移除某一项（返回被移除的站点，便于外部决定后续）
+    async removeFromFolder(folderIndex, itemIndex) {
+        const folder = this.sites[folderIndex];
+        if (!folder || !folder.isFolder) return null;
+        const [removed] = folder.items.splice(itemIndex, 1);
+        await this.saveSites();
+        return removed || null;
+    }
+
+    // 把文件夹内某一项移回根列表（不删除数据）
+    async moveFromFolderToRoot(folderIndex, itemIndex) {
+        const folder = this.sites[folderIndex];
+        if (!folder || !folder.isFolder) return null;
+        const [item] = folder.items.splice(itemIndex, 1);
+        if (!item) return null;
+        this.sites.push(item);
+        await this.saveSites();
+        return item;
+    }
+
+    // 解散文件夹：内部站点按序回填到根列表，随后删除该文件夹
+    async dissolveFolder(index) {
+        const folder = this.sites[index];
+        if (!folder || !folder.isFolder) return null;
+        const items = folder.items.map(item => ({ ...item }));
+        this.sites.splice(index, 1, ...items);
+        await this.saveSites();
+        return items;
+    }
+
+    // 把根列表中的站点移入文件夹
+    async moveSiteToFolder(siteIndex, folderIndex) {
+        const site = this.sites[siteIndex];
+        const folder = this.sites[folderIndex];
+        if (!site || site.isFolder || !folder || !folder.isFolder) return null;
+        folder.items.push({ name: site.name, url: site.url, icon: site.icon || null });
+        this.sites.splice(siteIndex, 1);
+        await this.saveSites();
+        return true;
+    }
+
+    // 获取所有文件夹（附带原索引，便于定位）
+    getFolders() {
+        return this.sites.map((site, index) => ({ ...site, index })).filter(site => site.isFolder);
+    }
+
     // 获取所有快捷访问项目
     getSites() {
         return this.sites;

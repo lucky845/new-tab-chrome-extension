@@ -25,6 +25,7 @@ New Tab Pro turns your new tab into a clean and efficient workspace: Picsum wall
 
 - 10 per page (9 items + 1 add button), unified sizing
 - Drag-and-drop sort (same page), right-click edit/delete
+- Folder grouping: collect sites into folders with a 2×2 icon preview and count badge; click to expand, add more from within
 - Responsive grid: 5 / 4 / 3 columns by viewport, square at any zoom level
 
 ### 🌤️ Weather (Open-Meteo by default)
