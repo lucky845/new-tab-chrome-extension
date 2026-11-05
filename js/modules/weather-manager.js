@@ -263,9 +263,16 @@ class WeatherManager {
                 }
             }
         } catch (error) {
-            console.error('获取天气信息失败:', error);
-            // 透出具体原因（权限被拒 / 超时 / 城市名查询失败…），不再统一吞成一句话
-            this.showError(error?.message || '获取天气信息失败');
+            const msg = error?.message || '获取天气信息失败';
+            // 定位不可用/被拒绝是常见预期态（用户未授权），降级为 info，避免每次开标签页刷错误
+            const expectedGeoIssue =
+                /权限被拒绝|位置信息不可用|获取位置超时|不支持地理位置|未找到可用/.test(msg);
+            if (expectedGeoIssue) {
+                console.info('[weather] 定位不可用，已跳过自动定位：', msg);
+            } else {
+                console.error('获取天气信息失败:', error);
+            }
+            this.showError(msg);
         } finally {
             this.isLoading = false;
         }
@@ -624,6 +631,8 @@ class WeatherManager {
 
     /**
      * 按浏览器定位获取 Open-Meteo 天气（定位失败回退上次成功坐标）
+     * 定位不可用/被拒绝属常见情况（用户未授权、系统关闭定位），不应每次开标签页都刷错误日志，
+     * 因此这里静默降级：能回退就用缓存坐标，回退不了才把原始错误抛给上层展示提示。
      */
     async getOpenMeteoByLocation() {
         const locKey = 'om_last_location';
@@ -637,12 +646,13 @@ class WeatherManager {
             });
             return data;
         } catch (geoErr) {
-            console.warn('Open-Meteo 定位失败，尝试上次坐标回退:', geoErr?.message || geoErr);
+            // 静默回退：优先用上次成功坐标
             const last = await chrome.storage.local.get([locKey]);
             const saved = last && last[locKey];
             if (saved) {
                 return this.fetchOpenMeteoCurrent(saved.latitude, saved.longitude, '当前位置', '');
             }
+            // 无缓存可选：交由上层统一展示友好文案（不在这里打 warn，避免噪音）
             throw geoErr;
         }
     }
@@ -1013,10 +1023,18 @@ class WeatherManager {
         if (temperatureEl) temperatureEl.textContent = '--°C';
         if (weatherDescEl) weatherDescEl.textContent = message;
         if (locationEl) {
-            // 城市名相关的错误直接给下一步动作引导
-            locationEl.textContent = /城市/.test(message)
-                ? '打开右上角 ⚙️ 设置可修改天气城市'
-                : '获取失败';
+            // 给可执行的下一步，而不是笼统的「获取失败」
+            if (/城市/.test(message)) {
+                locationEl.textContent = '打开右上角 ⚙️ 设置可修改天气城市';
+            } else if (/权限被拒绝|NotAllowed/.test(message)) {
+                locationEl.textContent = '点 ⚙️ 设置天气城市即可显示';
+            } else if (/位置信息不可用|未找到可用/.test(message)) {
+                locationEl.textContent = '点 ⚙️ 设置天气城市即可显示';
+            } else if (/超时/.test(message)) {
+                locationEl.textContent = '定位超时，点 ⚙️ 可手动设城市';
+            } else {
+                locationEl.textContent = '获取失败';
+            }
         }
 
         // 根据错误类型显示不同提示

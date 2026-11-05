@@ -244,9 +244,9 @@
                 </div>
                 <div id="todo-filter-bar" class="todo-filter-bar">
                     <button class="todo-filter-tab active" data-filter="all">全部</button>
-                    <button class="todo-filter-tab" data-filter="work">💼 工作</button>
-                    <button class="todo-filter-tab" data-filter="life">🏠 生活</button>
-                    <button class="todo-filter-tab" data-filter="normal">📝 普通</button>
+                    <button class="todo-filter-tab" data-filter="work"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> 工作</button>
+                    <button class="todo-filter-tab" data-filter="life"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M10 21v-6h4v6"></path></svg> 生活</button>
+                    <button class="todo-filter-tab" data-filter="normal"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8M8 17h5"></path></svg> 普通</button>
                 </div>
                 <div class="todo-input-row">
                     <button id="todo-important-btn" class="todo-important-btn" title="重要标记">
@@ -256,9 +256,9 @@
                     </button>
                     <input type="text" id="todo-input" placeholder="添加一个待办…" maxlength="100" />
                     <select id="todo-category-select" class="todo-category-select" title="分类">
-                        <option value="normal">📝 普通</option>
-                        <option value="work">💼 工作</option>
-                        <option value="life">🏠 生活</option>
+                        <option value="normal">普通</option>
+                        <option value="work">工作</option>
+                        <option value="life">生活</option>
                     </select>
                     <input type="date" id="todo-due-date" class="todo-due-date" title="截止日期（可选）" />
                     <button id="todo-add-btn" class="settings-btn">添加</button>
@@ -520,7 +520,8 @@
         </div>
 
         <div id="settings-panel" class="settings-panel u-hidden">
-            <div class="settings-content">
+            <div class="settings-content settings-content--with-footer">
+                <div class="settings-scroll">
                 <h2>设置</h2>
                 <div class="setting-item">
                     <label>自定义搜索引擎</label>
@@ -671,9 +672,10 @@
                         Web服务 Key。
                     </p>
                 </div>
+                </div>
 
-                <div class="settings-actions">
-                    <button id="save-settings-btn" class="settings-btn">保存</button>
+                <div class="settings-footer">
+                    <button id="save-settings-btn" class="settings-btn primary">保存</button>
                     <button id="close-settings-btn" class="settings-btn secondary">关闭</button>
                 </div>
             </div>

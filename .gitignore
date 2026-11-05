@@ -55,4 +55,8 @@ pnpm-debug.log*
 *.zip
 *.rar
 *.gz
-*.7z 
+*.7z
+
+# 本地工具产物（截图/渲染缓存）
+.dsh-vision-router/
+.pw-tmp/
