@@ -1,4 +1,18 @@
 /**
+ * 统一图标（内联 SVG，无需外部资源）
+ * 删除类操作统一使用垃圾桶，避免各面板图标不一致
+ */
+const AppIcons = {
+    trash: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`,
+    // 标准图钉（lucide pin）：圆头 + 宽帽 + 底部针，小尺寸下仍可辨认
+    pin: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"></path></svg>`,
+    // 分类图标：与 trash/pin 同一视觉族（单色线性 stroke）
+    catWork: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>`,
+    catLife: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M10 21v-6h4v6"></path></svg>`,
+    catNormal: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8M8 17h5"></path></svg>`,
+};
+
+/**
  * 主应用类（组合根 + 唯一 UI 绑定归属）
  * - 业务数据层在 js/modules/*-manager.js
  * - 本类负责：模块编排、DOM 事件绑定、面板渲染
@@ -796,6 +810,41 @@ class NewTabApp {
         });
     }
 
+    /**
+     * 手机式拖拽合并：把一个图标拖到另一个图标上 → 生成/并入文件夹
+     * 目标若是文件夹则直接并入；否则弹出命名，默认给出建议名
+     */
+    async handleItemMerge(draggedIndex, targetIndex) {
+        const manager = this.quickAccessManager;
+        const target = manager.getNodeByIndex(targetIndex);
+        if (!target) return;
+
+        let folderName = null;
+        if (!target.isFolder) {
+            const dragged = manager.getNodeByIndex(draggedIndex);
+            const suggest = manager.suggestFolderName([target, dragged].filter(Boolean));
+            const input = window.prompt('新建文件夹，名称：', suggest);
+            if (input === null) return;
+            const trimmed = input.trim();
+            const check = manager.validateName(trimmed);
+            if (!check.valid) {
+                window.showToast(check.message, 'warning', 2200);
+                return;
+            }
+            folderName = trimmed;
+        }
+
+        const result = await manager.mergeIntoFolder(draggedIndex, targetIndex, folderName);
+        if (!result) return;
+
+        manager.renderQuickAccess();
+        window.showToast(
+            target.isFolder ? `已移入「${result.name}」` : `已创建文件夹「${result.name}」`,
+            'success',
+            1800
+        );
+    }
+
     // 显示添加快捷访问模态框（重置表单为"添加"模式）
     openAddQuickAccessModal() {
         const addQuickAccessPanel = document.getElementById(window.SELECTORS.addQuickAccessPanel);
@@ -1163,12 +1212,15 @@ class NewTabApp {
         grid.innerHTML = '';
 
         items.forEach((site, itemIndex) => {
-            const cell = document.createElement('a');
+            // 用 div 而非 <a>：<a href> 会触发浏览器原生 HTML5 拖拽，抢占 Sortable 手势
+            const cell = document.createElement('div');
             cell.className = 'folder-site';
-            cell.href = site.url;
-            cell.target = '_blank';
-            cell.rel = 'noopener noreferrer';
             cell.title = site.url;
+            cell.dataset.url = site.url;
+            cell.addEventListener('click', ev => {
+                if (ev.target.closest('.folder-site-remove')) return;
+                window.open(site.url, '_blank', 'noopener');
+            });
 
             const iconWrap = document.createElement('div');
             iconWrap.className = 'folder-site-icon';
@@ -1200,14 +1252,19 @@ class NewTabApp {
             removeBtn.textContent = '✕';
             removeBtn.title = '移出文件夹（回到主面板）';
             removeBtn.addEventListener('click', async ev => {
-                ev.preventDefault();
                 ev.stopPropagation();
+                const folderIndexAtClick = this.activeFolderIndex;
                 const moved = await this.quickAccessManager.moveFromFolderToRoot(
-                    this.activeFolderIndex,
+                    folderIndexAtClick,
                     itemIndex
                 );
                 this.quickAccessManager.renderQuickAccess();
-                this.renderFolderOverlay();
+                const stillFolder = this.quickAccessManager.getNodeByIndex(folderIndexAtClick);
+                if (stillFolder && stillFolder.isFolder) {
+                    this.renderFolderOverlay();
+                } else {
+                    this.closeFolderOverlay();
+                }
                 if (moved) window.showToast(`「${moved.name}」已移回主面板`, 'success', 1800);
             });
 
@@ -1216,6 +1273,105 @@ class NewTabApp {
             cell.appendChild(removeBtn);
             grid.appendChild(cell);
         });
+
+        this.initFolderSortable(grid);
+    }
+
+    // 文件夹弹层内的拖拽：内部排序 + 拖出文件夹（移回主面板）
+    initFolderSortable(grid) {
+        if (typeof Sortable === 'undefined' || !grid) return;
+        if (this._folderSortable) {
+            this._folderSortable.destroy();
+            this._folderSortable = null;
+        }
+
+        // 拖拽期间全局跟踪指针（onMove 在指针离开弹层后会停止触发，不能只依赖它）
+        const trackPointer = e => {
+            const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+            if (typeof t.clientX === 'number') {
+                this._folderDragPointer = { x: t.clientX, y: t.clientY };
+            }
+            const popover = document.querySelector('.folder-popover');
+            const p = this._folderDragPointer;
+            if (popover && p) {
+                const r = popover.getBoundingClientRect();
+                const outside = p.x < r.left || p.x > r.right || p.y < r.top || p.y > r.bottom;
+                popover.classList.toggle('drag-out', outside);
+            }
+        };
+
+        this._folderSortable = Sortable.create(grid, {
+            draggable: '.folder-site',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackTolerance: 3,
+            onStart: evt => {
+                this._folderDragName =
+                    evt.item.querySelector('.folder-site-name')?.textContent || null;
+                this._folderDragPointer = null;
+                document.addEventListener('pointermove', trackPointer, true);
+                document.addEventListener('touchmove', trackPointer, {
+                    capture: true,
+                    passive: true,
+                });
+            },
+            onEnd: evt => {
+                document.removeEventListener('pointermove', trackPointer, true);
+                document.removeEventListener('touchmove', trackPointer, true);
+
+                const pointer = this._folderDragPointer;
+                this._folderDragPointer = null;
+                document.querySelector('.folder-popover')?.classList.remove('drag-out');
+
+                const name =
+                    this._folderDragName ||
+                    evt.item.querySelector('.folder-site-name')?.textContent ||
+                    null;
+                this._folderDragName = null;
+
+                // 指针在弹层之外 → 拖出文件夹
+                const popover = document.querySelector('.folder-popover');
+                if (pointer && popover) {
+                    const r = popover.getBoundingClientRect();
+                    const outside =
+                        pointer.x < r.left ||
+                        pointer.x > r.right ||
+                        pointer.y < r.top ||
+                        pointer.y > r.bottom;
+                    if (outside && name) {
+                        this.dropItemOutOfFolder(name);
+                        return;
+                    }
+                }
+
+                // 内部排序
+                const names = [...grid.querySelectorAll('.folder-site-name')].map(
+                    el => el.textContent
+                );
+                this.quickAccessManager
+                    .reorderFolderItems(this.activeFolderIndex, names)
+                    .then(() => this.quickAccessManager.renderQuickAccess())
+                    .catch(error => console.error('文件夹内排序保存失败:', error));
+            },
+        });
+    }
+
+    // 把文件夹内某项拖到弹层外 → 移回主面板（保持可继续拖拽排序）
+    async dropItemOutOfFolder(name) {
+        const folderIndex = this.activeFolderIndex;
+        const folder = this.quickAccessManager.getNodeByIndex(folderIndex);
+        if (!folder || !folder.isFolder) return;
+        const itemIndex = (folder.items || []).findIndex(item => item.name === name);
+        if (itemIndex === -1) return;
+
+        await this.quickAccessManager.moveFromFolderToRoot(folderIndex, itemIndex);
+        this.closeFolderOverlay();
+        this.quickAccessManager.renderQuickAccess();
+        window.showToast(`「${name}」已移到主面板`, 'success', 1800);
     }
 
     // 删除确认弹窗
@@ -1924,6 +2080,11 @@ class NewTabApp {
         if (todoList && typeof Sortable !== 'undefined' && !this.todoSortable) {
             this.todoSortable = Sortable.create(todoList, {
                 animation: 150,
+                // 复选框 / 删除按钮不参与拖拽，否则按住它们会启动拖拽而吞掉 click
+                filter: 'input, button, .todo-delete-btn, .todo-check',
+                preventOnFilter: false,
+                delay: 120,
+                delayOnTouchOnly: true,
                 onEnd: async () => {
                     const ids = [...todoList.children]
                         .map(li => li.dataset && li.dataset.id)
@@ -1966,10 +2127,12 @@ class NewTabApp {
             text.className = 'todo-text';
             text.textContent = todo.content;
 
-            const catIcon = { work: '💼', life: '🏠', normal: '📝' }[todo.category] || '📝';
+            const catIcon =
+                { work: 'catWork', life: 'catLife', normal: 'catNormal' }[todo.category] ||
+                'catNormal';
             const badge = document.createElement('span');
-            badge.className = 'todo-cat-badge';
-            badge.textContent = catIcon;
+            badge.className = `todo-cat-badge cat-${todo.category || 'normal'}`;
+            badge.innerHTML = AppIcons[catIcon];
             badge.title = { work: '工作', life: '生活', normal: '普通' }[todo.category] || '普通';
 
             const due = document.createElement('span');
@@ -1982,15 +2145,18 @@ class NewTabApp {
 
             const del = document.createElement('button');
             del.className = 'todo-delete-btn';
-            del.textContent = '×';
             del.title = '删除';
-            del.addEventListener('click', async () => {
+            del.setAttribute('aria-label', '删除待办');
+            del.innerHTML = AppIcons.trash;
+            del.addEventListener('click', async ev => {
+                ev.stopPropagation();
                 await this.todoManager.removeTodo(todo.id);
                 this.renderTodoList();
             });
 
             li.appendChild(checkbox);
-            li.appendChild(star);
+            // 仅重要项渲染星标：空占位会拉大勾选框与内容区之间的间距
+            if (todo.important) li.appendChild(star);
             li.appendChild(badge);
             li.appendChild(text);
             li.appendChild(due);
@@ -2097,8 +2263,9 @@ class NewTabApp {
 
             const pin = document.createElement('button');
             pin.className = `note-pin-btn${note.pinned ? ' active' : ''}`;
-            pin.textContent = '📌';
+            pin.innerHTML = AppIcons.pin;
             pin.title = note.pinned ? '取消置顶' : '置顶';
+            pin.setAttribute('aria-label', note.pinned ? '取消置顶' : '置顶');
             pin.addEventListener('click', async () => {
                 await this.notesManager.togglePin(note.id);
                 this.renderNotesList();
@@ -2106,8 +2273,9 @@ class NewTabApp {
 
             const del = document.createElement('button');
             del.className = 'note-delete-btn';
-            del.textContent = '🗑';
             del.title = '删除便签';
+            del.setAttribute('aria-label', '删除便签');
+            del.innerHTML = AppIcons.trash;
             del.addEventListener('click', async () => {
                 await this.notesManager.removeNote(note.id);
                 window.showToast('便签已删除', 'success', 1500);
@@ -2515,6 +2683,14 @@ class NewTabApp {
                     console.log('快捷访问排序已保存');
                 } catch (error) {
                     console.error('保存快捷访问排序失败:', error);
+                }
+            },
+            onItemMerge: async (draggedIndex, targetIndex) => {
+                try {
+                    await this.handleItemMerge(draggedIndex, targetIndex);
+                } catch (error) {
+                    console.error('合并文件夹失败:', error);
+                    window.showToast('合并文件夹失败', 'error', 2200);
                 }
             },
         });

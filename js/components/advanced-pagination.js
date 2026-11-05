@@ -10,6 +10,7 @@ class AdvancedPagination {
         this.sortableInstances = new Map(); // 存储每页的Sortable实例
         this.onPageChange = options.onPageChange || (() => {});
         this.onItemMove = options.onItemMove || (() => {});
+        this.onItemMerge = options.onItemMerge || (() => {});
         // 跨页面拖拽已移除
         this._renderScheduled = false;
 
@@ -97,14 +98,28 @@ class AdvancedPagination {
                 cell.className = 'folder-cell';
                 const site = items[i];
                 if (site) {
-                    const icon = document.createElement('img');
-                    icon.className = 'icon';
-                    icon.alt = '';
-                    icon.src =
-                        site.icon && /^https?:|<svg/.test(site.icon)
-                            ? site.icon
-                            : `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
-                    cell.appendChild(icon);
+                    if (site.icon && site.icon.trim().startsWith('<svg')) {
+                        // 内嵌 SVG：直接注入，不能塞进 img.src
+                        cell.innerHTML = site.icon;
+                        const svg = cell.querySelector('svg');
+                        if (svg) svg.classList.add('icon');
+                    } else {
+                        const icon = document.createElement('img');
+                        icon.className = 'icon';
+                        icon.alt = '';
+                        icon.src =
+                            site.icon && /^https?:/.test(site.icon)
+                                ? site.icon
+                                : `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
+                        icon.onerror = () => {
+                            cell.innerHTML = '';
+                            const fb = document.createElement('span');
+                            fb.className = 'folder-cell-fallback';
+                            fb.textContent = site.name.charAt(0);
+                            cell.appendChild(fb);
+                        };
+                        cell.appendChild(icon);
+                    }
                 }
                 preview.appendChild(cell);
             }
@@ -190,9 +205,7 @@ class AdvancedPagination {
         // 创建图标包装器，与快捷访问项目保持一致
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
-        iconWrapper.textContent = '+';
-        iconWrapper.style.fontSize = '32px';
-        iconWrapper.style.fontWeight = '300';
+        iconWrapper.textContent = '＋';
 
         // 创建名称，与快捷访问项目保持一致
         const name = document.createElement('span');
@@ -210,6 +223,84 @@ class AdvancedPagination {
         });
 
         return addButton;
+    }
+
+    // 高亮指针下方的合并目标
+    // 合并需悬停时长（毫秒，类外赋值，见文件末尾）
+
+    // 从事件里取指针坐标（兼容鼠标 / 触摸）
+    static pointerOf(evt) {
+        if (!evt) return null;
+        const oe = evt.originalEvent || evt;
+        if (typeof oe.clientX === 'number') return { x: oe.clientX, y: oe.clientY };
+        const t = (oe.changedTouches && oe.changedTouches[0]) || (oe.touches && oe.touches[0]);
+        if (t) return { x: t.clientX, y: t.clientY };
+        return null;
+    }
+
+    // 指针是否落在格子「中心区」内（阈值：默认内缩 30%，即中心 40% 区域）
+    static inCenterZone(rect, pointer, inset = 0.15) {
+        if (!rect || !pointer) return false;
+        const dx = rect.width * inset;
+        const dy = rect.height * inset;
+        return (
+            pointer.x >= rect.left + dx &&
+            pointer.x <= rect.right - dx &&
+            pointer.y >= rect.top + dy &&
+            pointer.y <= rect.bottom - dy
+        );
+    }
+
+    /**
+     * 手机式合并判定（阈值）：
+     * 1) 指针必须落在目标格子「中心区」（内缩 30%）——擦边不算
+     * 2) 必须在同一目标上停留 >= HOVER_MS —— 快速划过不算
+     * 判定由 onStart 启动的定时器驱动（指针静止时 onMove 不再触发，不能只靠事件）
+     */
+    updateMergeCandidate(grid, draggedEl) {
+        const pointer = this._dragPointer;
+        if (!pointer) return;
+
+        // 拖拽过程中布局会实时重排（格子互换位置），因此必须使用「拖拽开始时快照」的坐标
+        const snapshot = this._dragSnapshot || [];
+        const candidates = snapshot.filter(entry => entry.el !== draggedEl && entry.el.isConnected);
+
+        let hit = null;
+        for (const entry of candidates) {
+            const r = entry.rect;
+            const inside =
+                pointer.x >= r.left &&
+                pointer.x <= r.right &&
+                pointer.y >= r.top &&
+                pointer.y <= r.bottom;
+            if (inside) {
+                hit = entry.el;
+                break;
+            }
+        }
+
+        // 目标变化 → 重置计时与视觉
+        if (hit !== this._hoverCandidate) {
+            this._hoverCandidate = hit;
+            this._hoverSince = hit ? Date.now() : 0;
+            this._mergeTargetIndex = null;
+            grid.querySelectorAll('.merge-target, .merge-candidate').forEach(el =>
+                el.classList.remove('merge-target', 'merge-candidate')
+            );
+        }
+
+        if (!hit) return;
+
+        if (Date.now() - this._hoverSince < AdvancedPagination.HOVER_MS) {
+            hit.classList.add('merge-candidate');
+            hit.classList.remove('merge-target');
+            this._mergeTargetIndex = null;
+            return;
+        }
+
+        hit.classList.remove('merge-candidate');
+        hit.classList.add('merge-target');
+        this._mergeTargetIndex = parseInt(hit.dataset.index, 10);
     }
 
     // 为指定页面初始化SortableJS
@@ -230,13 +321,42 @@ class AdvancedPagination {
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
             dragClass: 'sortable-drag',
+            delay: 120,
+            delayOnTouchOnly: true,
             animation: 150,
             easing: 'cubic-bezier(1, 0, 0, 1)',
+            // 手机式合并：拖拽中高亮指针下的目标图标
+            onMove: evt => {
+                const p = AdvancedPagination.pointerOf(evt);
+                if (p) this._dragPointer = p;
+                if (evt.dragged) this.updateMergeCandidate(grid, evt.dragged);
+                if (evt.related && evt.related.classList.contains('add-quick-access-btn')) {
+                    return false;
+                }
+                if (evt.dragged && evt.dragged.classList.contains('add-quick-access-btn')) {
+                    return false;
+                }
+                return true;
+            },
 
             // 拖拽开始
             onStart: evt => {
-                console.log(`开始拖拽项目: ${evt.item.textContent.trim()}`);
                 evt.item.style.opacity = '0.5';
+                this._hoverCandidate = null;
+                this._hoverSince = 0;
+                this._dragSnapshot = null;
+                this._mergeTargetIndex = null;
+                // 记录拖拽开始时所有格子的位置（拖拽中布局会重排，实时 rect 不可用）
+                this._dragSnapshot = [...grid.querySelectorAll('.quick-access-item')].map(el => ({
+                    el,
+                    rect: el.getBoundingClientRect(),
+                }));
+
+                // 指针静止时 onMove 不触发，用定时器持续判定悬停阈值
+                clearInterval(this._mergeTimer);
+                this._mergeTimer = setInterval(() => {
+                    this.updateMergeCandidate(grid, evt.item);
+                }, 120);
 
                 // 记录拖拽开始时的页面信息
                 this.dragStartInfo = {
@@ -249,16 +369,35 @@ class AdvancedPagination {
                 // 关闭跨页检测，不绑定全局指针监听
             },
 
-            // 拖拽结束
+            // 拖拽结束：落在另一个图标上 → 合并成文件夹；否则按位置排序
+            // 注意：Sortable 在 onEnd 之前已把元素移到目标位置，此时指针下是被拖元素本身，
+            // 因此必须使用 onMove 阶段记录的目标索引，不能在 onEnd 里重新做命中检测
             onEnd: evt => {
-                console.log('拖拽结束');
                 evt.item.style.opacity = '';
+                clearInterval(this._mergeTimer);
+                this._mergeTimer = null;
+                grid.querySelectorAll('.merge-target, .merge-candidate').forEach(el =>
+                    el.classList.remove('merge-target', 'merge-candidate')
+                );
+                this._hoverCandidate = null;
+                this._hoverSince = 0;
 
-                // 处理同页内排序
-                this.handleItemMove(evt, pageNumber);
-
-                // 清除拖拽开始信息
+                const draggedIndex = parseInt(evt.item.dataset.index, 10);
+                const targetIndex = this._mergeTargetIndex;
+                this._dragPointer = null;
+                this._mergeTargetIndex = null;
                 this.dragStartInfo = null;
+
+                if (
+                    Number.isInteger(targetIndex) &&
+                    Number.isInteger(draggedIndex) &&
+                    targetIndex !== draggedIndex
+                ) {
+                    this.onItemMerge(draggedIndex, targetIndex);
+                    return;
+                }
+
+                this.handleItemMove(evt, pageNumber);
             },
 
             // 项目添加到容器
@@ -269,21 +408,6 @@ class AdvancedPagination {
             // 项目从容器移除
             onRemove: evt => {
                 console.log('项目从容器移除');
-            },
-
-            // 拖拽移动
-            onMove: evt => {
-                // 防止拖拽到添加按钮
-                if (evt.related && evt.related.classList.contains('add-quick-access-btn')) {
-                    return false;
-                }
-
-                // 防止拖拽添加按钮本身
-                if (evt.dragged && evt.dragged.classList.contains('add-quick-access-btn')) {
-                    return false;
-                }
-
-                return true;
             },
         });
 
@@ -451,6 +575,9 @@ class AdvancedPagination {
         });
     }
 }
+
+// 合并悬停阈值（毫秒）
+AdvancedPagination.HOVER_MS = 520;
 
 // 显式挂载到 window（跨 script 全局访问不再依赖经典 script 词法绑定）
 window.AdvancedPagination = AdvancedPagination;
