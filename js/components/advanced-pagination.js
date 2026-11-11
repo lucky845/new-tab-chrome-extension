@@ -99,18 +99,23 @@ class AdvancedPagination {
                 const site = items[i];
                 if (site) {
                     if (site.icon && site.icon.trim().startsWith('<svg')) {
-                        // 内嵌 SVG：直接注入，不能塞进 img.src
-                        cell.innerHTML = site.icon;
-                        const svg = cell.querySelector('svg');
-                        if (svg) svg.classList.add('icon');
+                        // 内嵌 SVG：走 IconSafe 白名单重建，不能直接 innerHTML
+                        const svg = window.IconSafe && window.IconSafe.parseSvg(site.icon);
+                        if (svg) {
+                            svg.classList.add('icon');
+                            cell.appendChild(svg);
+                        }
                     } else {
                         const icon = document.createElement('img');
                         icon.className = 'icon';
                         icon.alt = '';
+                        icon.loading = 'lazy';
+                        icon.decoding = 'async';
+                        icon.referrerPolicy = 'no-referrer';
                         icon.src =
                             site.icon && /^https?:/.test(site.icon)
                                 ? site.icon
-                                : `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
+                                : `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(site.url)}`;
                         icon.onerror = () => {
                             cell.innerHTML = '';
                             const fb = document.createElement('span');
@@ -153,21 +158,28 @@ class AdvancedPagination {
 
         if (item.icon) {
             if (item.icon.trim().startsWith('<svg')) {
-                iconWrapper.innerHTML = item.icon;
-                const svg = iconWrapper.querySelector('svg');
+                // 同上：白名单重建，杜绝 on* 属性与 <script>
+                const svg = window.IconSafe && window.IconSafe.parseSvg(item.icon);
                 if (svg) {
                     svg.classList.add('icon');
+                    iconWrapper.appendChild(svg);
                 }
             } else {
-                const icon = document.createElement('img');
-                icon.src = item.icon;
-                icon.className = 'icon';
-                icon.alt = `${item.name} Icon`;
-                iconWrapper.appendChild(icon);
+                const icon = window.IconSafe && window.IconSafe.parseImage(item.icon);
+                if (icon) {
+                    icon.className = 'icon';
+                    icon.alt = `${item.name} Icon`;
+                    iconWrapper.appendChild(icon);
+                }
             }
         } else {
             const icon = document.createElement('img');
-            icon.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${item.url}`;
+            // 与 app.js 的 favicon 保持一致：lazy + async decode，
+            // 避免国内不可达的 google s2 图片阻塞 window.load（标签页持续转圈）。
+            icon.loading = 'lazy';
+            icon.decoding = 'async';
+            icon.referrerPolicy = 'no-referrer';
+            icon.src = `https://www.google.com/s2/favicons?sz=128&domain_url=${item.url}`;
             icon.className = 'icon';
             icon.alt = `${item.name} Icon`;
 
@@ -321,8 +333,10 @@ class AdvancedPagination {
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
             dragClass: 'sortable-drag',
-            delay: 120,
-            delayOnTouchOnly: true,
+            // 桌面鼠标也需要拖拽延迟：否则按住不动约 600ms 就会进入"合并"态，
+            // 松手即弹出"新建文件夹"，属于高频误操作
+            delay: 180,
+            delayOnTouchOnly: false,
             animation: 150,
             easing: 'cubic-bezier(1, 0, 0, 1)',
             // 手机式合并：拖拽中高亮指针下的目标图标
@@ -393,22 +407,27 @@ class AdvancedPagination {
                     Number.isInteger(draggedIndex) &&
                     targetIndex !== draggedIndex
                 ) {
-                    this.onItemMerge(draggedIndex, targetIndex);
+                    // 合并失败/用户取消时，Sortable 已经把 DOM 换过位置，
+                    // 必须按数据重渲染把图标还原，否则界面和数据对不上
+                    Promise.resolve(this.onItemMerge(draggedIndex, targetIndex))
+                        .then(merged => {
+                            if (!merged) this.renderCurrentPage();
+                        })
+                        .catch(err => {
+                            console.error('合并回调异常:', err);
+                            this.renderCurrentPage();
+                        });
                     return;
                 }
 
                 this.handleItemMove(evt, pageNumber);
             },
 
-            // 项目添加到容器
-            onAdd: evt => {
-                console.log('项目添加到容器');
-            },
+            // 项目添加到容器（跨页拖拽当前关闭，保留钩子）
+            onAdd: () => {},
 
-            // 项目从容器移除
-            onRemove: evt => {
-                console.log('项目从容器移除');
-            },
+            // 项目从容器移除（跨页拖拽当前关闭，保留钩子）
+            onRemove: () => {},
         });
 
         this.sortableInstances.set(pageNumber, sortableInstance);
@@ -416,24 +435,25 @@ class AdvancedPagination {
     }
 
     // 处理项目移动（同页内排序）
+    // 以 DOM 中的 data-index 取回被拖动的原始条目，再按新顺序写回 items，
+    // 不能原地自赋值（那样数组永远不变，刷新后顺序回滚）
     handleItemMove(evt, pageNumber) {
-        // 处理同页内排序
-
-        const items = Array.from(evt.to.querySelectorAll('.quick-access-item'));
+        const nodes = Array.from(evt.to.querySelectorAll('.quick-access-item'));
         const startIndex = (pageNumber - 1) * this.itemsPerPage;
 
-        // 更新当前页的项目顺序
-        items.forEach((item, index) => {
-            const globalIndex = startIndex + index;
-            if (globalIndex < this.items.length) {
-                const originalItem = this.items[globalIndex];
-                if (originalItem) {
-                    this.items[globalIndex] = originalItem;
-                }
-            }
-        });
+        // 按 DOM 顺序取出对应的原始条目（"＋"按钮没有 data-index，天然被排除）
+        const pageItems = nodes
+            .map(node => parseInt(node.dataset.index, 10))
+            .filter(Number.isInteger)
+            .map(globalIndex => this.items[globalIndex])
+            .filter(Boolean);
 
-        // 调用回调函数
+        if (pageItems.length === 0) return;
+
+        const next = this.items.slice();
+        next.splice(startIndex, pageItems.length, ...pageItems);
+        this.items = next;
+
         this.onItemMove(this.items);
     }
 

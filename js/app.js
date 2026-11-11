@@ -43,7 +43,7 @@ class NewTabApp {
         this.todoImportantActive = false;
         this.clockTimerId = null;
         this.searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
-        this.clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        this.clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
         // 状态
         this.isInitialized = false;
@@ -93,7 +93,15 @@ class NewTabApp {
     // 初始化UI
     initUI() {
         // 加载壁纸（缓存优先 → Picsum/Pexels 随机，全链路在 manager 内）
-        this.wallpaperManager.fetchAndSetWallpaper();
+        // 首屏壁纸延到 load 之后发起：background-image 若在 load 前入队会 gate
+        // window.load，国内 picsum/pexels 不可达时标签页会持续转圈 5s+。
+        // parse 期已无远程资源，load 会立刻触发，随后再淡入壁纸。
+        const applyWallpaper = () => this.wallpaperManager.fetchAndSetWallpaper();
+        if (document.readyState === 'complete') {
+            applyWallpaper();
+        } else {
+            window.addEventListener('load', applyWallpaper, { once: true });
+        }
 
         // 渲染快捷访问
         this.renderQuickAccess();
@@ -171,13 +179,23 @@ class NewTabApp {
     // 更新搜索引擎显示
     updateSearchEngineDisplay(engine) {
         const selectedEngine = document.getElementById('selected-engine');
-        if (selectedEngine) {
-            selectedEngine.innerHTML = `
-                ${engine.icon}
-                <div class="arrow-down"></div>
-            `;
-            selectedEngine.title = engine.name;
+        if (!selectedEngine) return;
+
+        // 引擎图标来自配置（自定义引擎可被用户覆盖），必须走 IconSafe 白名单重建，
+        // 不能 innerHTML 直插——与下拉菜单 json/app.js:199 的写法保持一致
+        selectedEngine.textContent = '';
+        const iconNode =
+            engine && engine.icon ? window.IconSafe?.createIconNode(engine.icon) : null;
+        if (iconNode) {
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'selected-engine-icon';
+            iconWrap.appendChild(iconNode);
+            selectedEngine.appendChild(iconWrap);
         }
+        const arrow = document.createElement('div');
+        arrow.className = 'arrow-down';
+        selectedEngine.appendChild(arrow);
+        selectedEngine.title = engine.name;
     }
 
     // 渲染搜索引擎下拉菜单
@@ -192,10 +210,20 @@ class NewTabApp {
             item.className = 'search-engine-item';
             item.dataset.engine = engine.name;
 
-            item.innerHTML = `
-                ${engine.icon}
-                <span>${engine.name}</span>
-            `;
+            // 引擎名与图标来自配置（可被自定义引擎覆盖），图标走 IconSafe 白名单重建
+            if (engine.icon) {
+                const iconEl = document.createElement('span');
+                iconEl.className = 'engine-icon';
+                const iconNode = window.IconSafe && window.IconSafe.createIconNode(engine.icon);
+                if (iconNode) {
+                    iconEl.appendChild(iconNode);
+                    item.appendChild(iconEl);
+                }
+            }
+            const nameEl = document.createElement('span');
+            nameEl.className = 'engine-name';
+            nameEl.textContent = engine.name;
+            item.appendChild(nameEl);
 
             item.addEventListener('click', () => {
                 if (this.searchManager.setCurrentSearchEngine(engine.name)) {
@@ -369,10 +397,18 @@ class NewTabApp {
                 history.forEach((term, index) => {
                     const item = document.createElement('div');
                     item.className = 'history-item';
-                    item.innerHTML = `
-                        <span class="history-text">${term}</span>
-                        <button class="delete-history-btn" data-index="${index}">×</button>
-                    `;
+                    // 搜索词是用户输入，必须走 textContent，不能拼进 innerHTML
+                    const textEl = document.createElement('span');
+                    textEl.className = 'history-text';
+                    textEl.textContent = term;
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'delete-history-btn';
+                    delBtn.dataset.index = String(index);
+                    delBtn.textContent = '×';
+                    delBtn.setAttribute('aria-label', `删除搜索记录 ${term}`);
+                    item.appendChild(textEl);
+                    item.appendChild(delBtn);
 
                     // 点击历史项进行搜索
                     item.querySelector('.history-text').addEventListener('click', () => {
@@ -531,20 +567,24 @@ class NewTabApp {
         if (wallpaperLoading) wallpaperLoading.classList.remove('u-hidden');
         if (wallpaperGrid) wallpaperGrid.innerHTML = '';
 
-        const result = await wm.searchPhotos(query, page);
-        if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
+        try {
+            const result = await wm.searchPhotos(query, page);
 
-        if (result.photos === null) {
-            if (wallpaperGrid) {
-                wallpaperGrid.innerHTML =
-                    '<div class="wallpaper-empty-hint">图库加载失败，请检查网络连接后重试。<br>若使用代理，请确认代理节点可用。</div>';
+            if (result.photos === null) {
+                if (wallpaperGrid) {
+                    wallpaperGrid.innerHTML =
+                        '<div class="wallpaper-empty-hint">图库加载失败，请检查网络连接后重试。<br>若使用代理，请确认代理节点可用。</div>';
+                }
+                window.showToast(result.error || '壁纸加载失败，请检查网络', 'error', 4000);
+                return;
             }
-            window.showToast(result.error || '壁纸加载失败，请检查网络', 'error', 4000);
-            return;
-        }
 
-        this.renderWallpaperGrid(result.photos);
-        this.updatePagination();
+            this.renderWallpaperGrid(result.photos);
+            this.updatePagination();
+        } finally {
+            // 与 refresh()/updateWeather() 同构：异常路径也必须收敛加载指示，避免 spin 永久自转
+            if (wallpaperLoading) wallpaperLoading.classList.add('u-hidden');
+        }
     }
 
     // 渲染壁纸网格
@@ -553,6 +593,8 @@ class NewTabApp {
         if (wallpaperGrid) wallpaperGrid.innerHTML = '';
         photos.forEach(photo => {
             const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.decoding = 'async';
             img.src = photo.src.medium;
             img.alt = photo.alt;
             img.addEventListener('click', async () => {
@@ -814,28 +856,30 @@ class NewTabApp {
      * 手机式拖拽合并：把一个图标拖到另一个图标上 → 生成/并入文件夹
      * 目标若是文件夹则直接并入；否则弹出命名，默认给出建议名
      */
+    // 返回 true 表示已真正合并；返回 false 表示用户取消/校验失败，
+    // 调用方必须把被拖动的图标还原回原位（Sortable 已经把 DOM 挪过去了）
     async handleItemMerge(draggedIndex, targetIndex) {
         const manager = this.quickAccessManager;
         const target = manager.getNodeByIndex(targetIndex);
-        if (!target) return;
+        if (!target) return false;
 
         let folderName = null;
         if (!target.isFolder) {
             const dragged = manager.getNodeByIndex(draggedIndex);
             const suggest = manager.suggestFolderName([target, dragged].filter(Boolean));
             const input = window.prompt('新建文件夹，名称：', suggest);
-            if (input === null) return;
+            if (input === null) return false;
             const trimmed = input.trim();
             const check = manager.validateName(trimmed);
             if (!check.valid) {
                 window.showToast(check.message, 'warning', 2200);
-                return;
+                return false;
             }
             folderName = trimmed;
         }
 
         const result = await manager.mergeIntoFolder(draggedIndex, targetIndex, folderName);
-        if (!result) return;
+        if (!result) return false;
 
         manager.renderQuickAccess();
         window.showToast(
@@ -843,6 +887,7 @@ class NewTabApp {
             'success',
             1800
         );
+        return true;
     }
 
     // 显示添加快捷访问模态框（重置表单为"添加"模式）
@@ -975,16 +1020,15 @@ class NewTabApp {
         );
         if (!qaIconInput || !qaIconPreview || !qaIconPreviewContainer) return;
 
+        // 走 IconSafe 白名单解析：input 来自用户粘贴，直接 innerHTML 就是存储型注入面
         const input = qaIconInput.value.trim();
-        if (input.startsWith('<svg')) {
-            qaIconPreview.innerHTML = input;
-            qaIconPreviewContainer.classList.remove('u-hidden');
-        } else if (input.match(/\.(jpeg|jpg|gif|png|svg)$/) || input.startsWith('http')) {
-            qaIconPreview.innerHTML = `<img src="${input}" alt="Icon Preview">`;
+        qaIconPreview.innerHTML = '';
+        const node = window.IconSafe ? window.IconSafe.createIconNode(input) : null;
+        if (node) {
+            qaIconPreview.appendChild(node);
             qaIconPreviewContainer.classList.remove('u-hidden');
         } else {
             qaIconPreviewContainer.classList.add('u-hidden');
-            qaIconPreview.innerHTML = '';
         }
     }
 
@@ -999,8 +1043,20 @@ class NewTabApp {
 
         let url = qaUrlInput.value.trim();
         const name = qaNameInput.value.trim();
-        const icon = qaIconInput.value.trim() || null;
+        const icon = qaIconInput ? qaIconInput.value.trim() || null : null;
         const editIndex = parseInt(qaEditIndexInput.value, 10);
+
+        // 保存前必须再校验一次：按钮禁用状态只是 UI 提示，
+        // 空 URL 拼成 'https://' 会被当成合法地址写进存储，产生点不开的坏条目
+        const saveQaBtn = document.getElementById(window.SELECTORS.saveQaBtn);
+        const urlCheck = this.quickAccessManager.validateUrl(url);
+        const nameCheck = this.quickAccessManager.validateName(name);
+        if (!urlCheck.valid || !nameCheck.valid) {
+            this.validateQuickAccessForm();
+            window.showToast(urlCheck.valid ? nameCheck.message : urlCheck.message, 'error', 2200);
+            return;
+        }
+        if (saveQaBtn) saveQaBtn.disabled = false;
 
         if (!/^https?:\/\//i.test(url)) {
             url = 'https://' + url;
@@ -1224,20 +1280,27 @@ class NewTabApp {
 
             const iconWrap = document.createElement('div');
             iconWrap.className = 'folder-site-icon';
-            if (site.icon && /^https?:|<svg/.test(site.icon)) {
-                iconWrap.innerHTML = site.icon.trim().startsWith('<svg')
-                    ? site.icon
-                    : `<img src="${site.icon}" alt="" />`;
+            const customIcon = site.icon ? window.IconSafe?.createIconNode(site.icon) : null;
+            if (customIcon) {
+                iconWrap.appendChild(customIcon);
             } else {
                 const img = document.createElement('img');
                 img.alt = '';
-                img.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
-                img.onerror = () => {
-                    iconWrap.innerHTML = '';
+                img.src = `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(site.url)}`;
+                img.referrerPolicy = 'no-referrer';
+                img.loading = 'lazy';
+                // s2 取不到站点图标时会返回默认地球图（16px），onerror 不触发，
+                // 故额外按 naturalWidth 判定“取到了但没意义”的情况
+                const showFallback = () => {
+                    iconWrap.textContent = '';
                     const fb = document.createElement('span');
                     fb.className = 'fallback-icon';
                     fb.textContent = site.name.charAt(0).toUpperCase();
                     iconWrap.appendChild(fb);
+                };
+                img.onerror = showFallback;
+                img.onload = () => {
+                    if (img.naturalWidth > 0 && img.naturalWidth <= 16) showFallback();
                 };
                 iconWrap.appendChild(img);
             }
@@ -2687,10 +2750,11 @@ class NewTabApp {
             },
             onItemMerge: async (draggedIndex, targetIndex) => {
                 try {
-                    await this.handleItemMerge(draggedIndex, targetIndex);
+                    return await this.handleItemMerge(draggedIndex, targetIndex);
                 } catch (error) {
                     console.error('合并文件夹失败:', error);
                     window.showToast('合并文件夹失败', 'error', 2200);
+                    return false;
                 }
             },
         });
