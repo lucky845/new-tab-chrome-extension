@@ -86,14 +86,15 @@ class QuickAccessManager {
     }
 
     // 归一化：只有 1 个成员的文件夹自动解散为单个图标
+    // 空文件夹（0 项）保持原样：用户刚新建、还没往里放东西，静默删除等于吞数据
     async normalizeFolders() {
         let changed = false;
         for (let i = this.sites.length - 1; i >= 0; i -= 1) {
             const node = this.sites[i];
-            if (!node.isFolder) continue;
-            const items = node.items || [];
-            if (items.length <= 1) {
-                this.sites.splice(i, 1, ...items.map(item => ({ ...item })));
+            if (!node || !node.isFolder) continue;
+            const items = Array.isArray(node.items) ? node.items : [];
+            if (items.length === 1) {
+                this.sites.splice(i, 1, { ...items[0] });
                 changed = true;
             }
         }

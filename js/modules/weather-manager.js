@@ -11,6 +11,9 @@ class WeatherManager {
         this.currentCity = '';
         this.temperatureUnit = window.WEATHER_CONFIG?.DEFAULT_UNIT || 'celsius';
         this.isLoading = false;
+        // 刷新 loading 提示的生命周期句柄（见 showRefreshHint / settleRefreshTip）
+        this._refreshTip = null;
+        this._refreshSafetyTimer = null;
 
         // 天气图标映射
         this.weatherIcons = window.WEATHER_CONFIG?.ICON_MAPPING || {
@@ -148,36 +151,59 @@ class WeatherManager {
     }
 
     /**
+     * 统一天气提示入口：委托 dsh-tip 组件完成定位、翻转、视口钳制与同锚点去重。
+     *
+     * 旧实现把提示条 absolute 挂在天气组件内部，向上弹会越过视口顶边被裁；
+     * 且按钮用内联 onclick，在 MV3 的 CSP（script-src 'self'）下不会执行。
+     * 现在两类问题都由组件层一次性解决。
+     * @param {Object} opts dshTip.attach 的选项（type/message/duration/actions...）
+     */
+    showWeatherTip(opts) {
+        const anchor = document.getElementById('weather-widget');
+        if (!anchor || !window.dshTip) return null;
+        // key 固定为 'weather'：刷新/权限/超时三种提示互斥，新的覆盖旧的，不叠罗汉
+        return window.dshTip.attach(
+            anchor,
+            Object.assign({ key: 'weather', placement: 'auto' }, opts)
+        );
+    }
+
+    /**
      * 显示刷新提示
+     *
+     * 不再用固定 2000ms 定时器：它与真实请求无关，请求慢时提示早消失，
+     * 鼠标停在提示上时又会因 hover 暂停而常驻（「图标自己一直在转」）。
+     * 改为 duration: 0 + 由 refresh() 在请求结束时收敛。
      */
     showRefreshHint() {
-        const weatherWidget = document.getElementById('weather-widget');
-        if (!weatherWidget) return;
+        this.clearRefreshTipSafety();
+        this._refreshTip = this.showWeatherTip({
+            type: 'loading',
+            message: '正在刷新天气...',
+            duration: 0,
+        });
+        // 兜底：定位授权卡住 / 请求永远不返回时，finally 也不会执行，
+        // 旋转图标会永久自转。12s 上限保证任何情况下都能收敛。
+        this._refreshSafetyTimer = setTimeout(() => this.settleRefreshTip(), 12000);
+        return this._refreshTip;
+    }
 
-        // 移除现有提示
-        const existingHint = weatherWidget.querySelector('.refresh-hint');
-        if (existingHint) {
-            existingHint.remove();
+    clearRefreshTipSafety() {
+        if (this._refreshSafetyTimer) {
+            clearTimeout(this._refreshSafetyTimer);
+            this._refreshSafetyTimer = null;
         }
+    }
 
-        // 创建刷新提示
-        const hint = document.createElement('div');
-        hint.className = 'refresh-hint';
-        hint.innerHTML = `
-            <div class="hint-content">
-                <span class="hint-icon">🔄</span>
-                <span class="hint-text">正在刷新天气...</span>
-            </div>
-        `;
-
-        weatherWidget.appendChild(hint);
-
-        // 2秒后自动隐藏
-        setTimeout(() => {
-            if (hint.parentElement) {
-                hint.remove();
-            }
-        }, 2000);
+    /**
+     * 收敛本次刷新的 loading 提示。
+     * 若期间被错误/权限提示替换（同 key 去重会 close 旧实例），这里跳过，不误关新提示。
+     */
+    settleRefreshTip() {
+        this.clearRefreshTipSafety();
+        const tip = this._refreshTip;
+        this._refreshTip = null;
+        if (tip && !tip.closed && typeof tip.close === 'function') tip.close();
     }
 
     /**
@@ -275,6 +301,9 @@ class WeatherManager {
             this.showError(msg);
         } finally {
             this.isLoading = false;
+            // 加载态必须收敛：weatherData 为空等边界下 displayWeather 不会被调用，
+            // .weather-widget.loading 的 pulse 会一直残留成「自己动」的指示。
+            this.hideLoading();
         }
     }
 
@@ -1048,39 +1077,28 @@ class WeatherManager {
     }
 
     /**
-     * 显示权限提示
+     * 显示权限提示（常驻直到用户处理；按钮走 addEventListener 以符合 MV3 CSP）
      */
     showPermissionHint() {
-        const weatherWidget = document.getElementById('weather-widget');
-        if (!weatherWidget) return;
-
-        // 移除现有的权限提示
-        const existingHint = weatherWidget.querySelector('.permission-hint');
-        if (existingHint) {
-            existingHint.remove();
-        }
-
-        // 创建权限提示
-        const hint = document.createElement('div');
-        hint.className = 'permission-hint';
-        hint.innerHTML = `
-            <div class="hint-content">
-                <span class="hint-icon">🔒</span>
-                <span class="hint-text">需要位置权限</span>
-                <button class="hint-action" title="重试授权" onclick="window.app && window.app.weatherManager && window.app.weatherManager.requestLocationPrompt && window.app.weatherManager.requestLocationPrompt()">🔄</button>
-                <button class="hint-action" title="打开定位设置" onclick="window.open('chrome://settings/content/location','_blank')">⚙️</button>
-                <button class="hint-action" onclick="this.parentElement.parentElement.remove()">×</button>
-            </div>
-        `;
-
-        weatherWidget.appendChild(hint);
-
-        // 3秒后自动隐藏
-        setTimeout(() => {
-            if (hint.parentElement) {
-                hint.remove();
-            }
-        }, 3000);
+        this.showWeatherTip({
+            type: 'warning',
+            message: '需要位置权限',
+            duration: 0,
+            closable: true,
+            actions: [
+                {
+                    label: '重试授权',
+                    title: '重新触发定位授权',
+                    onClick: () => this.requestLocationPrompt(),
+                },
+                {
+                    label: '定位设置',
+                    title: '打开浏览器定位设置',
+                    keepOpen: true,
+                    onClick: () => window.open('chrome://settings/content/location', '_blank'),
+                },
+            ],
+        });
     }
 
     /**
@@ -1112,35 +1130,16 @@ class WeatherManager {
      * 显示超时提示
      */
     showTimeoutHint() {
-        const weatherWidget = document.getElementById('weather-widget');
-        if (!weatherWidget) return;
-
-        // 移除现有的提示
-        const existingHint = weatherWidget.querySelector('.timeout-hint');
-        if (existingHint) {
-            existingHint.remove();
-        }
-
-        // 创建超时提示
-        const hint = document.createElement('div');
-        hint.className = 'timeout-hint';
-        hint.innerHTML = `
-            <div class="hint-content">
-                <span class="hint-icon">⏱️</span>
-                <span class="hint-text">位置获取超时，点击重试</span>
-                <button class="hint-action" onclick="window.app.weatherManager.refresh()">🔄</button>
-                <button class="hint-action" onclick="this.parentElement.parentElement.remove()">×</button>
-            </div>
-        `;
-
-        weatherWidget.appendChild(hint);
-
-        // 5秒后自动隐藏
-        setTimeout(() => {
-            if (hint.parentElement) {
-                hint.remove();
-            }
-        }, 5000);
+        this.showWeatherTip({
+            type: 'warning',
+            message: '位置获取超时，点击重试',
+            duration: 5000,
+            closable: true,
+            action: {
+                label: '重试',
+                onClick: () => this.refresh(),
+            },
+        });
     }
 
     /**
@@ -1185,7 +1184,12 @@ class WeatherManager {
      * 刷新天气信息
      */
     async refresh() {
-        await this.updateWeather();
+        try {
+            await this.updateWeather();
+        } finally {
+            // updateWeather 内部限流会提前 return；无论成功/失败/被限流都要收掉 loading
+            this.settleRefreshTip();
+        }
     }
 }
 
