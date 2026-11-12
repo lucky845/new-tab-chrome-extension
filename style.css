@@ -1047,6 +1047,26 @@ body {
     background: var(--surface-3);
 }
 
+/* ---------- 数据备份与恢复 ---------- */
+.backup-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.backup-actions .settings-btn {
+    flex: 0 0 auto;
+}
+
+/* 状态行：默认沿用 .api-key-description 的弱化色，仅覆盖语义色 */
+#backup-status.is-success {
+    color: rgba(126, 224, 168, 0.95);
+}
+
+#backup-status.is-error {
+    color: rgba(255, 138, 128, 0.95);
+}
+
 .settings-btn.primary {
     background-color: #4a90e2;
     color: white;

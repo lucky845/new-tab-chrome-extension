@@ -37,6 +37,7 @@ class NewTabApp {
         this.todoManager = new TodoManager();
         this.notesManager = new NotesManager();
         this.pomodoroManager = new PomodoroManager();
+        this.backupManager = new BackupManager();
 
         // 快捷方式文件夹
         this.activeFolderIndex = null;
@@ -1569,6 +1570,111 @@ class NewTabApp {
 
         this.bindWallpaperAdjustmentEvents();
         this.bindCustomEngineEvents();
+        this.bindBackupEvents();
+    }
+
+    // ---------- 数据备份与恢复 ----------
+
+    // 状态行文案（成功用绿色、失败用红色，复用 toast 同款配色变量）
+    setBackupStatus(message, kind) {
+        const el = document.getElementById(window.SELECTORS.backupStatus);
+        if (!el) return;
+        el.textContent = message;
+        el.classList.toggle('is-error', kind === 'error');
+        el.classList.toggle('is-success', kind === 'success');
+    }
+
+    // 绑定导出 / 导入按钮
+    bindBackupEvents() {
+        const exportBtn = document.getElementById(window.SELECTORS.exportDataBtn);
+        const importBtn = document.getElementById(window.SELECTORS.importDataBtn);
+        const importInput = document.getElementById(window.SELECTORS.importDataInput);
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportData());
+        }
+
+        if (importBtn && importInput) {
+            // 按钮只负责唤起隐藏的 file input：input 必须留在 DOM 里且可被程序点击
+            importBtn.addEventListener('click', () => importInput.click());
+            importInput.addEventListener('change', () => this.importData(importInput));
+        }
+    }
+
+    // 导出：组装 → 下载 → 反馈体量
+    async exportData() {
+        const btn = document.getElementById(window.SELECTORS.exportDataBtn);
+        if (btn) btn.disabled = true;
+        try {
+            const result = await this.backupManager.exportToFile();
+            const kb = (result.bytes / 1024).toFixed(1);
+            this.setBackupStatus(
+                `已导出 ${result.fileName}（${result.stats.keys} 项，约 ${kb} KB）`,
+                'success'
+            );
+            window.showToast('备份已导出', 'success');
+        } catch (error) {
+            console.error('导出备份失败:', error);
+            this.setBackupStatus('导出失败：' + (error.message || '未知错误'), 'error');
+            window.showToast('导出备份失败', 'error');
+        } finally {
+            // 成功失败都要解锁按钮，否则一次异常后按钮永久不可用
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    // 导入：读文件 → 校验 → 写入 → 重载页面（让各 manager 重新从 storage 读取）
+    async importData(input) {
+        const file = input && input.files && input.files[0];
+        // 无论成功失败都清空 input，否则连续导入同一个文件不会再触发 change
+        const reset = () => {
+            if (input) input.value = '';
+        };
+        if (!file) {
+            reset();
+            return;
+        }
+
+        const importBtn = document.getElementById(window.SELECTORS.importDataBtn);
+        if (importBtn) importBtn.disabled = true;
+
+        try {
+            const text = await file.text();
+            const result = await this.backupManager.importFromText(text);
+
+            // 把「迁移了旧格式 / 兼容了更新版本 / 保留了未知键」如实告诉用户，
+            // 否则将来新功能的数据被导入时用户完全无感，出问题也无从排查
+            const notes = [];
+            if (result.migratedTo) {
+                notes.push(`已从 v${result.schemaVersion} 升级格式`);
+            }
+            if (result.forwardCompat) {
+                notes.push(
+                    `备份版本 v${result.schemaVersion} 高于当前 v${this.backupManager.SCHEMA_VERSION}，已尽力兼容`
+                );
+            }
+            if (result.unknown && result.unknown.length) {
+                notes.push(`保留 ${result.unknown.length} 项未知数据`);
+            }
+            const detail = notes.length ? `（${notes.join('；')}）` : '';
+            const when = result.exportedAt ? `，备份于 ${result.exportedAt.slice(0, 10)}` : '';
+
+            this.setBackupStatus(
+                `已导入 ${result.keys.length} 项数据${when}${detail}，即将刷新页面生效…`,
+                'success'
+            );
+            window.showToast('导入成功，正在刷新…', 'success');
+            // 各 manager 已在内存里持有旧数据，直接改 storage 不会自动生效，
+            // 刷新页面是最稳妥且不会产生半更新态的做法
+            setTimeout(() => window.location.reload(), 900);
+        } catch (error) {
+            console.error('导入备份失败:', error);
+            this.setBackupStatus('导入失败：' + (error.message || '未知错误'), 'error');
+            window.showToast('导入失败：' + (error.message || '文件不合法'), 'error');
+            if (importBtn) importBtn.disabled = false;
+            reset();
+        }
+        // 成功分支不重置按钮：页面即将刷新，避免出现「可再次点击」的瞬时假象
     }
 
     // 壁纸亮度 / 模糊滑杆（实时应用 + 防抖持久化）

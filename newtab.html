@@ -406,6 +406,7 @@
         <script src="js/modules/quick-access-manager.js"></script>
         <script src="js/modules/settings-manager.js"></script>
         <script src="js/modules/weather-manager.js"></script>
+        <script src="js/modules/backup-manager.js"></script>
 
         <!-- 主应用 -->
         <script src="js/app.js"></script>
@@ -670,6 +671,33 @@
                     </p>
                 </div>
 
+                <div class="setting-item">
+                    <label>数据备份与恢复</label>
+                    <div class="backup-actions">
+                        <button
+                            type="button"
+                            id="export-data-btn"
+                            class="settings-btn secondary"
+                        >
+                            导出备份
+                        </button>
+                        <button
+                            type="button"
+                            id="import-data-btn"
+                            class="settings-btn secondary"
+                        >
+                            导入备份
+                        </button>
+                        <input
+                            type="file"
+                            id="import-data-input"
+                            accept="application/json,.json"
+                            class="u-hidden"
+                        />
+                    </div>
+                    <p class="api-key-description" id="backup-status">
+                        导出为单个 JSON 文件，含设置、搜索引擎、快捷方式、待办、便签、番茄钟与壁纸偏好。天气与地理缓存不导出（恢复后会自动重新获取）。
+                    </p>
                 </div>
                 </div>
 
