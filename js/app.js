@@ -327,7 +327,13 @@ class NewTabApp {
         if (clearAllHistoryBtn) {
             clearAllHistoryBtn.addEventListener('click', async e => {
                 e.stopPropagation();
-                if (window.confirm('您确定要清空所有搜索记录吗？此操作无法撤销。')) {
+                // 用统一对话框替代原生 confirm：原生弹窗无法样式化且会阻塞渲染
+                const ok = await window.dshDialog.confirm(
+                    '清空搜索历史',
+                    '您确定要清空所有搜索记录吗？此操作无法撤销。',
+                    { confirmText: '清空', danger: true }
+                );
+                if (ok) {
                     this.searchManager.clearHistory();
                     this.hideSearchHistory();
                 }
@@ -934,15 +940,16 @@ class NewTabApp {
         if (!target.isFolder) {
             const dragged = manager.getNodeByIndex(draggedIndex);
             const suggest = manager.suggestFolderName([target, dragged].filter(Boolean));
-            const input = window.prompt('新建文件夹，名称：', suggest);
+            // 统一对话框替代原生 prompt：校验直接内联提示，不再弹 toast 打断
+            const input = await window.dshDialog.prompt('新建文件夹', suggest, {
+                confirmText: '创建',
+                validate: value => {
+                    const check = manager.validateName(value);
+                    return check.valid ? null : check.message;
+                },
+            });
             if (input === null) return false;
-            const trimmed = input.trim();
-            const check = manager.validateName(trimmed);
-            if (!check.valid) {
-                window.showToast(check.message, 'warning', 2200);
-                return false;
-            }
-            folderName = trimmed;
+            folderName = input;
         }
 
         const result = await manager.mergeIntoFolder(draggedIndex, targetIndex, folderName);
@@ -1247,14 +1254,15 @@ class NewTabApp {
 
     // 新建文件夹并（可选）把某个根站点移入
     async createFolderAndMove(siteIndex = null) {
-        const name = window.prompt('文件夹名称（2-10 个字符）');
-        if (name === null) return;
-        const trimmed = name.trim();
-        const check = this.quickAccessManager.validateName(trimmed);
-        if (!check.valid) {
-            window.showToast(check.message, 'warning', 2200);
-            return;
-        }
+        const manager = this.quickAccessManager;
+        const trimmed = await window.dshDialog.prompt('新建文件夹', '', {
+            confirmText: '创建',
+            validate: value => {
+                const check = manager.validateName(value);
+                return check.valid ? null : check.message;
+            },
+        });
+        if (trimmed === null) return;
         const folder = await this.quickAccessManager.addFolder(trimmed);
         if (siteIndex !== null && siteIndex >= 0) {
             const folderIndex = this.quickAccessManager.getSites().indexOf(folder);
@@ -1268,14 +1276,15 @@ class NewTabApp {
     async renameQuickFolder(index) {
         const folder = this.quickAccessManager.getSites()[index];
         if (!folder || !folder.isFolder) return;
-        const name = window.prompt('新的文件夹名称', folder.name);
-        if (name === null) return;
-        const trimmed = name.trim();
-        const check = this.quickAccessManager.validateName(trimmed);
-        if (!check.valid) {
-            window.showToast(check.message, 'warning', 2200);
-            return;
-        }
+        const manager = this.quickAccessManager;
+        const trimmed = await window.dshDialog.prompt('重命名文件夹', folder.name, {
+            confirmText: '保存',
+            validate: value => {
+                const check = manager.validateName(value);
+                return check.valid ? null : check.message;
+            },
+        });
+        if (trimmed === null) return;
         await this.quickAccessManager.renameFolder(index, trimmed);
         this.quickAccessManager.renderQuickAccess();
         this.renderFolderOverlay();

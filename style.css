@@ -3669,3 +3669,100 @@ body {
 .note-delete-btn svg {
     display: block;
 }
+
+/* ---------- 统一确认 / 输入对话框（dsh-dialog） ---------- */
+.dsh-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-confirm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 11, 14, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: dsh-dialog-fade 0.16s ease-out;
+}
+
+.dsh-dialog__panel {
+    width: min(420px, calc(100vw - 48px));
+    background: var(--popover-bg);
+    border: 1px solid var(--popover-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--popover-shadow);
+    padding: 22px 24px 18px;
+    box-sizing: border-box;
+    animation: dsh-dialog-rise 0.18s ease-out;
+}
+
+.dsh-dialog__title {
+    margin: 0 0 10px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dsh-dialog__message {
+    margin: 0 0 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    word-break: break-word;
+}
+
+.dsh-dialog__input {
+    width: 100%;
+    padding: 11px 14px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: var(--text-primary);
+    background: var(--surface-2);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-sm);
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.dsh-dialog__input:focus {
+    border-color: var(--surface-border-strong);
+}
+
+.dsh-dialog__error {
+    min-height: 18px;
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--color-error);
+}
+
+.dsh-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.dsh-dialog__actions .is-danger {
+    background-color: var(--color-error);
+    color: #1a1113;
+}
+
+@keyframes dsh-dialog-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes dsh-dialog-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dsh-dialog,
+    .dsh-dialog__panel {
+        animation: none;
+    }
+}
