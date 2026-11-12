@@ -604,17 +604,19 @@
                             <span class="source-option-text">
                                 <strong>Picsum 精选（默认）</strong>
                                 <small
-                                    >国内直连稳定可达，Unsplash 精选摄影图，按分类浏览与翻页，无需任何密钥。</small
+                                    >国内直连稳定可达，Unsplash 精选摄影图，无需任何密钥。<strong
+                                        >仅支持按页浏览，不支持按分类 / 关键词筛选</strong
+                                    >；点分类时会自动尝试 Wallhaven，连不上则退化为浏览模式并给出提示。</small
                                 >
                             </span>
                         </label>
                         <label class="source-option">
                             <input type="radio" name="wallpaper-source" value="wallhaven" />
                             <span class="source-option-text">
-                                <strong>Wallhaven</strong>
+                                <strong>Wallhaven（支持分类与关键词）</strong>
                                 <small
-                                    >支持关键词搜索、壁纸质量高；需要能访问境外网络（wallhaven.cc
-                                    国内直连不稳定，网络受限时建议用 Picsum）。</small
+                                    >唯一支持按分类 / 关键词真正筛选的图源，壁纸质量高；需要能访问境外网络（wallhaven.cc
+                                    国内直连不稳定）。想用分类筛选请选这个。</small
                                 >
                             </span>
                         </label>
@@ -642,8 +644,8 @@
                         </button>
                     </div>
                     <p class="api-key-description">
-                        可选增强功能：填写后壁纸搜索与分类改用 Pexels 图源。不填完全可用——默认使用
-                        Picsum 免费图库，无需任何密钥。
+                        可选增强功能：填写后壁纸搜索与分类筛选一律走 Pexels（优先级高于下方「壁纸图源」选择）。不填也完全可用——默认使用
+                        Picsum 免费图库，无需任何密钥，但 Picsum 不支持分类筛选。
                         <a
                             href="https://www.pexels.com/zh-cn/api/documentation/#authorization"
                             target="_blank"

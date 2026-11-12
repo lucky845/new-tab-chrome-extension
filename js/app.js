@@ -556,7 +556,8 @@ class NewTabApp {
     async searchWallpapers(query, page, { skipCategoryHighlight = false } = {}) {
         const wm = this.wallpaperManager;
 
-        // 无 Pexels Key 时 manager 自动切换 Picsum 免 Key 图库，UI 流程完全一致
+        // 无 Pexels Key 时：无分类词走 Picsum 浏览，有分类词自动尝试 Wallhaven，
+        // 都不支持时由下方 categorySupported 分支如实告知（不再用哈希页码冒充分类）
 
         // 更新UI中的高亮分类
         if (!skipCategoryHighlight) {
@@ -1895,6 +1896,9 @@ class NewTabApp {
 
             // 图源切换即时同步到壁纸管理器
             this.wallpaperManager.wallpaperSource = wallpaperSource;
+            // 图源可能换了能力：旧图源留下的「不支持分类」告警必须清掉，
+            // 否则用户切到 Wallhaven 后仍看到「当前图源不支持筛选」的过期提示
+            this.clearCategoryUnsupported();
 
             // 标语：即时生效于时钟下方
             await this.settingsManager.setTagline(tagline);

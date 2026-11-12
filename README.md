@@ -14,8 +14,8 @@
 <tr><td width="50%" valign="top">
 
 **🖼️ 壁纸**
-- Picsum 免 Key 图库（Unsplash 精选）：分类浏览 + 分页 + 随机换壁纸（默认）
-- Wallhaven 图源可选：设置中切换，支持关键词搜索，需能访问境外网络
+- Picsum 免 Key 图库（Unsplash 精选）：按页浏览 + 翻页 + 随机换壁纸（默认）；**不支持分类/关键词筛选**（实测服务端忽略 `?q=`），分类需求自动改走 Wallhaven
+- Wallhaven 图源可选：设置中切换，**唯一支持分类/关键词真正筛选**的免 Key 图源，需能访问境外网络
 - Pexels（可选 Key）：填写后切换为 Pexels 图源
 - 缓存优先加载，刷新无闪烁
 - 亮度 30%–100%、模糊 0–20px 实时调节
@@ -106,7 +106,7 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 
 | 配置 | 作用 | 不填会怎样 |
 | --- | --- | --- |
-| 壁纸图源 | Picsum（默认）/ Wallhaven 二选一 | 默认 Picsum，国内直连稳定 |
+| 壁纸图源 | Picsum（默认）/ Wallhaven 二选一 | 默认 Picsum 国内直连稳定但不支持分类筛选；要分类请选 Wallhaven |
 | Pexels API Key | 关键词搜索壁纸（Pexels 图源） | 使用所选免 Key 图源浏览 |
 | 高德 Web 服务 Key | 切换天气数据源为高德 | 使用 Open-Meteo 免费数据 |
 | 天气城市 | 固定城市 | 自动定位（失败回退上次城市） |
