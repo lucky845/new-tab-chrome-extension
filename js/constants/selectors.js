@@ -66,12 +66,6 @@ export const SELECTORS = {
     qaEditIndexInput: 'qa-edit-index',
     qaIconHelp: 'qa-icon-help',
 
-    // 删除确认弹窗
-    deleteConfirmModal: 'delete-confirm-modal',
-    deleteConfirmText: 'delete-confirm-text',
-    deleteConfirmDelete: 'delete-confirm-delete',
-    deleteConfirmCancel: 'delete-confirm-cancel',
-
     // 时钟 / 问候 / 标语
     clockTime: 'clock-time',
     clockDate: 'clock-date',
