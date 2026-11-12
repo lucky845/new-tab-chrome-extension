@@ -64,6 +64,7 @@ export const SELECTORS = {
     qaIconPreview: 'qa-icon-preview',
     qaPanelTitle: 'qa-panel-title',
     qaEditIndexInput: 'qa-edit-index',
+    qaIconHelp: 'qa-icon-help',
 
     // 删除确认弹窗
     deleteConfirmModal: 'delete-confirm-modal',

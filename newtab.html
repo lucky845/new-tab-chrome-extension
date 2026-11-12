@@ -669,6 +669,8 @@
                         Web服务 Key。
                     </p>
                 </div>
+
+                </div>
                 </div>
 
                 <div class="settings-footer">
@@ -737,19 +739,15 @@
                 <div class="setting-item">
                     <div class="label-with-tooltip">
                         <label for="qa-icon-input">自定义图标 (选填)</label>
-                        <div class="tooltip-container">
-                            <span class="tooltip-icon">i</span>
-                            <div class="tooltip-text">
-                                推荐前往
-                                <a
-                                    href="https://www.iconfont.cn/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    >iconfont.cn</a
-                                >
-                                获取SVG代码。
-                            </div>
-                        </div>
+                        <button
+                            type="button"
+                            id="qa-icon-help"
+                            class="qa-help-btn"
+                            aria-label="关于自定义图标的说明"
+                            title="关于自定义图标"
+                        >
+                            i
+                        </button>
                     </div>
                     <div class="icon-input-wrapper">
                         <textarea
