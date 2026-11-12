@@ -46,6 +46,34 @@
 - 小工具：时间戳 / JSON / Base64 / URL 编解码 / SHA-256 / 进制 / 大小写 / 去重 / 字数 / 颜色 / 密码 / UUID，纯本地运行
 - 左右两翼常驻主页（可在设置中关闭），点 ⤢ 打开完整面板
 
+**💾 备份与恢复（v1.5.0）**
+- 设置面板一键导出为单个 JSON 文件（文件名自带时间戳）
+- 导入自动校验：应用标识 / schema 版本 / 字段类型，任一不合法整体拒绝，不做部分写入
+- 覆盖设置、自定义引擎、快捷方式、待办、便签、番茄钟与壁纸偏好
+- 不导出天气与地理缓存（本质是 TTL 缓存，恢复后自动重新获取），备份文件更小
+- 导入后自动刷新页面，让各模块重新加载新数据
+
+> **新增功能自动兼容。** 导出走「全量减缓存」而非硬编码白名单：新功能写入的 storage 键**无需改备份代码**就会自动进备份、自动还原。缓存键按精确前缀（`amap_adcode_` / `amap_weather_` / `om_geo_` / `om_weather_` / `om_last_location`）剔除，不用宽泛模式，避免误伤用户数据。
+>
+> 三层版本兼容：① **旧备份**按迁移链逐级升级（`schemaVersion` 1→2→…），旧文件能被新版本正确解读；② **更新版本的备份**不整体拒绝，已识别的键照常导入；③ **未知键原样保留**写入，不会因当前版本不认识就丢弃未来功能的数据。
+
+**备份格式**
+
+```jsonc
+{
+  "app": "new-tab-pro",       // 应用标识，导入时校验
+  "schemaVersion": 2,          // 当前格式版本
+  "exportedAt": "2026-11-12T01:06:22.000Z",
+  "extensionVersion": "1.5.0",
+  "keys": { "todos": { "type": "array", "label": "待办", "since": 1 } },
+  "extras": ["某个未登记的新键"],   // 未登记但已导出的键，供排查
+  "skippedCache": ["om_weather_..."], // 被剔除的缓存键，供排查
+  "data": { "todos": [], "settings": {} }
+}
+```
+
+后续功能若要给某个键加上**类型校验**与**可读名**，调用 `backupManager.register(key, { type, label, since })` 即可；不登记也不会丢数据，只是缺少校验。新增格式版本时，在 `migrations` 末尾追加 `{ from: N, to: N+1, migrate }` 并递增 `SCHEMA_VERSION`。
+
 </td></tr>
 </table>
 
@@ -89,7 +117,7 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 
 | 权限 | 用途 |
 | --- | --- |
-| `storage` | 保存设置、壁纸缓存、待办、便签 |
+| `storage` | 保存设置、壁纸缓存、待办、便签；导出备份时全量读取 |
 | `geolocation` | 天气自动定位（可拒绝，改用城市名） |
 | `host_permissions` | 仅 `picsum.photos`、`wallhaven.cc`（可选图源）、`pexels.com`、`amap.com`、`open-meteo.com` |
 
@@ -112,7 +140,8 @@ newtab.html                 单页结构
     │   ├── weather-manager.js      天气：Open-Meteo / 高德双轨
     │   ├── todo-manager.js         待办
     │   ├── notes-manager.js        便签
-    │   └── pomodoro-manager.js     番茄钟状态机
+    │   ├── pomodoro-manager.js     番茄钟状态机
+    │   └── backup-manager.js       数据备份 / 校验 / 恢复
     ├── components/         advanced-pagination / weather-icons / visibility-toggle
     ├── config/             weather-config / default-sites / tools（小工具定义）
     ├── constants/          selectors.js（window.SELECTORS 单一来源）
@@ -149,7 +178,7 @@ npm run format     # Prettier
 - [x] 左右两翼布局、Picsum 免 Key 图源、Wallhaven 可选、移除 Bing（v1.3.0）
 - [x] 小工具面板（12 个纯本地工具）（v1.3.1）
 - [x] 快捷方式文件夹分组（v1.3.2）
-- [ ] 数据导入导出
+- [x] 数据导入导出（v1.5.0）
 - [ ] 主题切换
 
 ---

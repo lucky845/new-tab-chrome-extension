@@ -1047,6 +1047,26 @@ body {
     background: var(--surface-3);
 }
 
+/* ---------- 数据备份与恢复 ---------- */
+.backup-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.backup-actions .settings-btn {
+    flex: 0 0 auto;
+}
+
+/* 状态行：默认沿用 .api-key-description 的弱化色，仅覆盖语义色 */
+#backup-status.is-success {
+    color: rgba(126, 224, 168, 0.95);
+}
+
+#backup-status.is-error {
+    color: rgba(255, 138, 128, 0.95);
+}
+
 .settings-btn.primary {
     background-color: #4a90e2;
     color: white;
@@ -1629,66 +1649,35 @@ body {
     margin-bottom: 8px; /* Add some space below the label */
 }
 
-.tooltip-container {
-    position: relative;
-    display: inline-block;
-}
-
-.tooltip-icon {
+/* 说明按钮：文案由 dshTip.attach 承载（见 js/app.js initQaIconHelpTip），此处只管按钮外观 */
+.qa-help-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 18px;
     height: 18px;
+    padding: 0;
+    border: none;
     border-radius: 50%;
     background-color: rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.8);
+    font-family: inherit;
     font-size: 12px;
     font-weight: bold;
-    cursor: help;
     font-style: italic;
+    line-height: 1;
+    cursor: help;
 }
 
-.tooltip-text {
-    visibility: hidden;
-    width: 220px;
-    background-color: #333;
+.qa-help-btn:hover,
+.qa-help-btn:focus-visible {
+    background-color: rgba(255, 255, 255, 0.45);
     color: #fff;
-    text-align: center;
-    border-radius: var(--radius-xs);
-    padding: 8px;
-    position: absolute;
-    z-index: 1;
-    bottom: 150%; /* Position above the icon */
-    left: 50%;
-    margin-left: -110px; /* Use half of the width to center */
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 13px;
 }
 
-.tooltip-text::after {
-    content: '';
-    position: absolute;
-    top: 100%; /* At the bottom of the tooltip */
-    left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: #333 transparent transparent transparent;
-}
-
-.tooltip-container:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
-}
-
-.tooltip-text a {
-    color: #82c2ff;
-    text-decoration: none;
-}
-.tooltip-text a:hover {
-    text-decoration: underline;
+.qa-help-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 2px;
 }
 
 @keyframes item-float {

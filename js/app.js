@@ -13,6 +13,14 @@ const AppIcons = {
 };
 
 /**
+ * 「自定义图标」说明文案与链接
+ * dsh-tip 只渲染 textContent，不支持 HTML，所以链接语义通过提示内的操作按钮承载
+ * （见 initQaIconHelpTip），文案里保留 iconfont.cn 字样让用户知道去哪找图标。
+ */
+const QA_ICON_HELP_URL = 'https://www.iconfont.cn/';
+const QA_ICON_HELP_MESSAGE = '推荐前往 iconfont.cn 获取SVG代码。';
+
+/**
  * 主应用类（组合根 + 唯一 UI 绑定归属）
  * - 业务数据层在 js/modules/*-manager.js
  * - 本类负责：模块编排、DOM 事件绑定、面板渲染
@@ -29,9 +37,12 @@ class NewTabApp {
         this.todoManager = new TodoManager();
         this.notesManager = new NotesManager();
         this.pomodoroManager = new PomodoroManager();
+        this.backupManager = new BackupManager();
 
         // 快捷方式文件夹
         this.activeFolderIndex = null;
+        // 「自定义图标」说明提示实例（dsh-tip 常驻，面板关闭时需主动收敛）
+        this.qaIconHelpTip = null;
 
         // 小工具（纯前端，无需 manager）
         this.quickTools = window.QUICK_TOOLS || [];
@@ -801,12 +812,14 @@ class NewTabApp {
         if (cancelQaBtn && addQuickAccessPanel) {
             cancelQaBtn.addEventListener('click', () => {
                 addQuickAccessPanel.classList.add('u-hidden');
+                this.dismissQaIconHelpTip();
             });
         }
         if (addQuickAccessPanel) {
             addQuickAccessPanel.addEventListener('click', e => {
                 if (e.target === addQuickAccessPanel) {
                     addQuickAccessPanel.classList.add('u-hidden');
+                    this.dismissQaIconHelpTip();
                 }
             });
         }
@@ -821,6 +834,10 @@ class NewTabApp {
         if (qaIconInput) {
             qaIconInput.addEventListener('input', () => this.renderQaIconPreview());
         }
+
+        // 「自定义图标」说明按钮：原先由 style.css 里一套手写 tooltip（容器/圆点/文本框）
+        // 靠纯 CSS :hover 实现，现统一交给 dsh-tip 组件（定位/翻转/视口钳制/同 key 去重）
+        this.initQaIconHelpTip();
 
         // 保存
         if (saveQaBtn) {
@@ -850,6 +867,56 @@ class NewTabApp {
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') this.closeFolderOverlay();
         });
+    }
+
+    /**
+     * 「自定义图标」说明提示
+     *
+     * 历史：newtab.html 里曾有一套手写的 tooltip 三件套（容器 + 圆点 + 文本气泡），
+     * 靠 CSS :hover 显示，无法键盘触发、会被面板滚动裁剪，也无法复用统一外观。
+     * 现在只保留一个真实的 <button>（#qa-icon-help）作为可见锚点，文案与展示时机交给 dsh-tip。
+     *
+     * 文案用 textContent 渲染（组件只接受纯文本），所以 iconfont 链接不用 <a>，
+     * 而是拆成「说明 + 可知可点的按钮」：点提示里的按钮在扩展页内打开 iconfont.cn。
+     */
+    initQaIconHelpTip() {
+        const helpBtn = document.getElementById(window.SELECTORS.qaIconHelp);
+        if (!helpBtn || helpBtn.dataset.dshTipBound === '1') return null;
+        helpBtn.dataset.dshTipBound = '1';
+        helpBtn.addEventListener('click', () => {
+            if (!window.dshTip) {
+                // dshTip 未加载时不静默吞掉：退回到原生 title，保证说明仍可见
+                helpBtn.title = QA_ICON_HELP_MESSAGE;
+                return;
+            }
+            // 再点一次收起（按钮本身就是开关，避免提示只能靠关闭按钮收敛）
+            if (this.qaIconHelpTip && !this.qaIconHelpTip.closed) {
+                this.dismissQaIconHelpTip();
+                return;
+            }
+            this.qaIconHelpTip = window.dshTip.attach(helpBtn, {
+                type: 'info',
+                // key 固定：连续触发只保留一条提示，不叠罗汉
+                key: 'qa-icon-help',
+                placement: 'auto',
+                duration: 0, // 常驻：说明类提示不自动消失，由关闭按钮 / 再点 / 面板收起收敛
+                closable: true,
+                message: QA_ICON_HELP_MESSAGE,
+                action: {
+                    label: '打开 iconfont',
+                    title: '在新标签页打开 https://www.iconfont.cn/',
+                    onClick: () => window.open(QA_ICON_HELP_URL, '_blank', 'noopener'),
+                },
+            });
+        });
+        return null;
+    }
+
+    /** 收起说明提示（面板关闭/保存后调用，避免锚点被 display:none 隐藏后提示飘在视口左上角） */
+    dismissQaIconHelpTip() {
+        const tip = this.qaIconHelpTip;
+        this.qaIconHelpTip = null;
+        if (tip && !tip.closed && typeof tip.close === 'function') tip.close();
     }
 
     /**
@@ -1077,6 +1144,7 @@ class NewTabApp {
         // 重新渲染快捷访问列表
         this.quickAccessManager.renderQuickAccess();
         if (addQuickAccessPanel) addQuickAccessPanel.classList.add('u-hidden');
+        this.dismissQaIconHelpTip();
     }
 
     // 右键菜单（编辑 / 删除 / 文件夹操作）
@@ -1502,6 +1570,111 @@ class NewTabApp {
 
         this.bindWallpaperAdjustmentEvents();
         this.bindCustomEngineEvents();
+        this.bindBackupEvents();
+    }
+
+    // ---------- 数据备份与恢复 ----------
+
+    // 状态行文案（成功用绿色、失败用红色，复用 toast 同款配色变量）
+    setBackupStatus(message, kind) {
+        const el = document.getElementById(window.SELECTORS.backupStatus);
+        if (!el) return;
+        el.textContent = message;
+        el.classList.toggle('is-error', kind === 'error');
+        el.classList.toggle('is-success', kind === 'success');
+    }
+
+    // 绑定导出 / 导入按钮
+    bindBackupEvents() {
+        const exportBtn = document.getElementById(window.SELECTORS.exportDataBtn);
+        const importBtn = document.getElementById(window.SELECTORS.importDataBtn);
+        const importInput = document.getElementById(window.SELECTORS.importDataInput);
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportData());
+        }
+
+        if (importBtn && importInput) {
+            // 按钮只负责唤起隐藏的 file input：input 必须留在 DOM 里且可被程序点击
+            importBtn.addEventListener('click', () => importInput.click());
+            importInput.addEventListener('change', () => this.importData(importInput));
+        }
+    }
+
+    // 导出：组装 → 下载 → 反馈体量
+    async exportData() {
+        const btn = document.getElementById(window.SELECTORS.exportDataBtn);
+        if (btn) btn.disabled = true;
+        try {
+            const result = await this.backupManager.exportToFile();
+            const kb = (result.bytes / 1024).toFixed(1);
+            this.setBackupStatus(
+                `已导出 ${result.fileName}（${result.stats.keys} 项，约 ${kb} KB）`,
+                'success'
+            );
+            window.showToast('备份已导出', 'success');
+        } catch (error) {
+            console.error('导出备份失败:', error);
+            this.setBackupStatus('导出失败：' + (error.message || '未知错误'), 'error');
+            window.showToast('导出备份失败', 'error');
+        } finally {
+            // 成功失败都要解锁按钮，否则一次异常后按钮永久不可用
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    // 导入：读文件 → 校验 → 写入 → 重载页面（让各 manager 重新从 storage 读取）
+    async importData(input) {
+        const file = input && input.files && input.files[0];
+        // 无论成功失败都清空 input，否则连续导入同一个文件不会再触发 change
+        const reset = () => {
+            if (input) input.value = '';
+        };
+        if (!file) {
+            reset();
+            return;
+        }
+
+        const importBtn = document.getElementById(window.SELECTORS.importDataBtn);
+        if (importBtn) importBtn.disabled = true;
+
+        try {
+            const text = await file.text();
+            const result = await this.backupManager.importFromText(text);
+
+            // 把「迁移了旧格式 / 兼容了更新版本 / 保留了未知键」如实告诉用户，
+            // 否则将来新功能的数据被导入时用户完全无感，出问题也无从排查
+            const notes = [];
+            if (result.migratedTo) {
+                notes.push(`已从 v${result.schemaVersion} 升级格式`);
+            }
+            if (result.forwardCompat) {
+                notes.push(
+                    `备份版本 v${result.schemaVersion} 高于当前 v${this.backupManager.SCHEMA_VERSION}，已尽力兼容`
+                );
+            }
+            if (result.unknown && result.unknown.length) {
+                notes.push(`保留 ${result.unknown.length} 项未知数据`);
+            }
+            const detail = notes.length ? `（${notes.join('；')}）` : '';
+            const when = result.exportedAt ? `，备份于 ${result.exportedAt.slice(0, 10)}` : '';
+
+            this.setBackupStatus(
+                `已导入 ${result.keys.length} 项数据${when}${detail}，即将刷新页面生效…`,
+                'success'
+            );
+            window.showToast('导入成功，正在刷新…', 'success');
+            // 各 manager 已在内存里持有旧数据，直接改 storage 不会自动生效，
+            // 刷新页面是最稳妥且不会产生半更新态的做法
+            setTimeout(() => window.location.reload(), 900);
+        } catch (error) {
+            console.error('导入备份失败:', error);
+            this.setBackupStatus('导入失败：' + (error.message || '未知错误'), 'error');
+            window.showToast('导入失败：' + (error.message || '文件不合法'), 'error');
+            if (importBtn) importBtn.disabled = false;
+            reset();
+        }
+        // 成功分支不重置按钮：页面即将刷新，避免出现「可再次点击」的瞬时假象
     }
 
     // 壁纸亮度 / 模糊滑杆（实时应用 + 防抖持久化）

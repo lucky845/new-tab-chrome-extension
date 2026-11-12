@@ -64,6 +64,7 @@ export const SELECTORS = {
     qaIconPreview: 'qa-icon-preview',
     qaPanelTitle: 'qa-panel-title',
     qaEditIndexInput: 'qa-edit-index',
+    qaIconHelp: 'qa-icon-help',
 
     // 删除确认弹窗
     deleteConfirmModal: 'delete-confirm-modal',
@@ -175,6 +176,12 @@ export const SELECTORS = {
     brightnessValue: 'brightness-value',
     blurValue: 'blur-value',
     taglineInput: 'tagline-input',
+
+    // 数据备份与恢复
+    exportDataBtn: 'export-data-btn',
+    importDataBtn: 'import-data-btn',
+    importDataInput: 'import-data-input',
+    backupStatus: 'backup-status',
 };
 
 // 供非模块脚本访问
