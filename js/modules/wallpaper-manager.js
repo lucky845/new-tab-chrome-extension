@@ -491,9 +491,14 @@ class WallpaperManager {
     // 设置壁纸
     setWallpaper(imageUrl) {
         const container = this.container;
-        if (container) {
-            container.style.backgroundImage = `url('${imageUrl}')`;
+        if (!container) return;
+        // 壁纸地址可能来自备份导入：只接受 http(s) / data:image / 扩展内相对路径，
+        // 否则不给 background-image 赋值（非法协议会变成远程探测或注入面）
+        if (window.UrlSafe && !window.UrlSafe.isImageSource(imageUrl)) {
+            console.warn('[壁纸] 地址协议不受支持，已忽略:', imageUrl);
+            return;
         }
+        container.style.backgroundImage = `url('${imageUrl}')`;
     }
 
     // 获取分类列表

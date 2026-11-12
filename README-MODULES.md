@@ -13,6 +13,8 @@ js/
 │   ├── search-manager.js       # 搜索功能模块
 │   ├── quick-access-manager.js # 快捷访问管理模块
 │   ├── settings-manager.js     # 设置管理模块
+│   ├── theme-manager.js        # 主题管理（浅色/深色/跟随系统/日出日落）
+│   ├── backup-manager.js       # 备份导出与导入（前向兼容）
 │   └── weather-manager.js      # 天气管理模块（高德）
 ├── components/                 # 组件目录
 │   ├── advanced-pagination.js  # 高级分页组件（单次 DOM 更新）
@@ -24,7 +26,9 @@ js/
 ├── constants/
 │   └── selectors.js            # 全局选择器与 ID 常量（window.SELECTORS）
 ├── utils/
-│   └── request.js              # 统一请求封装（超时/重试/退避/错误解析）
+│   ├── request.js              # 统一请求封装（超时/重试/退避/错误解析）
+│   └── url-safe.js             # 链接协议白名单（只放行 http(s)，open() 自带 noopener）
+├── theme-boot.js               # 首屏主题预置（同步执行，防白闪）
 ├── app.js                      # 主应用类
 └── main.js                     # 入口文件（已简化）
 ```
@@ -72,19 +76,41 @@ js/
     - 天气获取与格式化展示（中文现象映射）
     - 统一请求封装（`utils/request.js`），含超时、重试（指数退避）、错误解析、频率限制（`weather-config.js`）
 
-### 6. AdvancedPagination (高级分页组件)
+### 6. ThemeManager (主题管理模块)
+
+- 职责: 管理浅色/深色/跟随系统/日出日落四种主题，只切换 `<html data-theme>`
+- 功能:
+    - 模式：`auto`（跟随 `prefers-color-scheme`）/ `light` / `dark` / `sun`（日出日落）
+    - 首屏零闪烁：`js/theme-boot.js` 在 `<head>` 里同步执行，先读 localStorage 镜像把 `data-theme` 写上，再由 `syncFromStorage()` 用 storage 真值校正
+    - 日出日落：复用天气已取的坐标与缓存请求 Open-Meteo `daily=sunrise,sunset`；拿不到就用本地近似（7:00 / 18:00）兜底并在设置里标注「近似」
+    - 定时复查：每 60s 一次跨天切换；`auto` 模式额外监听 `matchMedia` 即时响应系统切换
+    - 预览-保存：设置面板里切换即时预览，只有「保存」才持久化，关闭面板回滚
+- 约束: 所有配色走 CSS token，JS 里不写颜色值；主题只改 `style.css` 末尾两个主题块
+    - 壁纸层：`--wallpaper-veil`、`--on-photo-scrim`、`--on-photo-halo`
+    - 玻璃层：`--glass-blur/saturate/brightness/contrast`、`--glass-fill` 族、`--glass-card-fill` 族（侧卡专用，见下）、`--glass-sheen`、`--glass-rim*/--glass-shade*`、`--glass-shadow`
+    - 语义层：`--accent-ink` / `--on-accent` / `--on-danger` / `--accent-break`。深色主题的 accent 与蓝色按钮都是亮档实色，白字只有 2.1–3.3:1，必须把 `*-ink` 翻成深色
+- 玻璃材质的三件事（改之前先读 `style.css` 里对应的注释）:
+    1. `--glass-backdrop` 是合成后的整条 backdrop-filter，各元素只引用，不要在局部重新拼
+    2. `url(#liquid-refract)` 必须排在 `blur()` 之前，且只在 `@supports` 块里加——半条 `url()` 会让玻璃变全透明
+    3. 卡片玻璃（`--glass-card-*`）单独一档：CSS 自定义属性里的 var() 在声明元素上就求值完毕，给 `.side-card` 覆盖 `--glass-saturate` 不会重算 `--glass-backdrop`
+- 文字可读性的硬规则: 不用 `opacity` 压文字（它连字形带光晕一起溶进背景），改用 `--text-primary/secondary`；11–14px 小字一律至少 `--text-secondary`
+
+### 7. AdvancedPagination (高级分页组件)
 
 - 变化:
     - 固定每页 10 位：9 项 + 1 个“添加”按钮
     - 渲染合并：`setItems()` 仅触发一次 DOM 更新
     - 跨页拖拽旧逻辑移除，拖拽限制在当页
 
-### 7. 其他组件/常量
+### 8. 其他组件/常量
 
+- `modules/backup-manager.js`: 数据备份导出/导入，四层兼容（键注册表 / 全量减缓存 / 迁移链 / 未知键保留）
+- `theme-boot.js`: 首屏主题预置脚本（同步、非模块，必须在 `style.css` 之前执行）
 - `components/visibility-toggle.js`: 通用“显示/隐藏密钥”组件，适配 Pexels/Gaode 输入框
 - `components/weather-icons.js`: 将中文天气现象映射到内置 SVG
 - `constants/selectors.js`: 中央化所有 dom id/选择器，统一经 `window.SELECTORS` 访问，减少魔法字符串
 - `utils/request.js`: 统一 `fetchJSON(url, { timeout, retries, retryDelay, backoff })`
+- `utils/url-safe.js`: 链接安全工具（`isHttp` / `isImageSource` / `href` / `open`）。快捷方式、自定义搜索引擎、壁纸地址、备份导入的数据都可能带任意协议，统一在这里挡掉 `javascript:` / `data:` 等非 http(s) 地址，`open()` 默认带 `noopener,noreferrer`
 - `config/weather-config.js`: 天气 API BASE_URL、缓存 TTL、最小请求间隔等
 
 ## 🚀 使用方法

@@ -47,6 +47,11 @@
     --search-bar-height: 54px;
     --transition-fast: 0.2s ease;
     --transition-medium: 0.3s ease;
+    /* --- 弹窗进出场动效（见文件末尾「弹窗动效」段；prefers-reduced-motion 下归零） --- */
+    --motion-duration: 0.24s;
+    --motion-duration-fast: 0.18s;
+    --motion-ease: cubic-bezier(0.2, 0.8, 0.25, 1);
+    --motion-ease-exit: cubic-bezier(0.4, 0, 0.7, 1);
 
     /* --- 圆角档位 --- */
     --radius-lg: 20px; /* 全屏面板：设置页 / 壁纸页 / 文件夹弹层 */
@@ -60,56 +65,220 @@
     --border-radius-small: var(--radius-md);
 
     /* --- 面板与遮罩 --- */
-    --panel-bg: rgba(26, 33, 40, 0.82);
-    --panel-border: 1px solid rgba(255, 255, 255, 0.18);
     --panel-radius: var(--radius-lg);
-    /* 深壁纸下遮罩与面板亮度天然接近，靠亮度差区分不出来，
-       故用「外发光环 + 内高光」确定边界：任何壁纸上面板都能浮起来 */
-    --panel-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.1),
-        0 12px 40px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    /* 遮罩压暗到 0.68：面板是深色玻璃，遮罩太浅时两者亮度接近，面板边界会消失 */
-    --overlay-bg: rgba(0, 0, 0, 0.68);
+    /* 遮罩只有一份实现：便签/待办弹窗、设置、壁纸、小工具、文件夹全部走这两个令牌。
+       浅色 = 墨色 0.5×wash-k（rgba(15,21,26,.275)）压 + 10px 磨砂：壁纸退成柔和色块，
+       仍看得出是壁纸；深色在主题块里换成冷黑。
+       早先这里是「0.18 白霜 + 24px + 砂面颗粒」，和弹窗不是一套观感，故废弃。 */
+    --overlay-bg: rgb(var(--ink) / calc(0.5 * var(--wash-k)));
     --overlay-blur: 10px;   /* 面板/弹窗/下拉级毛玻璃强度 */
     --blur-soft: 5px;       /* 轻量毛玻璃：小控件、内嵌装饰层 */
 
-    /* --- 表面阶梯（白透明度）：越靠前越实 --- */
-    --surface-1: rgba(255, 255, 255, 0.12); /* 卡片底 */
-    --surface-2: rgba(255, 255, 255, 0.08); /* 行项底 */
-    --surface-3: rgba(255, 255, 255, 0.18); /* 悬停态 */
-    --surface-border: rgba(255, 255, 255, 0.16);
-    --surface-border-strong: rgba(255, 255, 255, 0.4); /* 聚焦/选中态描边 */
+    /* --- 中性色轴：一套令牌同时驱动明暗两套主题 ---
+       墨 --ink   ：文字 / 图标 / 发丝线 / 洗层的颜色。深色=白墨，浅色=近黑墨。
+       纸 --paper ：玻璃 tint 的基色。深色=冷黑，浅色=冷白。
+       光 --spec  ：受光面（sheen 高光、顶部轮廓光），两套主题都是白光。
+       影 --shadow：投影与底部内阴影，两套主题都是黑。
+       三个 k 是"同一条墨落在浅色底上会更重"的强度补偿：正文不衰减（text-k=1），
+       洗层与发丝线按比例衰减。深色主题三项均为 1 —— 逐像素等价于改造前的深色视觉。 */
+    --ink: 15 21 26;
+    --paper: 252 253 255;
+    --spec: 255 255 255;
+    --shadow: 0 0 0;
+    --text-k: 1;
+    --wash-k: 0.55;
+    --line-k: 0.8;
 
-    /* --- 常驻玻璃卡（侧翼小组件 / 天气组件）---
-       原先用 rgba(255,255,255,.08~.10) 白底 + blur，亮壁纸的横向石阶会透过卡片
-       被抹成一条均匀「高光带」。统一收口到深色实底玻璃，任意壁纸都稳定。 */
-    --glass-card-bg: rgba(18, 24, 30, 0.72);
-    --glass-card-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    /* --- 表面阶梯：同一支墨的透明度台阶 --- */
+    --surface-1: rgb(var(--ink) / calc(0.12 * var(--wash-k))); /* 卡片底 */
+    --surface-2: rgb(var(--ink) / calc(0.08 * var(--wash-k))); /* 行项底 */
+    --surface-3: rgb(var(--ink) / calc(0.18 * var(--wash-k))); /* 悬停态 */
+    --surface-border: rgb(var(--ink) / calc(0.16 * var(--line-k)));
+    --surface-border-strong: rgb(var(--ink) / calc(0.4 * var(--line-k))); /* 聚焦/选中态描边 */
 
-    /* --- 语义色（深色玻璃底上的可辨识档位，避免高饱和刺眼） --- */
-    /* 语义色：全局单一真源。dsh-tip / 天气提示 / 表单校验共用，勿在组件内另写一套 */
-    --color-success: #3ddc97;
-    --color-warning: #ffd166;
-    --color-error: #ff8a8f;
-    --color-info: #a5d8ff;
-    --color-loading: #4ec2c6;
-    /* 浮层/下拉：不叠 backdrop-filter（避免与父级搜索框 blur 二次模糊），
-       改用半透明实底 + 内高光做出"浮起来"的玻璃感，同时保住文字对比度 */
-    --popover-bg: rgba(18, 24, 30, 0.78);
-    --popover-border: rgba(255, 255, 255, 0.16);
-    --popover-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.08),
-        0 12px 32px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    /* --- 液态玻璃：结构层 ---
+       一块玻璃 = 实色 tint + 顶部高光(sheen) + 1px 轮廓光(rim) + 底部内阴影(shade) + 环境投影。
+       两套主题"材质"同构，只有基色与三处光/影的强度随主题换（见文件末尾「主题」块）：
+         深色 = 冷黑玻璃 + 白光轮廓，墨是白的；
+         浅色 = 冷白霜面玻璃 + 白光高光 + 极淡暗边，墨是近黑的。
+       组件内禁止再写玻璃的字面量：一律引用本组令牌。 */
+    /* --- 材质分档：一块玻璃不等于一种玻璃 ---
+       同一个 blur/tint 打在「118px 的图标格子」和「600×60 的搜索框」上，观感完全不同：
+       格子只需要透色，搜索框里要坐 18px 的字，侧卡里是 11–14px 的小字。
+       旧版给所有元素同一档（blur 34 / tint 0.34）：装饰件被 34px 糊成灰雾，
+       文字件又不够实（0.34 撑不住小字），两头不讨好。现在按角色分三档：
+         · 装饰档 --glass-*       快捷块、天气卡：要「看得见背后」，低模糊 + 薄纱；
+         · 字段档 --glass-field-* 搜索框：自己带文字，底比装饰档实一档；
+         · 卡片档 --glass-card-*  侧翼小组件：小字密，模糊更高、tint 更实，只留色相。 */
+    --glass-blur: 28px;
+    --glass-saturate: 118%;
+    /* 合成链：先折射（光被玻璃弯折）→ 再模糊（材质内散射）→ 最后显色。
+       brightness/contrast 只做轻微校正：旧版 brightness 1.1 把白纱洗成灰，
+       色全靠 saturate 硬拉，玻璃于是又亮又灰。 */
+    --glass-brightness: 1.3;
+    --glass-contrast: 1.03;
+    /* 第 2 层：SVG 位移折射。滤镜定义见 newtab.html 里 <svg class="liquid-refract-defs">
+       （feTurbulence → feGaussianBlur → feDisplacementMap scale 40）。
+       顺序按光学来：先折射再模糊，实测比反过来多 11 个百分点的高频位移
+       （26.1% vs 15.0% 像素变化）——先模糊会把要位移的细节糊掉。 */
+    --glass-refract: url(#liquid-refract);
+    /* 默认合成链不带折射：老版本 Chrome 遇到 backdrop-filter: url() 会整条失效、
+       玻璃退化成完全透明，比没有折射更糟。支持才拼进去（见文件末尾 @supports 块）。 */
+    --glass-backdrop: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+        brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+    /* 全屏遮罩档：只做磨砂，不接折射。
+       遮罩面积是整个视口，feTurbulence 位移铺满 1440×900 后每帧都要重算；而磨砂叠加
+       之后，折射层能贡献的像素差只有 30/通道（且集中在边缘），等于花最大的一笔钱
+       买一个看不见的效果。位移留给真正能被眼睛分辨的小块玻璃（快捷块、搜索框、侧卡）。 */
+    --glass-overlay-backdrop: blur(var(--overlay-blur));
+    /* 装饰档 tint：薄到只剩一层纱。颜色靠 backdrop 从壁纸里「提」，不靠刷白。 */
+    --glass-fill: rgb(var(--spec) / 0.36);
+    --glass-fill-hover: rgb(var(--spec) / 0.46);
+    /* 字段档：搜索框。低模糊是对的（要看见背后的形状），但 0.14 撑不住 18px 的字，
+       所以这一档单独加实底；模糊也不能跟着放大，放大了又变成"糊成一团"。
+       0.56 → 0.42：0.56 盖住壁纸 55% 的色，配上 brightness 1.3 就成了「白药丸」——
+       看得出是白的，看不出是玻璃。0.42 让壁纸的色块透上来（实测字底仍有 4.6:1），
+       再叠砂面颗粒，材质才立得住。 */
+    --glass-field-fill: rgb(var(--spec) / 0.42);
+    --glass-field-fill-hover: rgb(var(--spec) / 0.52);
+    --glass-field-blur: 24px;
+    --glass-field-saturate: 118%;
+    --glass-field-backdrop: blur(var(--glass-field-blur)) saturate(var(--glass-field-saturate))
+        brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+    /* 卡片档：侧翼小组件。11–14px 的小字必须有一个亮度地板，
+       所以 tint 更实、模糊更高（把背后的花纹压成色块，而不是让花纹直接顶到字上）。
+       tint 越实透过的色越少，色相靠更高的 saturate 从剩下的底里抢回来。 */
+    --glass-card-fill: rgb(var(--spec) / 0.42);
+    --glass-card-blur: 28px;
+    --glass-card-saturate: 120%;
+    --glass-card-backdrop: blur(var(--glass-card-blur)) saturate(var(--glass-card-saturate))
+        brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+    /* 面板级：坐在全屏遮罩之上，遮罩已提供一层压暗，tint 相应更实以免发糊。 */
+    /* 面板是「工作面」：模糊从 34 降到 14 后，同样的 0.6 已经压不住背后的亮色，
+       说明文字实测只有 4.2–4.4:1（bg ≈ [151,164,167]）。0.72 把底抬到 ~[196,...]，
+       同一批文字回到 5.5:1 以上——面板可以厚，装饰件不行，两件事分开。 */
+    /* 0.72 → 0.60：面板底下现在是白霜遮罩（亮、均匀），再刷 0.72 的白就透不出霜面，
+       面板读成一张白纸。0.60 让磨砂从面板里透出来，边界交给白描边 + 面板投影。 */
+    --glass-panel-fill: rgb(var(--spec) / 0.52);
+    /* 浮层级：嵌在别的玻璃内部，禁止再叠 blur，靠更实的 tint + 轮廓光浮起来 */
+    --glass-popover-fill: rgb(var(--spec) / 0.8);
+    /* 高光：左上角径向光斑（曲面反射）+ 纵向渐变（顶部受光 → 底部背光）。 */
+    --glass-sheen:
+        radial-gradient(
+            120% 90% at 24% -28%,
+            rgb(var(--spec) / 0.14) 0%,
+            rgb(var(--spec) / 0.02) 42%,
+            rgb(var(--spec) / 0) 70%
+        ),
+        linear-gradient(
+            180deg,
+            rgb(var(--spec) / 0.04) 0%,
+            rgb(var(--spec) / 0) 46%,
+            rgb(var(--shadow) / 0.05) 100%
+        );
+    /* 断面：一条均匀描边是塑料，渐变的一圈才是玻璃。
+       下面的 --glass-bevel 给 ::after 用（content-box 遮罩抠出 1px 环），
+       方向固定在 154deg：左上迎光最亮，右下背光压暗。 */
+    --glass-bevel: linear-gradient(
+        154deg,
+        rgb(var(--spec) / 0.95) 0%,
+        rgb(var(--spec) / 0.62) 14%,
+        rgb(var(--spec) / 0.08) 44%,
+        rgb(var(--shadow) / 0.05) 70%,
+        rgb(var(--shadow) / 0.14) 100%
+    );
+    /* 砂面：feTurbulence 生成的静态噪点，5% 叠加。真实玻璃不是数学级光滑的，
+       这一层让"模糊色块"变成"有质感的材质"，成本一张小图。 */
+    --glass-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+    --glass-grain-opacity: 0.1;
+    --glass-rim: rgb(var(--spec) / 1);
+    --glass-rim-side: rgb(var(--spec) / 0.6);
+    --glass-shade: rgb(var(--shadow) / 0.12);
+    --glass-shade-side: rgb(var(--shadow) / 0.08);
+    --glass-inner-glow: rgb(var(--spec) / 0.6);
+    --glass-inner-shade: rgb(var(--shadow) / 0.18);
+    /* 外发丝线：亮壁纸上的白玻璃如果只有内亮线，边界会「溶」进背景，
+       外面必须压一条极淡的暗线把形状钉住。 */
+    --glass-hairline: rgb(var(--shadow) / 0.12);
+    --glass-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -2px 4px -1px var(--glass-shade),
+        inset 0 -18px 26px -20px var(--glass-inner-shade),
+        0 0 0 1px var(--glass-hairline),
+        0 2px 5px -1px rgb(var(--shadow) / 0.2),
+        0 16px 36px -16px rgb(var(--shadow) / 0.34);
+    --glass-shadow-soft:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -2px 4px -1px var(--glass-shade),
+        0 0 0 1px var(--glass-hairline),
+        0 2px 4px -1px rgb(var(--shadow) / 0.16),
+        0 10px 24px -12px rgb(var(--shadow) / 0.26);
+    /* 玻璃件的圆角：24px 比 16px 更像"一块料"，16px 读起来是"一个卡片" */
+    --radius-glass: 24px;
+
+    /* --- 语义色：全局单一真源。dsh-tip / 天气提示 / 表单校验共用，勿在组件内另写一套 ---
+       浅色底上同一支黄/青会掉到 2:1 以下，浅色主题换成同色相的深档（见主题块）。 */
+    --ok: 15 138 95;
+    --warn: 154 106 0;
+    --danger: 192 57 43;
+    --danger-2: 192 57 43;
+    --info: 26 111 181;
+    --accent: 13 127 132;
+    --accent-hover: 16 154 160;
+    /* 休息档绿色：与 accent 同规矩——浅色主题压深，深色主题用亮档 */
+    --accent-break: 32 122 66;
+    --mint: 22 122 78;
+    --blue: 20 110 200;
+    --btn-blue: 26 110 190;
+    --btn-blue-hover: 18 88 156;
+    --green: 56 142 60;
+    --color-success: rgb(var(--ok));
+    --color-warning: rgb(var(--warn));
+    --color-error: rgb(var(--danger));
+    --color-info: rgb(var(--info));
+    --color-loading: rgb(var(--accent));
+
+    /* 文本级错误红：比 --color-error 再压一档，保证白底上过 AA（7.1:1） */
+    --error-text: rgb(176 42 30);
+    /* 落在实色语义块上的文字：蓝底/绿底恒用白字；青底在浅色主题下是深青，也用白字，
+       深色主题下是亮青，必须翻成深字。 */
+    --accent-ink: 255 255 255;
+    /* 落在 --color-error 实色块上的文字：浅色主题的危险色是压暗的红，配白字；
+       深色主题是亮粉红，配深字（在深色块里覆盖）。 */
+    --on-danger: 255 255 255;
+    /* 恒深遮罩：文件夹预览井 / 图标兜底色。默认站点图标是 fill="#e6e6e6" 的浅灰 SVG，
+       浅底上会直接消失，所以这两处不能跟着主题翻面。 */
+    --scrim: 12 18 22;
+
+    /* --- 悬浮在壁纸上的文字（时钟 / 日期 / 标语）---
+       这些元素没有玻璃底板，壁纸亮度直接决定可读性：壁纸一亮，浅墨就糊；
+       壁纸一暗，深墨就消失。所以给它们两层「随主题翻面」的托底：
+         --on-photo-scrim 远场椭圆晕（压掉壁纸纹理，给文字一块局部稳定底色）
+         --on-photo-halo  近场字形光晕（沿字形描一圈，让笔画边界始终成立）
+       浅色主题 = 白光托深墨；深色主题 = 暗光托白字。两套都只是"补光"，不改文字本色。 */
+    --on-photo-scrim: rgb(var(--spec) / 0.55);
+    --on-photo-halo: rgb(var(--spec) / 0.85);
+
+    /* --- 画布 / 凹陷字段 / 原生下拉 / 反色墨 --- */
+    --canvas: #eef1f4;
+    --recess-deep: 230 235 239;
+    --option-bg: #f4f6f8;
+    --on-accent: 255 255 255;
 
     /* --- 文字层级（保证 WCAG AA 4.5:1 以上） --- */
-    --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.78);
-    --text-tertiary: rgba(255, 255, 255, 0.6);
-    --text-placeholder: rgba(255, 255, 255, 0.62);
+    --text-primary: rgb(var(--ink));
+    --text-secondary: rgb(var(--ink) / calc(0.78 * var(--text-k)));
+    --text-tertiary: rgb(var(--ink) / calc(0.6 * var(--text-k)));
+    --text-placeholder: rgb(var(--ink) / calc(0.68 * var(--text-k)));
+    --text-muted: rgb(var(--ink) / calc(0.55 * var(--text-k)));
+
+    /* --- 原生控件的配色声明（滚动条 / 下拉 / 日期选择器）---
+       必须跟着"控件所在的底"走：底是浅色玻璃就给 light，否则 Chrome 会把
+       原生箭头和时钟图标画成深色，压在深玻璃上等于消失。 */
+    --cs: light;
+    /* --- select 的自绘箭头：background-image 不继承 currentColor，
+       所以按主题各备一份 data URI（浅色深箭头 / 深色白箭头）。 --- */
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f151a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 
     /* --- 叠加层 z-index 阶梯 --- */
     --z-overlay: 5000;
@@ -124,24 +293,41 @@
     left: 20px;
     /* 页面固定小部件层：高于普通内容，低于全屏 modal（.settings-panel） */
     z-index: 50;
-    /* 与侧翼小组件同一套常驻玻璃卡，避免亮壁纸下透出高光带 */
-    background: var(--glass-card-bg);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
-    border-radius: var(--radius-md);
+    /* 液态玻璃四件套：fill(tint) + sheen(高光) + rim(轮廓光) + shadow(内阴影/投影)。
+       与侧翼小组件、快捷方式共用同一组 --glass-* 令牌，不再各写一套黑底 */
+    background-color: var(--glass-fill);
+    background-image: var(--glass-sheen);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    border-radius: var(--radius-glass);
     padding: 16px;
-    border: 1px solid var(--surface-border);
-    box-shadow: var(--glass-card-shadow);
-    transition: all 0.3s ease;
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+    transition:
+        background-color var(--transition-medium),
+        border-color var(--transition-medium),
+        box-shadow var(--transition-medium),
+        transform var(--transition-medium);
     min-width: 200px;
+    /* 上限是必须的：错误态文案是整句（地理位置权限被拒绝，请在浏览器/系统设置中允许位置访问），
+       配上 .weather-desc 的 nowrap，卡片宽度就由最长字符串决定——实测会撑成占满整行的横幅。 */
+    max-width: min(360px, calc(100vw - 40px));
 }
 
 .weather-widget:hover {
-    /* 不再叠白色提亮（会在亮壁纸上重新造出高光），改用更实的深色 + 描边 */
-    background: var(--panel-bg);
-    border-color: var(--surface-border-strong);
+    /* 悬停 = 整块玻璃抬升一档：填充更实、轮廓更亮、投影更远，色相不变 */
+    background-color: var(--glass-fill-hover);
+    border-color: var(--glass-rim);
     transform: translateY(-2px);
-    box-shadow: var(--panel-shadow);
+    /* 悬停只把投影推远：六段结构（断面/内阴影/发丝线）必须保持，
+       否则一 hover 就掉回旧材质，只剩一块模糊矩形。 */
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -2px 4px -1px var(--glass-shade),
+        inset 0 -18px 26px -20px var(--glass-inner-shade),
+        0 0 0 1px var(--glass-hairline),
+        0 4px 10px -2px rgb(var(--shadow) / 0.26),
+        0 22px 48px -18px rgb(var(--shadow) / 0.42);
 }
 
 .weather-content {
@@ -152,7 +338,7 @@
 
 .weather-icon {
     flex-shrink: 0;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 .weather-info {
@@ -163,14 +349,14 @@
 .temperature {
     font-size: 24px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-primary);
     line-height: 1;
     margin-bottom: 4px;
 }
 
 .weather-desc {
     font-size: 14px;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-secondary);
     margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -179,7 +365,8 @@
 
 .location {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
+    /* 12px 的次级信息：0.6 alpha 只有 2.6–3.4:1，0.78 也只到 4.29，小字必须满墨。 */
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -188,7 +375,7 @@
 .weather-settings-btn {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-tertiary);
     cursor: pointer;
     padding: 4px;
     border-radius: var(--radius-xs);
@@ -197,8 +384,8 @@
 }
 
 .weather-settings-btn:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 .weather-widget.loading .weather-icon {
@@ -215,18 +402,24 @@
     }
 }
 
-/* 通用：密钥可见性切换按钮，与现有样式保持一致 */
+/* 通用：密钥可见性切换按钮。位置在下方 .visibility-toggle 规则里（绝对定位到输入框右内角），
+   这里只管外观：给它一层洗层当命中区，图标走 currentColor + 满墨。
+   原来是无底裸 emoji（🙈 实测 3.1:1），连"这是个按钮"都看不出来。 */
 .visibility-toggle {
-    background: none;
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
     border: none;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-primary);
     cursor: pointer;
     padding: 6px;
     border-radius: var(--radius-xs);
     transition: var(--transition-fast);
 }
 .visibility-toggle:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgb(var(--ink) / calc(0.12 * var(--wash-k)));
+}
+.visibility-toggle svg {
+    display: block;
+    pointer-events: none;
 }
 
 /* 天气提示条与全局 Toast 已统一由 js/utils/dsh-tip.js 承载样式（内联注入），此处不再保留重复规则。 */
@@ -238,9 +431,9 @@ html {
     font-family:
         -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     overflow: hidden;
-    /* 全站原生控件（下拉面板、滚动条、日期选择器）统一深色，
-       避免在深色玻璃面板上出现白底黑字的系统控件 */
-    color-scheme: dark;
+    /* 全站原生控件（下拉面板、滚动条、日期选择器）跟随主题：
+       深色主题下是深色控件，浅色主题下是浅色控件。 */
+    color-scheme: var(--cs);
 }
 
 * {
@@ -250,7 +443,7 @@ html {
 }
 
 body {
-    color: white;
+    color: var(--text-primary);
 }
 
 .wallpaper-container {
@@ -263,7 +456,7 @@ body {
        todaybing 在国内不可达时标签页会持续转圈 5s+。
        真实壁纸由 wallpaper-manager 在 DOMContentLoaded 后异步写入 backgroundImage；
        size/position/repeat 留在此处，保证 inline 写入后仍按 cover 铺满。 */
-    background-color: #1b242c;
+    background-color: var(--canvas);
     background-image: none;
     background-repeat: no-repeat;
     background-position: center center;
@@ -310,15 +503,23 @@ body {
 .search-input {
     width: 100%;
     padding: 18px 25px 18px 25px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--glass-edge);
     border-radius: var(--radius-full);
-    /* 原 rgba(0,0,0,.2) 在白壁纸下白字仅 1.61:1；深色玻璃黑墙 17.6:1 / 白墙 8.6:1 */
-    background: rgba(20, 26, 32, 0.45);
-    color: #fff;
+    /* 字段档：这是唯一"用户要在里面打字"的玻璃，tint 比装饰档实一档——
+       装饰件的薄纱（0.14/0.3）在 18px 正文下撑不住，压在亮壁纸上字会漂。
+       模糊只有 16–18px：再大就把背后的形状糊成一块，读起来是脏玻璃。 */
+    background-color: var(--glass-field-fill);
+    /* 只留高光：砂面颗粒在 600×60 的窄条上读成「脏」，材质交给模糊与断面环 */
+    background-image: var(--glass-sheen);
+    color: var(--text-primary);
     font-size: 18px !important;
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
-    transition: all 0.3s ease;
+    box-shadow: var(--glass-shadow-soft);
+    backdrop-filter: var(--glass-field-backdrop);
+    -webkit-backdrop-filter: var(--glass-field-backdrop);
+    transition:
+        background-color var(--transition-medium),
+        border-color var(--transition-medium),
+        box-shadow var(--transition-medium);
 }
 
 #search-input {
@@ -332,8 +533,8 @@ body {
 
 .search-input:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(0, 0, 0, 0.3);
+    border-color: var(--glass-rim);
+    background-color: var(--glass-field-fill-hover);
 }
 
 /* 覆盖浏览器自动填充的默认样式 */
@@ -341,11 +542,11 @@ body {
 .search-input:-webkit-autofill:hover,
 .search-input:-webkit-autofill:focus,
 .search-input:-webkit-autofill:active {
-    -webkit-text-fill-color: #fff !important; /* 强制文字颜色为白色 */
-    box-shadow: 0 0 0px 1000px rgba(0, 0, 0, 0.2) inset !important; /* 使用 inset box-shadow 覆盖背景色 */
+    -webkit-text-fill-color: rgb(var(--ink)) !important; /* 强制文字颜色为白色 */
+    box-shadow: 0 0 0px 1000px rgb(var(--shadow) / 0.2) inset !important; /* 使用 inset box-shadow 覆盖背景色 */
     transition: background-color 5000s ease-in-out 0s; /* 延迟浏览器样式的应用 */
     font-size: 18px !important; /* 强制字体大小一致 */
-    caret-color: #fff; /* 确保光标颜色也是白色 */
+    caret-color: rgb(var(--ink)); /* 确保光标颜色也是白色 */
 }
 
 /* 搜索引擎选择器 */
@@ -368,7 +569,7 @@ body {
 }
 
 .selected-engine:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 /* 图标经 IconSafe 重建，多色品牌 SVG（Google/百度）必须保留原 fill，
@@ -397,7 +598,7 @@ body {
     height: 0;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 5px solid #fff;
+    border-top: 5px solid rgb(var(--ink));
     opacity: 0.7;
     transition: transform 0.2s ease;
 }
@@ -417,13 +618,14 @@ body {
     top: calc(100% + 5px);
     left: 0;
     width: 160px;
-    /* 嵌在 .search-input(blur 12px) 内，再叠 blur 属二次模糊；用实底保文字对比度 */
-    background: var(--popover-bg);
+    /* 嵌在 .search-input(blur 14px) 内：再叠 blur 属二次模糊，故用更实的 tint + 轮廓光 */
+    background-color: var(--glass-popover-fill);
+    background-image: var(--glass-sheen);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--popover-border);
+    border: 1px solid var(--glass-edge);
     padding: 8px;
     z-index: 20;
-    box-shadow: var(--popover-shadow);
+    box-shadow: var(--glass-shadow-soft);
 }
 
 .search-engine-item {
@@ -437,7 +639,7 @@ body {
 }
 
 .search-engine-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 /* 图标现在包在 .engine-icon 里（经 IconSafe 白名单重建），选择器不变以保持原样式 */
@@ -466,13 +668,19 @@ body {
     top: calc(100% + 8px);
     left: 0;
     width: 100%;
-    /* 同上：去嵌套 blur，圆角与搜索引擎下拉统一到 sm 档 */
-    background: var(--popover-bg);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--popover-border);
+    /* 它挂在 .search-container 里、与 .search-input 平级，并不在输入框的 backdrop 内，
+       所以这里可以自己接一层卡片档玻璃：背后的快捷块会被 28px 模糊压成色块，
+       再用 0.42 的 tint + 砂面颗粒托住 15px 的历史词。
+       旧版是 0.8 的白底、零模糊——那是「不透明卡片」，不是玻璃。 */
+    background-color: var(--glass-card-fill);
+    background-image: var(--glass-sheen);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-edge);
     padding: 8px;
     z-index: 15; /* 比搜索引擎下拉框低，比其他内容高 */
-    box-shadow: var(--popover-shadow);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: var(--glass-card-backdrop);
+    -webkit-backdrop-filter: var(--glass-card-backdrop);
     max-height: 400px;
     overflow-y: auto;
 }
@@ -488,7 +696,7 @@ body {
 }
 
 .history-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 .history-text {
@@ -507,7 +715,7 @@ body {
     height: 26px;
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     cursor: pointer;
     margin-left: 15px;
     border-radius: 50%;
@@ -518,20 +726,20 @@ body {
 }
 
 .delete-history-btn:hover {
-    color: white;
-    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+    background-color: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
 }
 
 .clear-history-container {
     padding: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgb(var(--ink) / calc(0.15 * var(--line-k)));
     text-align: center;
 }
 
 .clear-all-history-btn {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-tertiary);
     cursor: pointer;
     font-size: 13px;
     padding: 8px 12px;
@@ -540,8 +748,8 @@ body {
 }
 
 .clear-all-history-btn:hover {
-    color: white;
-    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 .top-right-controls,
@@ -564,9 +772,11 @@ body {
 }
 
 .control-btn {
-    background: rgba(0, 0, 0, 0.2);
-    border: none;
-    color: white;
+    /* 圆形玻璃钮：sheen 用径向偏心版本，圆形上才看得出"球面反光" */
+    background-color: var(--glass-fill);
+    background-image: var(--glass-sheen);
+    border: 1px solid var(--glass-edge);
+    color: var(--text-primary);
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -575,15 +785,23 @@ body {
     align-items: center;
     justify-content: center;
     transition:
-        background 0.3s ease,
-        transform 0.3s ease;
-    backdrop-filter: blur(var(--blur-soft));
-    -webkit-backdrop-filter: blur(var(--blur-soft));
+        background-color var(--transition-medium),
+        border-color var(--transition-medium),
+        box-shadow var(--transition-medium),
+        transform var(--transition-medium);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    box-shadow: var(--glass-shadow-soft);
 }
 
 .control-btn:hover {
-    background: rgba(0, 0, 0, 0.4);
+    background-color: var(--glass-fill-hover);
+    border-color: var(--glass-rim);
     transform: scale(1.1);
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -1px 0 var(--glass-shade),
+        0 8px 20px rgb(var(--shadow) / 0.3);
 }
 
 /* 通用工具类 */
@@ -598,9 +816,11 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    /* 遮罩与便签/待办弹窗同源（--overlay-bg + --glass-overlay-backdrop），
+       不再全屏跑 SVG 位移：见令牌处注释。 */
     background: var(--overlay-bg);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
+    backdrop-filter: var(--glass-overlay-backdrop);
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -617,19 +837,30 @@ body {
     visibility: hidden;
 }
 
+/* 面板内容层：便签/待办弹窗、设置、壁纸、小工具、文件夹共用同一套玻璃。
+   之前各写各的（面板圆角 20 / 弹窗 16、投影两套令牌），叠在一起看就是「几种不同的玻璃」。
+   这里只保留尺寸与内边距在各自规则里，材质统一交给这一条。 */
+.widget-content,
+.settings-content,
+.folder-popover {
+    background-color: var(--glass-panel-fill);
+    background-image: var(--glass-sheen);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glass-shadow);
+    color: var(--text-primary);
+    box-sizing: border-box;
+}
+
 .settings-content {
     /* 关闭按钮(.close-panel-btn)以本容器为定位基准，缺少 relative 会逃逸到 .settings-panel(fixed) 的视口右上角 */
     position: relative;
-    background: var(--panel-bg);
     padding: 30px 40px;
-    border-radius: var(--panel-radius);
-    border: var(--panel-border);
-    box-shadow: var(--panel-shadow);
     width: 100%;
     max-width: 500px;
     max-height: 88vh; /* 内容超出视口时面板自身滚动，不裁切 */
     overflow-y: auto;
-    color: white;
+    color: var(--text-primary);
     box-sizing: border-box;
     margin: 0 auto;
 }
@@ -663,12 +894,12 @@ body {
 }
 
 .settings-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgb(var(--ink) / calc(0.25 * var(--wash-k)));
     border-radius: 3px;
 }
 
 .settings-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgb(var(--ink) / calc(0.4 * var(--wash-k)));
 }
 
 /* 常驻页脚（绝对定位于面板底部，不参与滚动） */
@@ -681,11 +912,13 @@ body {
     justify-content: flex-end;
     gap: 12px;
     padding: 14px 40px;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(20, 26, 32, 0.45);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
-    border-radius: 0 0 calc(var(--panel-radius) - 1px) calc(var(--panel-radius) - 1px);
+    /* 页脚坐在面板玻璃内部：父级已有 blur，这里再叠一层是无效嵌套（实测 glassL 恒 9.9、
+       tex 恒 26.9 —— 那就是父面板的纹理，页脚自己的 blur 完全没生效）。
+       改成零模糊的"薄涂一层 tint + 顶部轮廓光"，边界由 1px 亮线交代。 */
+    border-top: 1px solid var(--glass-rim);
+    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
+    /* 面板本体已统一到 --radius-md(16px)，页脚底部圆角跟着走，否则内圆角比外圆角大一圈 */
+    border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
     box-sizing: border-box;
 }
 
@@ -715,10 +948,10 @@ body {
 .setting-item textarea {
     width: 100%;
     padding: 12px 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
     border-radius: var(--radius-md);
-    color: white;
+    color: var(--text-primary);
     font-size: 16px;
     box-sizing: border-box;
     transition:
@@ -736,12 +969,12 @@ body {
 .setting-item input[type='password']:focus,
 .setting-item textarea:focus {
     outline: none;
-    border-color: rgba(80, 150, 255, 0.8);
+    border-color: rgb(var(--blue) / 0.8);
 }
 
 .setting-item input.invalid,
 .setting-item textarea.invalid {
-    border-color: #ff6b6b; /* A soft but clear red for errors */
+    border-color: var(--error-text); /* A soft but clear red for errors */
 }
 
 /* 设置页下拉框：原生渲染在深色玻璃上不可读，统一成与输入框同规格 */
@@ -760,7 +993,7 @@ body {
     -webkit-appearance: none;
     /* 背景分三层声明：底色 + 自绘箭头，两者不互相覆盖 */
     background-color: var(--surface-2);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: var(--select-arrow);
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 12px 12px;
@@ -778,7 +1011,7 @@ body {
 }
 
 .setting-item select option {
-    background: #1d2530;
+    background: var(--option-bg);
     color: var(--text-primary);
 }
 
@@ -802,7 +1035,7 @@ body {
 .icon-preview {
     width: 48px;
     height: 48px;
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgb(var(--shadow) / 0.1);
     border-radius: var(--radius-control);
     display: flex;
     align-items: center;
@@ -819,11 +1052,11 @@ body {
 
 .preview-label {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-tertiary);
 }
 
 .error-message {
-    color: #ff8a8a;
+    color: var(--error-text);
     font-size: 13px;
     margin-top: 6px;
     min-height: 1.2em; /* Reserve space to prevent layout shifts */
@@ -843,9 +1076,7 @@ body {
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
-    background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     padding: 5px;
     display: flex;
@@ -854,17 +1085,19 @@ body {
 }
 
 .visibility-toggle:hover {
-    color: white;
+    color: var(--text-primary);
 }
 
 .api-key-description {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    /* 12px 说明文字压 0.6 alpha 只有 3.0–3.4:1；用 secondary(0.78) 也才 4.47:1，
+       刚过 AA 却在不同壁纸下会掉队，这里直接给满墨。 */
+    color: var(--text-primary);
     margin-top: 8px;
 }
 
 .api-key-description a {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-secondary);
     text-decoration: underline;
 }
 
@@ -911,27 +1144,28 @@ body {
 
 /* 状态行：默认沿用 .api-key-description 的弱化色，仅覆盖语义色 */
 #backup-status.is-success {
-    color: rgba(126, 224, 168, 0.95);
+    color: rgb(var(--mint) / 0.95);
 }
 
 #backup-status.is-error {
-    color: rgba(255, 138, 128, 0.95);
+    color: rgb(var(--danger) / 0.95);
 }
 
 .settings-btn.primary {
-    background-color: #4a90e2;
-    color: white;
+    background-color: rgb(var(--btn-blue));
+    color: rgb(var(--on-accent));
 }
 .settings-btn.primary:hover {
-    background-color: #357abd;
+    background-color: rgb(var(--btn-blue-hover));
 }
 
 .settings-btn.secondary {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    /* 0.2 的墨洗层把自身底压到 125，满墨也只到 4.46:1；降到 0.12 让底亮回来。 */
+    background: rgb(var(--ink) / calc(0.12 * var(--wash-k)));
+    color: var(--text-primary);
 }
 .settings-btn.secondary:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgb(var(--ink) / calc(0.3 * var(--wash-k)));
 }
 
 /* 壁纸面板特定样式 */
@@ -947,7 +1181,7 @@ body {
 .wallpaper-categories-sidebar {
     width: 200px;
     flex-shrink: 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
     padding-right: 20px;
     height: 100%;
     overflow-y: auto;
@@ -957,7 +1191,7 @@ body {
     font-size: 16px;
     margin-bottom: 15px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-secondary);
     padding-left: 10px;
 }
 
@@ -974,11 +1208,11 @@ body {
 }
 
 .wallpaper-categories-sidebar li:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 .wallpaper-categories-sidebar li.active {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
     font-weight: 500;
 }
 
@@ -1017,9 +1251,9 @@ body {
     width: 300px;
     padding: 10px 15px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    border: 1px solid rgb(var(--ink) / calc(0.3 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 14px;
 }
 
@@ -1027,8 +1261,8 @@ body {
     padding: 10px 20px;
     border-radius: var(--radius-control);
     border: none;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
+    color: var(--text-primary);
     cursor: pointer;
 }
 
@@ -1055,7 +1289,7 @@ body {
 
 .wallpaper-grid img:hover {
     transform: scale(1.05);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgb(var(--shadow) / 0.3);
 }
 
 /* 壁纸网格空态/引导文案（未配置 Pexels Key 时的说明） */
@@ -1065,16 +1299,16 @@ body {
     text-align: center;
     font-size: 14px;
     line-height: 1.8;
-    color: rgba(255, 255, 255, 0.65);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px dashed rgba(255, 255, 255, 0.25);
+    color: var(--text-tertiary);
+    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
+    border: 1px dashed rgb(var(--ink) / calc(0.25 * var(--line-k)));
     border-radius: var(--radius-sm);
 }
 
 .wallpaper-pagination {
     margin-top: auto;
     padding-top: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgb(var(--ink) / calc(0.1 * var(--line-k)));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1090,8 +1324,8 @@ body {
 .pagination-buttons button,
 .pagination-buttons span {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
+    color: var(--text-secondary);
     border-radius: var(--radius-control);
     padding: 8px 12px;
     font-size: 14px;
@@ -1107,14 +1341,14 @@ body {
 }
 
 .pagination-buttons button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    border-color: rgb(var(--ink) / calc(0.3 * var(--line-k)));
 }
 
 .pagination-buttons button.active {
-    background: rgba(80, 150, 255, 0.8);
+    background: rgb(var(--blue) / 0.8);
     border-color: transparent;
-    color: #fff;
+    color: rgb(var(--on-accent));
     font-weight: bold;
 }
 
@@ -1129,7 +1363,9 @@ body {
     align-items: center;
     gap: 15px;
     font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
+    /* tertiary(0.6) 在浅色壁纸面板上只有 2.9:1，secondary(0.78) 也只到 4.03:1；
+       「跳至 N 页」是操作提示，14px 要用满墨。 */
+    color: var(--text-primary);
 }
 
 .jump-to-page {
@@ -1139,9 +1375,9 @@ body {
 }
 
 #jump-to-page-input {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: rgb(var(--recess-deep) / 0.9);
+    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
+    color: var(--text-primary);
     border-radius: var(--radius-xs);
     width: 50px;
     padding: 6px 8px;
@@ -1151,37 +1387,40 @@ body {
 
 #jump-to-page-input:focus {
     outline: none;
-    border-color: rgba(80, 150, 255, 0.8);
+    border-color: rgb(var(--blue) / 0.8);
 }
 
 #page-info {
     display: none;
 }
 
-/* 面板关闭按钮：壁纸页(.close-panel-btn) 与小工具页(.close-btn) 共用同一规格 */
+/* 面板关闭按钮：便签/待办弹窗(.widget-close-btn)、壁纸页(.close-panel-btn)、小工具页(.close-btn)
+   统一成同一个圆形玻璃按钮——之前一个是圆玻璃、一个是方灰块，并排看像来自两个项目。 */
 .close-panel-btn,
-.close-btn {
+.close-btn,
+.widget-close-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    border: 1px solid var(--surface-border);
-    border-radius: var(--radius-control);
-    background: var(--surface-2);
+    border: 1px solid var(--glass-edge);
+    border-radius: 50%;
+    background-color: var(--glass-field-fill);
+    backdrop-filter: var(--glass-field-backdrop);
+    -webkit-backdrop-filter: var(--glass-field-backdrop);
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1;
     cursor: pointer;
-    transition:
-        background-color var(--transition-fast),
-        border-color var(--transition-fast);
+    transition: background-color var(--transition-fast);
 }
 
 .close-panel-btn:hover,
-.close-btn:hover {
-    background: var(--surface-3);
+.close-btn:hover,
+.widget-close-btn:hover {
+    background-color: var(--glass-field-fill-hover);
 }
 
 /* 常规面板关闭按钮：相对 .settings-content 落到右上内角 */
@@ -1207,18 +1446,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--text-primary);
     transition: background-color 0.2s ease;
 }
 
 .search-submit-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
 }
 
 /* 当搜索框激活时，让图标更明显 */
 .search-bar:focus-within .search-submit-btn,
 .search-bar:focus-within .clear-search-btn.visible {
-    color: #fff; /* 完全不透明的白色 */
+    color: var(--text-primary); /* 完全不透明的白色 */
     opacity: 1;
 }
 
@@ -1241,7 +1480,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-tertiary);
     transition: all 0.2s ease;
     opacity: 0;
     pointer-events: none;
@@ -1253,8 +1492,8 @@ body {
 }
 
 .clear-search-btn:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
 .quick-access-grid {
@@ -1297,24 +1536,34 @@ body {
     align-items: center;
     justify-content: center;
     padding: clamp(8px, 9%, 15px) clamp(6px, 7%, 10px);
-    border-radius: var(--radius-md);
-    /* 归入 surface 阶梯：与文件夹卡片同层，毛玻璃强度与面板一致 */
-    background: var(--surface-1);
-    backdrop-filter: blur(var(--overlay-blur)) saturate(160%);
-    -webkit-backdrop-filter: blur(var(--overlay-blur)) saturate(160%);
-    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-glass);
+    /* 归入玻璃族。原先用 --surface-1（白 0.12）+ 饱和，亮壁纸上整块被洗白：
+       实测白字对比度 1.15:1（AA 需 4.5），字直接消失。玻璃必须自带实色 tint。 */
+    background-color: var(--glass-fill);
+    background-image: var(--glass-sheen);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--glass-shadow-soft);
     text-decoration: none;
     transition:
-        background-color 0.3s ease,
-        transform 0.2s ease;
+        background-color var(--transition-medium),
+        border-color var(--transition-medium),
+        box-shadow var(--transition-medium),
+        transform var(--transition-medium);
     aspect-ratio: 1 / 1; /* 方形由列宽决定；缩放/窄屏时随列等比缩，不再被固定 min-width 撑爆 */
     min-width: 0;
     min-height: 0;
 }
 
 .quick-access-item:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background-color: var(--glass-fill-hover);
+    border-color: var(--glass-rim);
     transform: translateY(-4px);
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -1px 0 var(--glass-shade),
+        0 10px 26px rgb(var(--shadow) / 0.3);
 }
 
 .quick-access-item .icon-wrapper {
@@ -1338,8 +1587,8 @@ body {
     height: 48px;
     margin-bottom: 10px;
     border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.2);
-    color: white;
+    background-color: rgb(var(--shadow) / 0.14);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1348,7 +1597,7 @@ body {
 }
 
 .quick-access-item .name {
-    color: white;
+    color: var(--text-primary);
     font-size: 14px;
     text-align: center;
     white-space: nowrap;
@@ -1368,21 +1617,28 @@ body {
     align-self: start;
     padding: clamp(8px, 9%, 15px) clamp(6px, 7%, 10px);
     box-sizing: border-box;
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px dashed rgba(255, 255, 255, 0.4);
+    border-radius: var(--radius-glass);
+    /* 与 .quick-access-item 同族玻璃。2px 虚线圈在这个尺寸下太吵、也压不住玻璃断面；
+       空位语义交给「＋」与更淡的 tine，边缘统一走 1px 实线 + ::after 断面环。 */
+    /* 空位比实位再实一档：它没有图标托底，字直接坐在壁纸上（实测压在粉色区
+       深墨只有 4.3:1），加一档 tint 才稳，顺便也把「这里可以点」说清楚。 */
+    background-color: var(--glass-fill-hover);
+    background-image: var(--glass-sheen);
+    border: 1px solid rgb(var(--spec) / 0.4);
     cursor: pointer;
     transition:
-        background-color 0.3s ease,
-        transform 0.2s ease;
+        background-color var(--transition-medium),
+        border-color var(--transition-medium),
+        transform var(--transition-medium);
     aspect-ratio: 1 / 1;
-    color: rgba(255, 255, 255, 0.7);
+    /* 空位提示也是文字：0.6 alpha 实测 2.9:1，0.78 仍是 4.06:1，只能给满墨 */
+    color: var(--text-primary);
     font-size: 20px;
     font-weight: 300;
     line-height: 1;
     text-decoration: none;
-    backdrop-filter: blur(var(--overlay-blur)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--overlay-blur)) saturate(180%);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
     min-height: 0;
     min-width: 0;
 }
@@ -1402,7 +1658,7 @@ body {
 
 /* 添加按钮的名称，与快捷访问项目保持一致 */
 .add-quick-access-btn .name {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-primary);
     font-size: 14px;
     text-align: center;
     white-space: nowrap;
@@ -1413,10 +1669,10 @@ body {
 }
 
 .add-quick-access-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background-color: var(--glass-fill-hover);
+    color: var(--text-primary);
     transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.7);
+    border-color: var(--glass-rim);
 }
 
 .label-with-tooltip {
@@ -1436,8 +1692,10 @@ body {
     padding: 0;
     border: none;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.3);
-    color: rgba(255, 255, 255, 0.8);
+    /* 0.3 的墨洗层把这个 18px 小圆压到 4.08:1，斜体 i 笔画又细；
+       洗层降到 0.16 并给满墨，才有余量。 */
+    background-color: rgb(var(--ink) / calc(0.16 * var(--wash-k)));
+    color: var(--text-primary);
     font-family: inherit;
     font-size: 12px;
     font-weight: bold;
@@ -1448,12 +1706,12 @@ body {
 
 .qa-help-btn:hover,
 .qa-help-btn:focus-visible {
-    background-color: rgba(255, 255, 255, 0.45);
-    color: #fff;
+    background-color: rgb(var(--ink) / calc(0.45 * var(--wash-k)));
+    color: var(--text-primary);
 }
 
 .qa-help-btn:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline: 2px solid rgb(var(--ink) / calc(0.7 * var(--line-k)));
     outline-offset: 2px;
 }
 
@@ -1472,30 +1730,30 @@ body {
 /* SortableJS拖拽样式 */
 .sortable-ghost {
     opacity: 0.3;
-    background: rgba(76, 175, 80, 0.1);
-    border: 2px dashed #4caf50;
+    background: rgb(var(--green) / 0.1);
+    border: 2px dashed rgb(var(--green));
 }
 
 .sortable-chosen {
     transform: rotate(5deg) scale(1.05);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgb(var(--shadow) / 0.3);
     z-index: 1000;
 }
 
 .sortable-drag {
     opacity: 0.8;
     transform: rotate(5deg) scale(1.05);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgb(var(--shadow) / 0.3);
     z-index: 1000;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
     backdrop-filter: blur(var(--overlay-blur));
     -webkit-backdrop-filter: blur(var(--overlay-blur));
-    border: 2px solid rgba(76, 175, 80, 0.5);
+    border: 2px solid rgb(var(--green) / 0.5);
 }
 
 /* 拖拽时的网格样式 */
 .quick-access-grid.sortable-drag-active {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgb(var(--ink) / calc(0.02 * var(--wash-k)));
     border-radius: var(--radius-lg);
     padding: 10px;
     transition: background 0.3s ease;
@@ -1506,25 +1764,35 @@ body {
     height: 32px;
     border: none;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
+    /* 分页条浮在壁纸正上方（.pagination-controls 是 fixed），不坐在任何玻璃里。
+       底色用纸色而非墨色：浅色主题下纸是白的，白圆点压在白壁纸上仍然分得清；
+       深色主题下纸是冷黑的，和深壁纸也留出层次。墨色在浅色主题会变成黑圆点，
+       在深色壁纸上像一块脏斑。 */
+    background: rgb(var(--paper) / 0.72);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.3s ease;
     font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
+    backdrop-filter: blur(var(--blur-soft));
+    -webkit-backdrop-filter: blur(var(--blur-soft));
 }
 
 .page-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(var(--paper) / 0.9);
+    color: var(--text-primary);
     transform: scale(1.1);
 }
 
+/* 选中页：走 --accent / --accent-ink 这一对语义色。
+   原来的 rgb(var(--green)/0.8) + 白字在浅色主题下只有 2.5–2.8:1（白压中绿），
+   换成 accent 对后，浅色=深青底白字、深色=亮青底深字，两套都过 AA。 */
 .page-btn.active {
-    background: rgba(76, 175, 80, 0.8);
-    color: white;
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
+    box-shadow: 0 4px 15px rgb(var(--accent) / 0.35);
 }
 
 .page-btn.prev-btn,
@@ -1557,15 +1825,15 @@ body {
     align-items: center;
     justify-content: center;
     height: 300px;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-secondary);
     text-align: center;
 }
 
 .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top: 3px solid rgba(255, 255, 255, 0.8);
+    border: 3px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
+    border-top: 3px solid rgb(var(--ink) / calc(0.8 * var(--line-k)));
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 20px;
@@ -1574,7 +1842,7 @@ body {
 .loading-text {
     font-size: 16px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-secondary);
 }
 
 @keyframes spin {
@@ -1591,11 +1859,35 @@ body {
 .clock-container {
     margin-top: 6vh;
     text-align: center;
-    color: #ffffff;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    /* 悬浮在壁纸上，没有玻璃底板：远场椭圆晕压住壁纸纹理，近场字形光晕让笔画边界清晰。
+       关键改动：托底从「0.62 一路平到 46% 再断崖收边」改成多段柔和衰减——不会再有
+       一块带硬边的实心矩形。白字方案在亮壁纸下实测不可读（整块时间隐形），所以仍然
+       按主题翻面：浅色白光托深墨 / 深色暗光托白字，文字本色不动。 */
+    background: none;
+    position: relative;
+    text-shadow:
+        0 1px 2px var(--on-photo-halo),
+        0 2px 12px var(--on-photo-halo),
+        0 0 26px var(--on-photo-halo);
     pointer-events: none;
     user-select: none;
     flex-shrink: 0;
+}
+
+/* 托底光晕挂在伪元素上：inset 撑出比文字大一圈的盒子，椭圆刚好在这个更大的盒子里
+   衰减到 0 —— 渐变不会被文字盒裁掉，所以不会出现「一块带硬边的白矩形」。 */
+.clock-container::before {
+    content: '';
+    position: absolute;
+    inset: -40px -72px;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(
+        50% 50% at 50% 50%,
+        var(--on-photo-scrim) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
 }
 
 .clock-time {
@@ -1606,22 +1898,25 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* 层级靠字号与字重，不靠 opacity：
+   opacity 会把字形连同它的托底光晕一起按比例溶进背景，越淡越糊、越糊越要淡。
+   这里改成给墨色加 alpha —— 光晕保持满强度，字仍然分出主次。 */
 .clock-date {
     margin-top: 6px;
     font-size: 16px;
-    opacity: 0.92;
+    color: rgb(var(--ink) / calc(0.96 * var(--text-k)));
 }
 
 .clock-greeting {
     margin-top: 4px;
     font-size: 15px;
-    opacity: 0.8;
+    color: rgb(var(--ink) / calc(0.9 * var(--text-k)));
 }
 
 .tagline {
     margin-top: 10px;
     font-size: 14px;
-    opacity: 0.72;
+    color: rgb(var(--ink) / calc(0.86 * var(--text-k)));
     font-style: italic;
 }
 
@@ -1632,9 +1927,10 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
+    /* 与设置/壁纸/小工具/文件夹遮罩同一套令牌：深色主题下不再因为 --ink 翻白而变成白雾 */
+    background: var(--overlay-bg);
+    backdrop-filter: var(--glass-overlay-backdrop);
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1656,13 +1952,8 @@ body {
     width: min(440px, 92vw);
     max-height: 76vh;
     overflow-y: auto;
-    /* 坐在 .widget-panel(blur 10px) 之上，再叠 blur 会二次模糊且更耗 GPU，故用实底 */
-    background: var(--panel-bg);
-    border: var(--panel-border);
-    border-radius: var(--radius-md);
+    /* 材质见上方共用规则；坐在遮罩之上，再叠 blur 会二次模糊且更耗 GPU，故用实底 + sheen */
     padding: 20px 22px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-    color: #ffffff;
 }
 
 .widget-header {
@@ -1701,9 +1992,9 @@ body {
     height: 34px;
     padding: 0 8px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 13px;
     outline: none;
     flex-shrink: 0;
@@ -1715,28 +2006,29 @@ body {
 
 .todo-due-date {
     max-width: 140px;
-    color-scheme: dark;
+    /* 输入框底是玻璃，配色跟玻璃走 */
+    color-scheme: var(--cs);
 }
 
 .todo-category-select:focus,
 .todo-due-date:focus {
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.16);
+    border-color: rgb(var(--ink) / calc(0.5 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.16 * var(--wash-k)));
 }
 
 .todo-category-select option {
     background: #2a2a2a;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 .todo-important-btn {
     flex-shrink: 0;
     width: 34px;
     height: 34px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
     border-radius: var(--radius-control);
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.55);
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1756,9 +2048,9 @@ body {
     height: 34px;
     padding: 0 10px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 14px;
     outline: none;
 }
@@ -1768,8 +2060,8 @@ body {
 }
 
 .todo-input-row input:focus {
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.16);
+    border-color: rgb(var(--ink) / calc(0.5 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.16 * var(--wash-k)));
 }
 
 .todo-filter-bar {
@@ -1785,10 +2077,10 @@ body {
     justify-content: center;
     gap: 5px;
     height: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
     border-radius: var(--radius-control);
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
+    color: var(--text-tertiary);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1799,13 +2091,13 @@ body {
 }
 
 .todo-filter-tab:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgb(var(--ink) / calc(0.14 * var(--wash-k)));
 }
 
 .todo-filter-tab.active {
-    color: #ffffff;
-    border-color: rgba(78, 194, 198, 0.7);
-    background: rgba(78, 194, 198, 0.18);
+    color: var(--text-primary);
+    border-color: rgb(var(--accent) / 0.7);
+    background: rgb(var(--accent) / 0.18);
 }
 
 .todo-cat-badge {
@@ -1817,7 +2109,7 @@ body {
     height: 16px;
     margin-top: 3px; /* 与首行文本对齐（父级 flex-start） */
     border-radius: 4px;
-    color: rgba(255, 255, 255, 0.55); /* 单色淡显，与删除按钮同灰阶 */
+    color: var(--text-muted); /* 单色淡显，与删除按钮同灰阶 */
     opacity: 1;
 }
 
@@ -1827,7 +2119,7 @@ body {
 
 /* hover 时浮出，与删除按钮的交互节奏一致 */
 .todo-item:hover .todo-cat-badge {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-secondary);
 }
 
 .todo-due {
@@ -1836,7 +2128,7 @@ body {
     align-self: flex-start;
     margin-top: 3px;
     font-size: 11px;
-    opacity: 0.65;
+    color: var(--text-secondary);
     white-space: nowrap;
 }
 
@@ -1867,7 +2159,7 @@ body {
     gap: 8px;
     padding: 8px 10px;
     border-radius: var(--radius-control);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
     /* 透明描边占位：hover 只换色不换尺寸，避免条目跳动 */
     border: 1px solid transparent;
     transition:
@@ -1882,8 +2174,8 @@ body {
 /* hover 高光：父容器（.side-card / .widget-content）本身也是 .08，
    纯提亮会与父层同色叠加、看不出边界。改为「描边定边界 + 微提亮」。 */
 .todo-item:hover {
-    background: rgba(255, 255, 255, 0.11);
-    border-color: rgba(255, 255, 255, 0.22);
+    background: rgb(var(--ink) / calc(0.11 * var(--wash-k)));
+    border-color: rgb(var(--ink) / calc(0.22 * var(--line-k)));
 }
 
 .todo-item.important {
@@ -1899,8 +2191,8 @@ body {
     width: 15px;
     height: 15px;
     border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgb(var(--ink) / calc(0.5 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
     cursor: pointer;
     position: relative;
     transition:
@@ -1909,8 +2201,8 @@ body {
 }
 
 .todo-item input[type='checkbox']:checked {
-    background: #4ec2c6;
-    border-color: #4ec2c6;
+    background: rgb(var(--accent));
+    border-color: rgb(var(--accent));
 }
 
 .todo-item input[type='checkbox']:checked::after {
@@ -1922,7 +2214,7 @@ body {
     justify-content: center;
     font-size: 10px;
     font-weight: 700;
-    color: #0c1216;
+    color: rgb(var(--accent-ink));
 }
 
 .todo-star {
@@ -1963,7 +2255,7 @@ body {
     border: none;
     border-radius: var(--radius-xs);
     background: transparent;
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--text-muted);
     cursor: pointer;
     padding: 0;
     transition:
@@ -1986,7 +2278,7 @@ body {
     justify-content: space-between;
     margin-top: 10px;
     font-size: 12px;
-    opacity: 0.75;
+    color: var(--text-secondary);
 }
 
 .link-btn {
@@ -2018,9 +2310,9 @@ body {
     height: 34px;
     padding: 0 10px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 13px;
     outline: none;
 }
@@ -2030,8 +2322,8 @@ body {
 }
 
 .notes-search-input:focus {
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.16);
+    border-color: rgb(var(--ink) / calc(0.5 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.16 * var(--wash-k)));
 }
 
 .notes-list {
@@ -2049,16 +2341,16 @@ body {
     position: relative;
     padding: 10px 12px 8px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgb(var(--ink) / calc(0.16 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
     transition:
         border-color 0.2s ease,
         background 0.2s ease;
 }
 
 .note-card:hover {
-    border-color: rgba(255, 255, 255, 0.22);
-    background: rgba(255, 255, 255, 0.11);
+    border-color: rgb(var(--ink) / calc(0.22 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.11 * var(--wash-k)));
 }
 
 .note-card.pinned {
@@ -2101,7 +2393,7 @@ body {
 
 .note-pin-btn:hover,
 .note-delete-btn:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgb(var(--ink) / calc(0.14 * var(--wash-k)));
 }
 
 .note-pin-btn.active {
@@ -2115,7 +2407,7 @@ body {
     resize: vertical;
     border: none;
     background: transparent;
-    color: #ffffff;
+    color: var(--text-primary);
     font-size: 14px;
     line-height: 1.6;
     outline: none;
@@ -2129,7 +2421,7 @@ body {
 
 .note-meta {
     font-size: 11px;
-    opacity: 0.55;
+    color: var(--text-secondary);
     text-align: right;
 }
 
@@ -2137,13 +2429,15 @@ body {
     padding: 24px 0;
     text-align: center;
     font-size: 13px;
-    opacity: 0.55;
+    /* opacity 溶字会把字形连同底色一起按比例混进去：13px 只剩 3.2–3.8:1。
+       换成显式色阶，alpha 只作用在颜色上，不作用在整块元素上。 */
+    color: var(--text-secondary);
 }
 
 .notes-meta {
     margin-top: 8px;
     font-size: 12px;
-    opacity: 0.7;
+    color: var(--text-secondary);
     text-align: right;
 }
 
@@ -2163,20 +2457,20 @@ body {
 
 .pomodoro-ring-track {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.12);
+    stroke: rgb(var(--ink) / calc(0.12 * var(--wash-k)));
     stroke-width: 8;
 }
 
 .pomodoro-ring-bar {
     fill: none;
-    stroke: #4ec2c6;
+    stroke: rgb(var(--accent));
     stroke-width: 8;
     stroke-linecap: round;
     transition: stroke-dashoffset 0.5s linear, stroke 0.3s ease;
 }
 
 .pomodoro-ring-bar.break {
-    stroke: #7ddb8a;
+    stroke: rgb(var(--accent-break));
 }
 
 .pomodoro-timer-center {
@@ -2198,7 +2492,7 @@ body {
 
 .pomodoro-state {
     font-size: 14px;
-    opacity: 0.8;
+    color: var(--text-secondary);
     margin-top: 6px;
 }
 
@@ -2219,17 +2513,17 @@ body {
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgb(var(--ink) / calc(0.4 * var(--line-k)));
     transition: background 0.3s ease;
 }
 
 .pomodoro-round-dot.filled {
-    background: #4ec2c6;
-    border-color: #4ec2c6;
+    background: rgb(var(--accent));
+    border-color: rgb(var(--accent));
 }
 
 .pomodoro-today-count {
-    opacity: 0.8;
+    color: var(--text-secondary);
 }
 
 .pomodoro-actions {
@@ -2251,8 +2545,8 @@ body {
     margin-top: 10px;
     padding: 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgb(var(--ink) / calc(0.16 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
     font-size: 13px;
 }
 
@@ -2268,16 +2562,16 @@ body {
     height: 30px;
     padding: 0 8px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 13px;
     outline: none;
-    color-scheme: dark;
+    color-scheme: var(--cs);
 }
 
 .pomodoro-settings-box input[type='number']:focus {
-    border-color: rgba(255, 255, 255, 0.5);
+    border-color: rgb(var(--ink) / calc(0.5 * var(--line-k)));
 }
 
 /* ---------- 主页常驻小组件（天平式左右两翼） ---------- */
@@ -2302,14 +2596,15 @@ body {
 .side-card {
     flex-shrink: 0;
     padding: 12px 14px;
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    /* 深色实底玻璃：见 :root 的 --glass-card-* 说明 */
-    background: var(--glass-card-bg);
-    border-color: var(--surface-border);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
-    box-shadow: var(--glass-card-shadow);
+    border-radius: var(--radius-glass);
+    /* 与天气组件 / 快捷方式同族玻璃，但用「文字承载级」tint：
+       这张卡里全是 11–14px 小字，装饰级薄纱在亮壁纸下给不了文字亮度地板。 */
+    background-color: var(--glass-card-fill);
+    background-image: var(--glass-sheen);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: var(--glass-card-backdrop);
+    -webkit-backdrop-filter: var(--glass-card-backdrop);
+    box-shadow: var(--glass-shadow);
 }
 
 .side-card-header {
@@ -2323,7 +2618,8 @@ body {
     margin: 0;
     font-size: 14px;
     font-weight: 500;
-    opacity: 0.85;
+    /* 原来这里 opacity: 0.85 —— 小字再乘一层透明度，实测白字只剩 2.8:1。
+       小字要"看起来淡"应该靠字号/字重，不能靠 alpha。 */
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2332,8 +2628,10 @@ body {
 .side-badge {
     font-size: 11px;
     font-weight: 400;
-    color: #4ec2c6;
-    background: rgba(78, 194, 198, 0.22);
+    /* 旧写法＝青字压自己的青色半透明底，浅色实测 1.16:1、深色 1.64:1，双向灾难。
+       实心 accent + accent-ink 这对语义色：浅色 4.79:1、深色 8.35:1，都过 AA。 */
+    color: rgb(var(--accent-ink));
+    background: rgb(var(--accent));
     border-radius: var(--radius-full);
     padding: 1px 7px;
 }
@@ -2341,7 +2639,9 @@ body {
 .side-expand-btn {
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.55);
+    /* text-muted = ink×0.45，13px 的 ⤢ 字务实测 1.9–2.9:1；0.78 在深色仍只有 4.33。
+       图标按钮也是文字节点，给满墨，靠 hover 换底色表达可点。 */
+    color: var(--text-primary);
     font-size: 13px;
     cursor: pointer;
     padding: 2px 6px;
@@ -2350,8 +2650,8 @@ body {
 }
 
 .side-expand-btn:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.14);
+    color: var(--text-primary);
+    background: rgb(var(--ink) / calc(0.14 * var(--wash-k)));
 }
 
 .side-todo-add input {
@@ -2361,9 +2661,9 @@ body {
     margin-bottom: 8px;
     padding: 0 10px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    border: 1px solid rgb(var(--ink) / calc(0.22 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 12px;
     outline: none;
 }
@@ -2373,8 +2673,8 @@ body {
 }
 
 .side-todo-add input:focus {
-    border-color: rgba(255, 255, 255, 0.45);
-    background: rgba(255, 255, 255, 0.16);
+    border-color: rgb(var(--ink) / calc(0.45 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.16 * var(--wash-k)));
 }
 
 /* 卡片内复用 .todo-list / .notes-list 样式，这里只收紧容器高度 */
@@ -2461,20 +2761,20 @@ body {
 
 .pomodoro-mini-track {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.14);
+    stroke: rgb(var(--ink) / calc(0.14 * var(--wash-k)));
     stroke-width: 6;
 }
 
 .pomodoro-mini-bar {
     fill: none;
-    stroke: #4ec2c6;
+    stroke: rgb(var(--accent));
     stroke-width: 6;
     stroke-linecap: round;
     transition: stroke-dashoffset 0.5s linear, stroke 0.3s ease;
 }
 
 .pomodoro-mini-bar.break {
-    stroke: #7ddb8a;
+    stroke: rgb(var(--accent-break));
 }
 
 .pomodoro-mini-time {
@@ -2498,12 +2798,13 @@ body {
 
 .pomodoro-mini-state {
     font-size: 13px;
-    opacity: 0.85;
+    color: var(--text-primary);
 }
 
 .pomodoro-mini-today {
     font-size: 12px;
-    opacity: 0.65;
+    /* opacity 0.65 把 12px 小字压到 6.5% 的对比预算里：实测 4.34:1。 */
+    color: var(--text-secondary);
 }
 
 .pomodoro-mini-actions {
@@ -2515,33 +2816,36 @@ body {
     height: 26px;
     padding: 0 12px;
     border-radius: var(--radius-xs);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgb(var(--ink) / calc(0.25 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
+    color: var(--text-secondary);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .mini-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgb(var(--ink) / calc(0.18 * var(--wash-k)));
 }
 
 .mini-btn.primary {
-    border-color: rgba(78, 194, 198, 0.7);
-    background: rgba(78, 194, 198, 0.22);
-    color: #4ec2c6;
+    /* 同 .side-badge：青字 × 青底 = 浅色 1.02:1（字与底同色，等于没有字）。
+       主按钮就该是实心 accent + accent-ink。 */
+    border-color: rgb(var(--accent));
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
 }
 
 .mini-btn.primary:hover {
-    background: rgba(78, 194, 198, 0.32);
+    background: rgb(var(--accent-hover));
+    border-color: rgb(var(--accent-hover));
 }
 
 /* 设置面板：主页小组件开关 */
 .setting-item input[type='checkbox'] {
     width: 18px;
     height: 18px;
-    accent-color: #4ec2c6;
+    accent-color: rgb(var(--accent));
     cursor: pointer;
     vertical-align: middle;
 }
@@ -2616,14 +2920,18 @@ body {
 .setting-item input[type='range'] {
     width: 100%;
     margin: 6px 0 12px;
-    accent-color: #4ec2c6;
+    accent-color: rgb(var(--accent));
     cursor: pointer;
 }
 
-.setting-item label span {
+/* 注意：这条曾经写成 `.setting-item label span`，会连 .source-option-text /
+   .theme-option-text 一起命中（它们也是 label 里的 span），把整块选项文字
+   乘上 0.75 的透明度；再叠 .source-option-text small 的 0.65，实际只剩 49%，
+   实测 3.78:1。这里收紧到"只作用于数值标签"，并改用显式色阶而非 opacity。 */
+.setting-item label > span:not(.source-option-text):not(.theme-option-text) {
     float: right;
     font-weight: 400;
-    opacity: 0.75;
+    color: var(--text-secondary);
     font-size: 12px;
 }
 
@@ -2680,12 +2988,12 @@ body {
     gap: 8px;
     padding: 6px 10px;
     border-radius: var(--radius-control);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--ink) / calc(0.08 * var(--wash-k)));
     font-size: 13px;
 }
 
 .custom-engine-list .engine-host {
-    opacity: 0.55;
+    color: var(--text-secondary);
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2696,7 +3004,7 @@ body {
     flex-shrink: 0;
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--text-muted);
     font-size: 16px;
     cursor: pointer;
 }
@@ -2726,8 +3034,8 @@ body {
     align-items: flex-start;
     padding: 10px 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgb(var(--ink) / calc(0.14 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
     cursor: pointer;
     transition:
         border-color 0.2s ease,
@@ -2735,16 +3043,16 @@ body {
 }
 
 .source-option:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgb(var(--ink) / calc(0.3 * var(--line-k)));
 }
 
 .source-option:has(input:checked) {
-    border-color: rgba(78, 194, 198, 0.65);
-    background: rgba(78, 194, 198, 0.12);
+    border-color: rgb(var(--accent) / 0.65);
+    background: rgb(var(--accent) / 0.12);
 }
 
 .source-option input[type='radio'] {
-    accent-color: #4ec2c6;
+    accent-color: rgb(var(--accent));
     margin-top: 3px;
     flex-shrink: 0;
 }
@@ -2762,7 +3070,8 @@ body {
 
 .source-option-text small {
     font-size: 11.5px;
-    opacity: 0.65;
+    /* 嵌套透明度是相乘的：这里 0.65 × 上层 0.75 = 0.49。改成显式色阶。 */
+    color: var(--text-secondary);
     line-height: 1.5;
 }
 
@@ -2785,9 +3094,10 @@ body {
     gap: 4px;
     padding: 10px 4px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgb(var(--ink) / calc(0.14 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
+    /* 11px 最小字号，0.78 alpha 在深色玻璃上只有 3.9:1，提到满墨。 */
+    color: var(--text-primary);
     font-size: 11px;
     cursor: pointer;
     transition:
@@ -2796,8 +3106,8 @@ body {
 }
 
 .tool-mini-btn:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.28);
+    background: rgb(var(--ink) / calc(0.14 * var(--wash-k)));
+    border-color: rgb(var(--ink) / calc(0.28 * var(--line-k)));
 }
 
 .tool-mini-icon {
@@ -2827,6 +3137,12 @@ body {
     margin-bottom: 14px;
 }
 
+/* .close-panel-btn 默认绝对定位到面板右上角；在小工具标题栏里让它回到 flex 流内，
+   否则标题变长时会从按钮底下穿过去 */
+.tools-panel-header-actions .close-panel-btn {
+    position: static;
+}
+
 .tools-panel-header h2 {
     margin: 0;
     font-size: 20px;
@@ -2839,19 +3155,23 @@ body {
     gap: 10px;
 }
 
-/* 「返回」等文字动作按钮；关闭按钮(.close-btn)由统一规格接管，需排除以免被此处覆盖 */
-.tools-panel-header-actions button:not(.close-btn) {
-    padding: 6px 12px;
-    border-radius: var(--radius-control);
-    border: 1px solid var(--surface-border);
-    background: var(--surface-2);
-    color: var(--text-primary);
+/* 详情页的「返回」是内容区面包屑，不占右上角动作位：右上角只留一个 ✕ */
+.tools-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 10px;
+    padding: 2px 6px 2px 0;
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
     font-size: 13px;
     cursor: pointer;
+    transition: color var(--transition-fast);
 }
 
-.tools-panel-header-actions button:not(.close-btn):hover {
-    background: var(--surface-3);
+.tools-back-link:hover {
+    color: var(--text-primary);
 }
 
 .tools-grid {
@@ -2868,9 +3188,9 @@ body {
     gap: 4px;
     padding: 14px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.07);
-    color: #fff;
+    border: 1px solid rgb(var(--ink) / calc(0.14 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.07 * var(--wash-k)));
+    color: var(--text-primary);
     text-align: left;
     cursor: pointer;
     transition:
@@ -2880,8 +3200,8 @@ body {
 }
 
 .tool-grid-btn:hover {
-    background: rgba(255, 255, 255, 0.13);
-    border-color: rgba(78, 194, 198, 0.6);
+    background: rgb(var(--ink) / calc(0.13 * var(--wash-k)));
+    border-color: rgb(var(--accent) / 0.6);
     transform: translateY(-1px);
 }
 
@@ -2897,7 +3217,7 @@ body {
 
 .tool-grid-desc {
     font-size: 12px;
-    opacity: 0.65;
+    color: var(--text-secondary);
     line-height: 1.4;
 }
 
@@ -2908,9 +3228,9 @@ body {
     margin-top: 10px;
     padding: 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(0, 0, 0, 0.28);
-    color: #fff;
+    border: 1px solid rgb(var(--ink) / calc(0.18 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.28 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 13px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     line-height: 1.6;
@@ -2920,7 +3240,7 @@ body {
 .tool-input:focus,
 .tool-output:focus {
     outline: none;
-    border-color: #4ec2c6;
+    border-color: rgb(var(--accent));
 }
 
 .tool-output {
@@ -2945,27 +3265,27 @@ body {
 .tools-actions button {
     padding: 8px 16px;
     border-radius: var(--radius-control);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.09);
-    color: #fff;
+    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
+    background: rgb(var(--ink) / calc(0.09 * var(--wash-k)));
+    color: var(--text-primary);
     font-size: 13px;
     cursor: pointer;
     transition: background-color 0.2s ease;
 }
 
 .tools-actions button:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgb(var(--ink) / calc(0.18 * var(--wash-k)));
 }
 
 .tools-actions button.primary {
-    background: #4ec2c6;
-    border-color: #4ec2c6;
-    color: #0c1216;
+    background: rgb(var(--accent));
+    border-color: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
     font-weight: 600;
 }
 
 .tools-actions button.primary:hover {
-    background: #63d3d7;
+    background: rgb(var(--accent-hover));
 }
 
 @media (max-width: 700px) {
@@ -2984,7 +3304,7 @@ body {
 }
 
 .folder-item .name {
-    color: #fff;
+    color: var(--text-primary);
     font-size: 14px;
     font-weight: 500;
     text-align: center;
@@ -3006,9 +3326,12 @@ body {
     padding: 4px;
     box-sizing: border-box;
     border-radius: var(--radius-sm);
-    /* 深色底：默认站点图标是浅色 SVG，浅底上会看不见 */
-    background: rgba(12, 18, 22, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    /* 预览底板跟随主题，不再写死深色 rgba(12,18,22,.42)：
+       那是给「浅色图标需要深底」准备的，但亮色主题下它就成了一块突兀的黑方块，
+       而兜底字母用的是 --text-secondary（亮色=近黑），黑字压黑底直接看不见。
+       现在底板走字段档玻璃令牌：亮色浅玻璃、深色深玻璃，字母/图标都回到可读的一侧。 */
+    background: rgb(var(--ink) / calc(0.07 * var(--wash-k)));
+    border: 1px solid var(--glass-edge);
 }
 
 .folder-cell {
@@ -3016,7 +3339,7 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-xs);
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--glass-card-fill);
     overflow: hidden;
 }
 
@@ -3029,7 +3352,7 @@ body {
 .folder-cell-fallback {
     font-size: 10px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-secondary);
 }
 
 .folder-preview .folder-cell svg {
@@ -3049,9 +3372,12 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-full);
-    background: rgba(12, 18, 22, 0.72);
-    color: #fff;
+    /* 角标做「反色胶囊」：底用墨、字用纸。
+       旧版写死深底 + var(--text-primary)（亮色=近黑）→ 黑底黑字，数字整个消失。 */
+    background: rgb(var(--ink) / 0.9);
+    color: rgb(var(--paper));
     font-size: 11px;
+    font-weight: 600;
 }
 
 /* 文件夹弹层 */
@@ -3062,10 +3388,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 与设置页/壁纸页同一遮罩规格 */
+    /* 与便签/待办弹窗、设置页、壁纸页同一遮罩规格（--overlay-bg + --glass-overlay-backdrop） */
     background: var(--overlay-bg);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
+    backdrop-filter: var(--glass-overlay-backdrop);
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop);
 }
 
 .folder-popover {
@@ -3073,13 +3399,7 @@ body {
     max-height: min(640px, calc(100vh - 96px));
     overflow: auto;
     padding: 26px 30px;
-    /* 与 .settings-content 同一套 token：磨砂玻璃底 + 同圆角 + 同描边阴影 */
-    border-radius: var(--panel-radius);
-    background: var(--panel-bg);
-    border: var(--panel-border);
-    box-shadow: var(--panel-shadow);
-    color: #fff;
-    box-sizing: border-box;
+    /* 材质见「面板内容层」共用规则 */
 }
 
 .folder-popover-header {
@@ -3101,27 +3421,27 @@ body {
 }
 
 .folder-popover-actions button {
-    /* 与 .close-panel-btn / .close-btn 同规格：32×32 + control 圆角 + surface 底 */
+    /* 与统一后的 .close-panel-btn / .close-btn 同规格：30×30 圆形玻璃 */
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    border-radius: var(--radius-control);
-    border: 1px solid var(--surface-border);
-    background: var(--surface-2);
+    border-radius: 50%;
+    border: 1px solid var(--glass-edge);
+    background-color: var(--glass-field-fill);
+    backdrop-filter: var(--glass-field-backdrop);
+    -webkit-backdrop-filter: var(--glass-field-backdrop);
     color: var(--text-primary);
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
-    transition:
-        background-color var(--transition-fast),
-        border-color var(--transition-fast);
+    transition: background-color var(--transition-fast);
 }
 
 .folder-popover-actions button:hover {
-    background: var(--surface-3);
+    background-color: var(--glass-field-fill-hover);
 }
 
 .folder-items-grid {
@@ -3149,7 +3469,7 @@ body {
     border: 1px solid var(--surface-border);
     background: var(--surface-1);
     text-decoration: none;
-    color: #fff;
+    color: var(--text-primary);
     transition:
         background-color 0.2s ease,
         border-color 0.2s ease;
@@ -3157,7 +3477,7 @@ body {
 
 .folder-site:hover {
     background: var(--surface-3);
-    border-color: rgba(78, 194, 198, 0.55);
+    border-color: rgb(var(--accent) / 0.55);
 }
 
 .folder-site-icon {
@@ -3196,8 +3516,8 @@ body {
     padding: 0;
     border: none;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.22);
-    color: rgba(255, 255, 255, 0.9);
+    background: rgb(var(--ink) / calc(0.22 * var(--wash-k)));
+    color: var(--text-secondary);
     backdrop-filter: blur(var(--blur-soft));
     -webkit-backdrop-filter: blur(var(--blur-soft));
     font-size: 10px;
@@ -3214,14 +3534,14 @@ body {
     margin: 14px 0 2px;
     font-size: 13px;
     line-height: 1.6;
-    opacity: 0.7;
+    color: var(--text-secondary);
 }
 
 /* 拖拽合并：拖到图标上方时的高亮提示（手机式拖拽反馈） */
 .quick-access-item.merge-target {
-    outline: 2px solid #4ec2c6;
+    outline: 2px solid rgb(var(--accent));
     outline-offset: 2px;
-    background: rgba(78, 194, 198, 0.28);
+    background: rgb(var(--accent) / 0.28);
     transform: scale(1.06);
 }
 
@@ -3232,8 +3552,8 @@ body {
     padding: 3px 0;
     font-size: 11px;
     text-align: center;
-    color: #0c1216;
-    background: #4ec2c6;
+    color: rgb(var(--accent-ink));
+    background: rgb(var(--accent));
     border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
@@ -3253,14 +3573,14 @@ body {
 .add-quick-access-btn .icon-wrapper {
     font-size: clamp(18px, 26%, 30px);
     line-height: 1;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--text-primary);
 }
 
 /* 文件夹内拖拽移出提示 */
 .folder-popover.drag-out {
     border-color: rgba(255, 107, 107, 0.85);
     box-shadow:
-        var(--panel-shadow),
+        var(--glass-shadow),
         0 0 0 3px rgba(255, 107, 107, 0.25);
 }
 
@@ -3273,7 +3593,7 @@ body {
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: 12px;
-    color: #fff;
+    color: var(--text-primary);
     background: rgba(255, 107, 107, 0.9);
     pointer-events: none;
 }
@@ -3294,16 +3614,16 @@ body {
 
 /* 合并候选（指针已在中心区，但悬停时长未达阈值）：弱提示，与确认态区分 */
 .quick-access-item.merge-candidate {
-    box-shadow: 0 0 0 2px rgba(78, 194, 198, 0.45);
+    box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45);
 }
 
 /* 合并目标确认态（悬停达到阈值）：实心高亮 */
 .quick-access-item.merge-target {
-    outline: 2px solid #4ec2c6;
+    outline: 2px solid rgb(var(--accent));
     outline-offset: 2px;
-    background: rgba(78, 194, 198, 0.28);
+    background: rgb(var(--accent) / 0.28);
     transform: scale(1.06);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 8px 24px rgb(var(--shadow) / 0.28);
 }
 
 .quick-access-item.merge-target::before {
@@ -3311,7 +3631,7 @@ body {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: rgba(78, 194, 198, 0.14);
+    background: rgb(var(--accent) / 0.14);
     pointer-events: none;
 }
 
@@ -3335,10 +3655,11 @@ body {
 
 .dsh-dialog__panel {
     width: min(420px, calc(100vw - 48px));
-    background: var(--popover-bg);
-    border: 1px solid var(--popover-border);
+    background-color: var(--glass-panel-fill);
+    background-image: var(--glass-sheen);
+    border: 1px solid var(--glass-edge);
     border-radius: var(--radius-md);
-    box-shadow: var(--popover-shadow);
+    box-shadow: var(--glass-shadow);
     padding: 22px 24px 18px;
     box-sizing: border-box;
     animation: dsh-dialog-rise 0.18s ease-out;
@@ -3428,3 +3749,579 @@ body {
     border: 1px solid rgba(255, 209, 102, 0.28);
     border-radius: var(--radius-xs);
 }
+
+/* ============================================================
+   主题 —— 明暗两套液态玻璃
+   ============================================================
+   材质模型（iOS 26 的做法）：一块玻璃的"颜色"不写在组件里，
+   而是由四条色轴 + 三个强度系数决定，换主题只翻这几行：
+
+     --ink    墨：文字 / 图标 / 发丝线 / 洗层。深色=白墨，浅色=近黑墨。
+     --paper  纸：玻璃 tint 的基色。深色=冷黑，浅色=冷白霜面。
+     --spec   光：受光面（sheen 高光、顶部轮廓光），两套主题都是白光。
+     --shadow 影：投影与底部内阴影，两套主题都是黑。
+     --text-k / --wash-k / --line-k：同一支墨落在浅底上会更重，
+       所以洗层与发丝线按系数衰减，正文不衰减。
+
+   于是两套主题是同一套材质在两种光照下的表现，而不是"一套深色 + 一张蒙版"：
+     · 深色：冷黑玻璃 + 白光轮廓，墨白。壁纸压暗到 0.55 保证白字 ≥ 4.5:1。
+     · 浅色：冷白霜面玻璃 + 白光高光 + 极淡暗边，墨近黑。壁纸不压暗。
+   玻璃结构（blur / saturate / sheen 形状 / rim 位置）两套完全一致。
+   ============================================================ */
+
+/* 浅色（默认）：壁纸原样，玻璃是霜面白 */
+:root,
+html[data-theme='light'] {
+    --theme-scheme: light;
+    --cs: light;
+    /* 浅色主题给壁纸罩一层白纱：白玻璃 + 深墨字只有在「底」足够亮时才成立。
+       不罩纱时，白玻璃压在暗壁纸区会读成脏灰色，而且同一页里一半卡片干净、一半发灰。
+       0.22 是实测的平衡点：再高一档壁纸就洗成粉彩（丢掉原作），再低一档
+       暗部壁纸会把白玻璃压成脏灰、同一页卡片出现「半干净半发灰」。 */
+    --wallpaper-veil: rgb(var(--spec) / 0.22);
+    /* 浅色底上，霜面玻璃已自带足够亮度，洗层只需很轻的一层灰压住壁纸细节，
+       否则白玻璃叠白壁纸会完全没有层次（实测玻璃与壁纸极差 < 3 L*）。 */
+    /* 浅色玻璃令牌继承 :root（:root 就是浅色默认），这里不再复制一份：
+       两份值一旦漂移，深色切回浅色就会残留上一种材质的数值。 */
+    /* 浅色描边用「深墨细线」而不是白线：白玻璃 + 白描边叠在白壁纸上等于没有边界，
+       搜索框会整条消失。0.1 的墨线在白底上只是可察觉的一圈，在彩色壁纸前同样成立。 */
+    --glass-edge: rgb(var(--ink) / 0.1);
+    --glass-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 1px 0 0 var(--glass-rim-side),
+        inset -1px 0 0 var(--glass-shade-side),
+        inset 0 -1px 0 var(--glass-shade),
+        inset 0 2px 6px -2px var(--glass-inner-glow),
+        inset 0 -18px 26px -22px var(--glass-inner-shade),
+        inset 0 34px 46px -34px var(--glass-inner-glow),
+        0 18px 42px rgb(var(--shadow) / 0.16),
+        0 3px 9px rgb(var(--shadow) / 0.08);
+    --glass-shadow-soft:
+        inset 0 1px 0 var(--glass-rim),
+        inset 1px 0 0 var(--glass-rim-side),
+        inset -1px 0 0 var(--glass-shade-side),
+        inset 0 -1px 0 var(--glass-shade),
+        inset 0 2px 5px -2px var(--glass-inner-glow),
+        0 8px 22px rgb(var(--shadow) / 0.16);
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f151a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* 深色：壁纸压暗，玻璃是冷黑 */
+html[data-theme='dark'] {
+    --theme-scheme: dark;
+    --cs: dark;
+    /* 蒙版数值按「纯白壁纸」实测定档（Playwright 渲染后取整块采样，非公式估算）：
+       无蒙版 1.00:1（白字完全消失）
+       0.42   3.03:1（不达 AA）
+       0.50   3.95:1（不达 AA）
+       0.55   4.74:1（过 AA 4.5:1）← 取此值
+       0.58   5.33:1（更保险但壁纸细节开始糊成灰板） */
+    /* 0.55 → 0.38：蒙版越压越黑，玻璃里就再没有色可以"提"（实测 chromaRetain 掉到 0.8）。
+       0.38 是「白字仍过 AA」与「玻璃能透出壁纸色」两条曲线的交点，见 REPORT 的实测表。 */
+    --wallpaper-veil: rgb(var(--shadow) / 0.38);
+    /* 悬浮文字的托底翻面：暗晕托白字。白光晕放在白字下面只会把笔画边缘糊成灰边 */
+    --on-photo-scrim: rgb(var(--shadow) / 0.62);
+    /* 深色遮罩：冷黑压一层，模糊与浅色一致（同一套遮罩令牌，只是颜色翻面） */
+    --overlay-bg: rgb(8 12 18 / 0.6);
+    --glass-overlay-backdrop: blur(var(--overlay-blur));
+    --on-photo-halo: rgb(var(--shadow) / 0.72);
+    /* 深色下墨是白的，三个补偿系数恢复 1：与改造前的深色视觉逐像素等价。 */
+    --ink: 255 255 255;
+    --paper: 40 45 50;
+    --text-k: 1;
+    --wash-k: 1;
+    --line-k: 1;
+    /* 深色定稿（D8）：旧值 brightness 0.78 + tint 0.44 是双压，玻璃被压成灰板
+       （实测 chromaRetain 0.82–1.48，与"深色玻璃发闷"的目检一致）。
+       现在 tint 只留 0.26、brightness 提到 0.92、saturate 拉到 260%，色才站得住。 */
+    /* 深色定稿（V11）：旧值 brightness 0.78 + tint 0.44 是双压，玻璃被压成灰板；
+       再往后 blur 40 + tint 0.26 虽然透色了，但 40px 的模糊把壁纸结构糊成一片雾，
+       读起来是「毛玻璃贴纸」而不是「玻璃」。深色的正解是低模糊 + 中性饱和 + 更实的 tint：
+       模糊低才看得见背后的形状在动，tint 实才有厚度，saturate 只补回被 tint 吃掉的那点色。 */
+    --glass-blur: 22px;
+    --glass-saturate: 145%;
+    --glass-brightness: 0.86;
+    --glass-contrast: 1.05;
+    --glass-fill: rgb(8 12 18 / 0.5);
+    --glass-fill-hover: rgb(8 12 18 / 0.6);
+    /* 字段档：搜索框自己带字，底再实一档；模糊只多 2px，绝不能跟着放大 */
+    --glass-field-fill: rgb(8 12 18 / 0.55);
+    --glass-field-fill-hover: rgb(8 12 18 / 0.64);
+    --glass-field-blur: 20px;
+    --glass-field-saturate: 145%;
+    --glass-field-backdrop: blur(var(--glass-field-blur)) saturate(var(--glass-field-saturate))
+        brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+    /* 卡片档：深色下最坏情况是侧卡正好压在亮粉樱花上（实测地面 170），
+       0.3 的纱只把那块压到 140 —— 白字 4.2:1 仍不达标；0.58 压到 ~86，白字 6.4:1。 */
+    --glass-card-fill: rgb(8 12 18 / 0.58);
+    --glass-card-blur: 24px;
+    --glass-card-saturate: 150%;
+    --glass-card-backdrop: blur(var(--glass-card-blur)) saturate(var(--glass-card-saturate))
+        brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+    --glass-panel-fill: rgb(8 12 18 / 0.34);
+    --glass-popover-fill: rgb(8 12 18 / 0.66);
+    /* 深色的高光不能给白（白 = 塑料抛光），给一点冷灰蓝，像玻璃棱上反的天光 */
+    --glass-sheen:
+        radial-gradient(
+            120% 90% at 24% -28%,
+            rgb(var(--spec) / 0.12) 0%,
+            rgb(var(--spec) / 0.02) 42%,
+            rgb(var(--spec) / 0) 70%
+        ),
+        linear-gradient(
+            180deg,
+            rgb(var(--spec) / 0.05) 0%,
+            rgb(var(--spec) / 0) 46%,
+            rgb(var(--shadow) / 0.18) 100%
+        );
+    --glass-bevel: linear-gradient(
+        154deg,
+        rgb(var(--spec) / 0.72) 0%,
+        rgb(var(--spec) / 0.3) 22%,
+        rgb(var(--spec) / 0.04) 55%,
+        rgb(var(--shadow) / 0.35) 80%,
+        rgb(var(--shadow) / 0.5) 100%
+    );
+    --glass-grain: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><\/filter><rect width='140' height='140' filter='url(%23n)'/><\/svg>\");
+    --glass-grain-opacity: 0.07;
+    --glass-rim: rgb(var(--spec) / 0.85);
+    --glass-rim-side: rgb(var(--spec) / 0.45);
+    --glass-shade: rgb(var(--shadow) / 0.55);
+    --glass-shade-side: rgb(var(--shadow) / 0.38);
+    --glass-inner-glow: rgb(var(--spec) / 0.45);
+    --glass-inner-shade: rgb(var(--shadow) / 0.5);
+    --glass-edge: rgb(var(--spec) / 0.42);
+    /* 深色壁纸越亮，白玻璃越需要一圈暗线钉住形状；0.5 是「能看见边」与「不发黑框」的交点 */
+    --glass-hairline: rgb(var(--shadow) / 0.5);
+    --glass-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -2px 4px -1px var(--glass-shade),
+        inset 0 -18px 26px -20px var(--glass-inner-shade),
+        0 0 0 1px var(--glass-hairline),
+        0 2px 5px -1px rgb(var(--shadow) / 0.3),
+        0 16px 36px -16px rgb(var(--shadow) / 0.45);
+    --glass-shadow-soft:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 -2px 4px -1px var(--glass-shade),
+        0 0 0 1px var(--glass-hairline),
+        0 2px 4px -1px rgb(var(--shadow) / 0.22),
+        0 10px 24px -12px rgb(var(--shadow) / 0.34);
+    --radius-glass: 24px;
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    /* 深色主题的语义色回到原亮档：深玻璃上高饱和亮色才读得清 */
+    --ok: 61 220 151;
+    --warn: 255 209 102;
+    --danger: 255 138 143;
+    --danger-2: 255 138 143;
+    --info: 165 216 255;
+    --accent: 78 194 198;
+    --accent-hover: 99 211 215;
+    --accent-break: 125 219 138;
+    /* 深色主题的 accent / blue / btn-blue 都是「亮档实色」（78 194 198 / 80 150 255 / 74 144 226），
+       白字压上去只有 2.1–3.3:1，必须翻成深字才过 AA（8.35 / 6.06 / 5.40）。
+       这三支令牌在根里是白，深色块以前没覆盖 —— 是 .page-btn.active 2.13:1 的直接原因。 */
+    --accent-ink: 12 26 28;
+    --on-accent: 12 26 28;
+    --on-danger: 12 26 28;
+    --mint: 126 224 168;
+    --blue: 80 150 255;
+    --btn-blue: 74 144 226;
+    --btn-blue-hover: 53 122 189;
+    --green: 76 175 80;
+    --canvas: #1b242c;
+    --recess-deep: 12 18 22;
+    --option-bg: #1d2530;
+}
+
+/* 玻璃折射滤镜的宿主 SVG：常驻但不占布局、不可交互 */
+.liquid-refract-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* 壁纸蒙版层：复用 .wallpaper-container 的伪元素，不额外加 DOM */
+.wallpaper-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--wallpaper-veil);
+    pointer-events: none;
+    /* 必须高于壁纸图（容器内 background-image）但低于主内容层 */
+    z-index: 0;
+    transition: background var(--transition-medium);
+}
+
+/* ============================================================
+   主题选择控件
+   ============================================================ */
+.theme-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* 等高：四张卡不论说明文字几行都对齐，避免参差不齐 */
+    grid-auto-rows: 1fr;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+/* 特异性说明：.setting-item label (0,1,1) 会把 display 覆盖成 block、
+   并用 .setting-item label span 把说明文字 float:right + 缩到 12px。
+   这里统一提到 .theme-options 作用域(0,2,0 / 0,2,1)压过去，否则卡片布局错乱。 */
+.theme-options .theme-option {
+    position: relative;
+    display: flex;
+    /* 圆点与首行文字对齐（不是与整块居中），三张卡视觉基线才一致 */
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    border: 1px solid var(--surface-border);
+    cursor: pointer;
+    transition:
+        background var(--transition-fast),
+        border-color var(--transition-fast);
+}
+
+.theme-options .theme-option:hover {
+    background: var(--surface-3);
+    border-color: var(--surface-border-strong);
+}
+
+/* 选中态：边框加亮 + 淡底色，不只靠原生 radio 圆点分辨 */
+.theme-options .theme-option:has(input:checked) {
+    border-color: var(--color-loading);
+    background: rgb(var(--accent) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent) / 0.45);
+}
+
+.theme-options .theme-option input[type='radio'] {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    /* 与 strong 的 14px/1.4 首行基线对齐：字号差的一半 */
+    margin: 3px 0 0;
+    accent-color: var(--color-loading);
+    cursor: pointer;
+}
+
+.setting-item .theme-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+    /* 抵消 .setting-item label span 的 float:right / opacity / 12px */
+    float: none;
+    opacity: 1;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.setting-item .theme-option-text strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+.setting-item .theme-option-text small {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* 日出日落的自定义时段 */
+.theme-sun-window {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.theme-sun-window label {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.theme-sun-window input[type='time'] {
+    padding: 6px 10px;
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--surface-border);
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-size: 14px;
+    /* 控件配色跟的是「控件所在的底」：底由 --surface-2 决定，而表面阶梯已经
+       随主题翻转，所以这里跟随 --cs 即可。硬编码 light 会让深色主题下的
+       原生时钟图标变成黑描边（实测对比度 12.6:1 → 1.7:1）。 */
+    color-scheme: var(--cs);
+}
+
+.theme-sun-status {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 8px 0 0;
+}
+
+/* 层级修正：.setting-item label 是 16px，卡片标题 14px 会显得"标题比分组小"。
+   显式类名（不用 :has，避免依赖新特性）：分组标识略降、加字重、加下间距。 */
+.setting-item > label.theme-section-label {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin-bottom: 12px;
+}
+
+/* 未保存提示：让"预览中"这件事在界面上可见 */
+.theme-pending-hint {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--color-warning);
+}
+
+/* 减少动效偏好下不做过渡 */
+@media (prefers-reduced-motion: reduce) {
+    .wallpaper-container::after {
+        transition: none;
+    }
+}
+
+/* 窄屏：主题选项单列，避免卡片被压得过窄 */
+@media (max-width: 560px) {
+    .theme-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   液态玻璃 2.5 层：断面 + 砂面（所有玻璃件共享同一套）
+   ============================================================
+   前两轮把「玻璃」全压在 backdrop-filter 上：模糊 + 显色。但真实玻璃的辨识度
+   八成来自边缘——光在厚边上折射出一圈不匀的亮线，右下背光处压暗。均匀 1px 描边
+   只会读成「塑料倒角」，所以这里用一条 154deg 的渐变（--glass-bevel）抠成 1.5px 环。
+   抠环的做法：两层 mask（content-box 与 border-box）取 xor，只剩 padding 那一圈。
+
+   砂面（--glass-grain）是 feTurbulence 生成的静态噪点，5% overlay。它不改变颜色，
+   只把「模糊色块」变成「有颗粒的材质」——玻璃不是数学级光滑的，少了这层永远像 CSS。
+
+   两个伪元素都 pointer-events:none，z-index 分开：砂面 -1（在文字下面，避免糊字），
+   断面 2（在内容上面，边缘必须压住内容）。
+   ============================================================ */
+.quick-access-item,
+.add-quick-access-btn,
+.side-card {
+    position: relative;
+}
+
+/* 天气卡本身是 position:fixed（style.css:273），fixed 已经是绝对定位伪元素的包含块；
+   这里**不能**再写 position:relative —— 那会把卡片退回文档流，整列主内容被下推一张卡的高度。 */
+
+.quick-access-item::before,
+.add-quick-access-btn::before,
+.side-card::before,
+.weather-widget::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: var(--glass-grain);
+    background-size: 140px 140px;
+    background-repeat: repeat;
+    opacity: var(--glass-grain-opacity);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.quick-access-item::after,
+.add-quick-access-btn::after,
+.side-card::after,
+.weather-widget::after,
+.search-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: var(--glass-bevel);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* 搜索框是 <input>，伪元素在替换元素上不渲染，断面环挂在包一层的 .search-bar 上 */
+.search-bar {
+    border-radius: var(--radius-full);
+}
+
+/* ============================================================
+   液态玻璃第 2 层：折射（渐进增强）
+   ------------------------------------------------------------
+   只有浏览器确认支持「SVG 滤镜作为 backdrop-filter」时才把 url() 拼进合成链。
+   不支持的浏览器会整条忽略带 url() 的 backdrop-filter —— 那样玻璃直接变全透明，
+   比"没有折射"糟得多，所以这里必须用 @supports 兜住，不能直接写进默认令牌。
+
+   合成顺序按光学：url(折射) → blur(散射) → saturate/brightness/contrast(显色)。
+   实测把 url() 放在 blur 之后，高频位移少 11 个百分点——先模糊会把要位移的细节糊掉。
+   ============================================================ */
+@supports (backdrop-filter: url(#liquid-refract)) or (-webkit-backdrop-filter: url(#liquid-refract)) {
+    :root,
+    html[data-theme='light'],
+    html[data-theme='dark'] {
+        --glass-backdrop: var(--glass-refract) blur(var(--glass-blur))
+            saturate(var(--glass-saturate)) brightness(var(--glass-brightness))
+            contrast(var(--glass-contrast));
+        --glass-card-backdrop: var(--glass-refract) blur(var(--glass-card-blur))
+            saturate(var(--glass-card-saturate)) brightness(var(--glass-brightness))
+            contrast(var(--glass-contrast));
+        --glass-field-backdrop: var(--glass-refract) blur(var(--glass-field-blur))
+            saturate(var(--glass-field-saturate)) brightness(var(--glass-brightness))
+            contrast(var(--glass-contrast));
+    }
+}
+
+/* 用户要求降低透明度：去掉折射与色彩夸大，回到"能看清的字 + 能透出的底" */
+@media (prefers-reduced-transparency: reduce) {
+    :root,
+    html[data-theme='light'],
+    html[data-theme='dark'] {
+        --glass-saturate: 140%;
+        --glass-card-saturate: 140%;
+        --glass-field-saturate: 140%;
+        --glass-brightness: 1;
+        --glass-contrast: 1;
+        --glass-backdrop: blur(20px) saturate(var(--glass-saturate));
+        --glass-card-backdrop: blur(20px) saturate(var(--glass-card-saturate));
+        --glass-field-backdrop: blur(20px) saturate(var(--glass-field-saturate));
+    }
+}
+
+
+/* ============================================================
+   弹窗动效：进场 / 退场（零 JS 改动）
+   ============================================================
+   所有面板都靠切换 .u-hidden 开关，而 .u-hidden 是 display: none !important ——
+   过去是硬切，点开就是"啪"地出现。
+
+   这里让 display 也参与过渡（transition-behavior: allow-discrete）：
+     · 进场：display 立刻生效，同时 @starting-style 提供起始帧（透明 + 位移 + 缩小）
+     · 退场：display 延迟到过渡结束才变 none，于是淡出与位移能播完
+   一条 JS 都不用改；不支持 allow-discrete 的浏览器只是退回原来的硬切，功能不受影响。
+
+   节奏：
+     · 遮罩层（整块背景 + 模糊）先淡入，内容层晚一点点、走更大的位移 —— 眼睛先看到"暗下来"，
+       再看到卡片浮起来，层次比两层同步更有物理感。
+     · 缩小到 0.96 而不是 0.8：玻璃卡片是有厚度的，过度缩放会读成"塑料弹窗"。
+   ============================================================ */
+
+/* --- 遮罩层 --- */
+.settings-panel,
+.widget-panel,
+.folder-overlay {
+    transition:
+        opacity var(--motion-duration) var(--motion-ease),
+        visibility var(--motion-duration) var(--motion-ease),
+        display var(--motion-duration) allow-discrete;
+}
+
+.settings-panel.u-hidden,
+.widget-panel.u-hidden,
+.folder-overlay.u-hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* --- 内容层：位移 + 缩放 + 淡入 --- */
+.settings-content,
+.widget-content,
+.folder-popover {
+    transition:
+        opacity var(--motion-duration) var(--motion-ease),
+        transform var(--motion-duration) var(--motion-ease);
+}
+
+.settings-panel.u-hidden .settings-content,
+.widget-panel.u-hidden .widget-content,
+.folder-overlay.u-hidden .folder-popover {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+}
+
+@starting-style {
+    .settings-panel:not(.u-hidden) .settings-content,
+    .widget-panel:not(.u-hidden) .widget-content,
+    .folder-overlay:not(.u-hidden) .folder-popover {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+    }
+}
+
+/* --- 搜索框上的两个下拉：从输入框下方展开，往上收 --- */
+.search-engine-dropdown,
+.search-history-dropdown {
+    transform-origin: top center;
+    transition:
+        opacity var(--motion-duration-fast) var(--motion-ease),
+        transform var(--motion-duration-fast) var(--motion-ease),
+        display var(--motion-duration-fast) allow-discrete;
+}
+
+.search-engine-dropdown.u-hidden,
+.search-history-dropdown.u-hidden {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+}
+
+@starting-style {
+    .search-engine-dropdown:not(.u-hidden),
+    .search-history-dropdown:not(.u-hidden) {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+}
+
+/* 想少动一点的用户：把时长压到 1ms，保留 display 的离散过渡（否则退场会截断） */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --motion-duration: 0.001s;
+        --motion-duration-fast: 0.001s;
+    }
+}
+
+
+/* --- 小工具面板内部：列表 ↔ 详情 切换时的进场 ---
+   这两个视图是兄弟节点，切换时旧视图立刻 display:none、新视图淡入上移。
+   不给 display 做离散过渡：两者同时参与布局会让面板高度跳一下。 */
+#tools-grid-view:not(.u-hidden),
+#tools-detail-view:not(.u-hidden) {
+    animation: tools-view-in var(--motion-duration-fast) var(--motion-ease) both;
+}
+
+@keyframes tools-view-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+

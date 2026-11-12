@@ -84,10 +84,20 @@ class SearchManager {
         // 构建搜索URL：自定义引擎用 %s 替换，内置引擎直接拼接
         const encoded = encodeURIComponent(query);
         const { url } = this.currentSearchEngine;
-        const searchUrl = url.includes('%s') ? url.replace('%s', encoded) : url + encoded;
+        let searchUrl = url.includes('%s') ? url.replace('%s', encoded) : url + encoded;
 
-        // 在新标签页中打开
-        window.open(searchUrl, '_blank');
+        // 自定义引擎存在 storage 里、也可能来自备份导入，协议不可信：
+        // 只放行 http(s)，否则回落到内置默认引擎，绝不把 javascript:/data: 交给 window.open
+        const safe = window.UrlSafe
+            ? window.UrlSafe.isHttp(searchUrl)
+            : /^https?:\/\//i.test(searchUrl);
+        if (!safe) {
+            console.warn('[搜索] 引擎地址协议不受支持，已回落到默认引擎:', url);
+            searchUrl = this.searchEngines[0].url + encoded;
+        }
+
+        // 在新标签页中打开（noopener/noreferrer：不给目标站点反向操纵本页的机会）
+        window.open(searchUrl, '_blank', 'noopener,noreferrer');
     }
 
     // 添加到搜索历史

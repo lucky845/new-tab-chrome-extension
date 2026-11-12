@@ -4,9 +4,42 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>新标签页</title>
+        <!-- 首屏主题预置：必须在 style.css 之前同步执行，否则会先绘制默认主题再翻转（白闪）。
+             这里只读 localStorage 镜像做同步判断，chrome.storage 真值由 themeManager.init() 校正。 -->
+        <script src="js/modules/theme-manager.js"></script>
+        <script src="js/theme-boot.js"></script>
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
+        <!-- 液态玻璃第 2 层：折射扭曲滤镜定义。
+             必须常驻 DOM 且尺寸为 0，供 CSS 的 backdrop-filter: url(#liquid-refract) 引用。
+             参数取自实测（.pw-tmp/refract2.js 的 r1 档）：
+               baseFrequency 0.008/0.012 → 涟漪尺度（0.005 太缓、0.015 太碎）
+               numOctaves 2              → 两层噪声，够自然又不费
+               seed 7                    → 固定种子，保证每块玻璃的扭曲形状稳定、不闪
+               stdDeviation 2            → 柔化噪声，避免位移出现硬台阶
+               scale 40                  → 位移幅度，>60 会"故意扭曲"的假
+             放在 body 首位：不参与布局，也不被任何 overflow 裁掉。 -->
+        <svg class="liquid-refract-defs" width="0" height="0" aria-hidden="true" focusable="false">
+            <filter id="liquid-refract" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence
+                    type="fractalNoise"
+                    baseFrequency="0.008 0.012"
+                    numOctaves="2"
+                    seed="7"
+                    result="noise"
+                />
+                <feGaussianBlur in="noise" stdDeviation="2" result="softNoise" />
+                <feDisplacementMap
+                    in="SourceGraphic"
+                    in2="softNoise"
+                    scale="40"
+                    xChannelSelector="R"
+                    yChannelSelector="G"
+                />
+            </filter>
+        </svg>
+
         <div id="wallpaper" class="wallpaper-container"></div>
 
         <!-- 天气信息组件 -->
@@ -397,6 +430,7 @@
         <script src="js/utils/toast.js"></script>
         <script src="js/utils/dsh-dialog.js"></script>
         <script src="js/utils/icon-safe.js"></script>
+    <script src="js/utils/url-safe.js"></script>
 
         <!-- 功能模块 -->
         <script src="js/modules/wallpaper-manager.js"></script>
@@ -492,7 +526,6 @@
                 <div class="tools-panel-header">
                     <h2 id="tools-panel-title">小工具</h2>
                     <div class="tools-panel-header-actions">
-                        <button id="tools-back-btn" class="u-hidden" title="返回工具列表">← 返回</button>
                         <button id="close-tools-btn" class="close-panel-btn close-btn" title="关闭">✕</button>
                     </div>
                 </div>
@@ -505,6 +538,9 @@
                 </div>
 
                 <div id="tools-detail-view" class="u-hidden">
+                    <!-- 返回列表做成面包屑，而不是和右上角 ✕ 并排的第二个按钮：
+                         详情页只有一个「退出口」在右上角，返回走内容区的面包屑。 -->
+                    <button id="tools-back-btn" class="tools-back-link u-hidden">← 全部工具</button>
                     <p id="tool-desc" class="api-key-description"></p>
                     <textarea id="tool-input" class="tool-input" rows="5" spellcheck="false"></textarea>
                     <div class="tools-actions">
@@ -623,6 +659,53 @@
                     </div>
                     <p class="api-key-description">
                         切换后重新打开壁纸库生效；启动壁纸与「换一张」也会使用所选图源。
+                    </p>
+                </div>
+
+                <div class="setting-item">
+                    <label class="theme-section-label">外观主题</label>
+                    <div id="theme-options" class="theme-options">
+                        <label class="theme-option">
+                            <input type="radio" name="theme-mode" value="light" />
+                            <span class="theme-option-text">
+                                <strong>浅色</strong>
+                                <small>始终保持原样：白字浮在壁纸上</small>
+                            </span>
+                        </label>
+                        <label class="theme-option">
+                            <input type="radio" name="theme-mode" value="dark" />
+                            <span class="theme-option-text">
+                                <strong>深色</strong>
+                                <small>在原样式基础上压暗壁纸</small>
+                            </span>
+                        </label>
+                        <label class="theme-option">
+                            <input type="radio" name="theme-mode" value="auto" />
+                            <span class="theme-option-text">
+                                <strong>跟随系统</strong>
+                                <small>按操作系统的浅色/深色偏好切换</small>
+                            </span>
+                        </label>
+                        <label class="theme-option">
+                            <input type="radio" name="theme-mode" value="sun" />
+                            <span class="theme-option-text">
+                                <strong>日出日落</strong>
+                                <small>白天浅色、夜晚深色</small>
+                            </span>
+                        </label>
+                    </div>
+                    <div id="theme-sun-window" class="theme-sun-window u-hidden">
+                        <label for="theme-light-start">白天开始</label>
+                        <input type="time" id="theme-light-start" value="07:00" />
+                        <label for="theme-dark-start">夜晚开始</label>
+                        <input type="time" id="theme-dark-start" value="18:00" />
+                    </div>
+                    <p id="theme-sun-status" class="theme-sun-status u-hidden"></p>
+                    <p class="api-key-description">
+                        日出日落会自动读取当地日出/日落时刻；拿不到定位或网络时，改用上面的自定义时段。
+                        <span id="theme-pending-hint" class="theme-pending-hint u-hidden"
+                            >预览中，点「保存」生效</span
+                        >
                     </p>
                 </div>
 
