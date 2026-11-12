@@ -1514,36 +1514,17 @@ class NewTabApp {
         window.showToast(`「${name}」已移到主面板`, 'success', 1800);
     }
 
-    // 删除确认弹窗
-    confirmDeleteQuickAccess(index, siteName) {
-        const deleteModal = document.getElementById(window.SELECTORS.deleteConfirmModal);
-        const deleteConfirmText = document.getElementById(window.SELECTORS.deleteConfirmText);
-        const deleteConfirmDelete = document.getElementById(window.SELECTORS.deleteConfirmDelete);
-        const deleteConfirmCancel = document.getElementById(window.SELECTORS.deleteConfirmCancel);
+    // 删除确认：统一走 dshDialog，用 danger 保住危险操作的视觉强调
+    async confirmDeleteQuickAccess(index, siteName) {
+        const ok = await window.dshDialog.confirm(
+            '确认删除',
+            `您确定要删除「${siteName}」吗？此操作无法撤销。`,
+            { confirmText: '删除', danger: true }
+        );
+        if (!ok) return;
 
-        if (!(deleteModal && deleteConfirmText && deleteConfirmDelete && deleteConfirmCancel)) {
-            return;
-        }
-
-        deleteConfirmText.textContent = `您确定要删除 "${siteName}" 吗？`;
-        deleteModal.classList.remove('u-hidden');
-
-        const handleDelete = async () => {
-            await this.quickAccessManager.deleteSite(index);
-            this.quickAccessManager.renderQuickAccess();
-            deleteModal.classList.add('u-hidden');
-            deleteConfirmDelete.removeEventListener('click', handleDelete);
-            deleteConfirmCancel.removeEventListener('click', handleCancel);
-        };
-
-        const handleCancel = () => {
-            deleteModal.classList.add('u-hidden');
-            deleteConfirmDelete.removeEventListener('click', handleDelete);
-            deleteConfirmCancel.removeEventListener('click', handleCancel);
-        };
-
-        deleteConfirmDelete.addEventListener('click', handleDelete);
-        deleteConfirmCancel.addEventListener('click', handleCancel);
+        await this.quickAccessManager.deleteSite(index);
+        this.quickAccessManager.renderQuickAccess();
     }
 
     // ---------- 设置域 ----------

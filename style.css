@@ -1,6 +1,5 @@
 /* 通用按钮/输入/面板去重（不改变视觉，仅合并公共规则） */
 .settings-panel .settings-btn,
-.delete-confirm-btn,
 .location-btn,
 .visibility-toggle {
     cursor: pointer;
@@ -251,82 +250,6 @@
 }
 
 /* 天气提示条与全局 Toast 已统一由 js/utils/dsh-tip.js 承载样式（内联注入），此处不再保留重复规则。 */
-
-/* 删除确认弹窗样式 */
-.delete-confirm-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    /* 遮罩与其它全屏层同规格 */
-    background: var(--overlay-bg);
-    backdrop-filter: blur(var(--overlay-blur));
-    -webkit-backdrop-filter: blur(var(--overlay-blur));
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: var(--z-confirm);
-}
-
-.delete-confirm-content {
-    /* 危险操作确认：刻意用浅底深字，与其他深色面板反色以保证最强可读性 */
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: var(--radius-md);
-    padding: 24px;
-    min-width: 320px;
-    max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.delete-confirm-header h3 {
-    margin: 0 0 16px 0;
-    color: #e74c3c;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.delete-confirm-body p {
-    margin: 0 0 24px 0;
-    color: #333;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.delete-confirm-footer {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-}
-
-.delete-confirm-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: var(--radius-xs);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.delete-confirm-btn.cancel-btn {
-    background: #f8f9fa;
-    color: #6c757d;
-}
-
-.delete-confirm-btn.cancel-btn:hover {
-    background: #e9ecef;
-}
-
-.delete-confirm-btn.delete-btn {
-    background: #e74c3c;
-    color: white;
-}
-
-.delete-confirm-btn.delete-btn:hover {
-    background: #c0392b;
-}
 
 body,
 html {
@@ -753,7 +676,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 全屏 modal 层：盖住天气/时钟等页面组件，低于删除确认弹窗（10000） */
+    /* 全屏 modal 层：盖住天气/时钟等页面组件，低于统一对话框 dsh-dialog（--z-confirm: 10000） */
     z-index: var(--z-overlay);
     opacity: 1;
     transition:
@@ -1989,7 +1912,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 全屏 modal 层：与 .settings-panel 同级，低于删除确认弹窗（10000） */
+    /* 全屏 modal 层：与 .settings-panel 同级，低于统一对话框 dsh-dialog（--z-confirm: 10000） */
     z-index: var(--z-overlay);
     opacity: 1;
     transition:
