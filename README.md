@@ -154,6 +154,7 @@ newtab.html                 单页结构
 - **UI 与业务分离**：manager 只做数据与存储，渲染全部在 `app.js`
 - **选择器常量化**：所有 `getElementById` 走 `window.SELECTORS`，杜绝拼写错误导致的静默失败
 - **失败兜底**：壁纸 → Pexels(可选) → Picsum 随机 → 保留当前；天气 → Open-Meteo → 高德 → 缓存
+- **图源能力如实告知**：Picsum 是纯图库，实测服务端忽略 `?q=`（带不带返回同一批图），因此分类筛选会改走 Wallhaven（真支持 `q=` 检索）；Wallhaven 不可达时回落浏览模式并在侧栏明示「当前图源不支持按分类筛选」，绝不用哈希页码冒充分类结果
 - **交互一致**：确认/输入一律走 `dshDialog`（Promise 化，Esc 取消、Enter 确认、Tab 焦点囚禁、校验内联报错），不用会阻塞渲染且无法样式化的原生 `confirm`/`prompt`；危险操作传 `danger: true` 保留红色强调
 
 ---
