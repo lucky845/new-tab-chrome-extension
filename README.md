@@ -145,7 +145,7 @@ newtab.html                 单页结构
     ├── components/         advanced-pagination / weather-icons / visibility-toggle
     ├── config/             weather-config / default-sites / tools（小工具定义）
     ├── constants/          selectors.js（window.SELECTORS 单一来源）
-    └── utils/              request（超时/重试/退避）、toast
+    └── utils/              request（超时/重试/退避）、toast、dsh-tip、dsh-dialog
 ```
 
 **设计原则**
@@ -154,6 +154,7 @@ newtab.html                 单页结构
 - **UI 与业务分离**：manager 只做数据与存储，渲染全部在 `app.js`
 - **选择器常量化**：所有 `getElementById` 走 `window.SELECTORS`，杜绝拼写错误导致的静默失败
 - **失败兜底**：壁纸 → Pexels(可选) → Picsum 随机 → 保留当前；天气 → Open-Meteo → 高德 → 缓存
+- **交互一致**：确认/输入一律走 `dshDialog`（Promise 化，Esc 取消、Enter 确认、Tab 焦点囚禁、校验内联报错），不用会阻塞渲染且无法样式化的原生 `confirm`/`prompt`
 
 ---
 
