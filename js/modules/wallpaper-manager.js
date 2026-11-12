@@ -281,9 +281,34 @@ class WallpaperManager {
      */
     async searchPhotos(query, page = 1) {
         if (!this.pexelsApiKey) {
-            return this.wallpaperSource === 'wallhaven'
-                ? this.searchWallhaven(query, page)
-                : this.searchPicsum(query, page);
+            const q = (query || '').trim();
+
+            // Picsum 是无关键词能力的精选图库（实测 ?q= 被服务端忽略，带不带返回同一批图）。
+            // 早先实现把分类词哈希成页码，让「海洋」落到图库某一页——那页和图无关，
+            // 用户看到的就是「筛选内容与分类不匹配」。现在按下述优先级处理：
+            //   1) 有分类/搜索词 → 改走 Wallhaven（真支持 q= 关键词检索）
+            //   2) Wallhaven 不可达 → 回落 Picsum 浏览，但标记 categorySupported=false，
+            //      由 UI 如实告知「当前图源不支持按分类筛选」，绝不假装筛过
+            if (q && this.wallpaperSource === 'picsum') {
+                const wallhaven = await this.searchWallhaven(q, page);
+                if (wallhaven.photos && wallhaven.photos.length > 0) {
+                    this.categorySupported = true;
+                    return wallhaven;
+                }
+                const browsing = await this.searchPicsum(page);
+                return { ...browsing, categorySupported: false, requestedCategory: q };
+            }
+
+            // 走到这里说明要么没分类词（纯浏览），要么图源已是 wallhaven
+            const result =
+                this.wallpaperSource === 'wallhaven'
+                    ? await this.searchWallhaven(query, page)
+                    : await this.searchPicsum(page);
+            this.categorySupported = this.wallpaperSource === 'wallhaven' || !q;
+            if (!q && this.wallpaperSource !== 'wallhaven') {
+                result.source = 'picsum';
+            }
+            return { ...result, categorySupported: this.categorySupported };
         }
 
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${WALLPAPERS_PER_PAGE}&page=${page}&orientation=landscape`;
@@ -315,19 +340,14 @@ class WallpaperManager {
 
     /**
      * Picsum Photos 免 Key 图库浏览（https://picsum.photos，Unsplash 精选图，国内直连可达）
-     * 说明：Picsum 不提供关键词搜索，按「页码」浏览精选图库；
-     * 无 Key 时搜索词/分类词会映射到稳定的页码，保证每次点同一分类看到同一组图。
+     * 说明：Picsum 是纯图库，**不提供关键词/分类检索**（实测 ?q=ocean 与不带 q 返回同一批图）。
+     * 因此这里只做「按页码浏览」，不接受分类词——分类筛选由 searchPhotos 改走 Wallhaven 完成。
+     * 早先实现把分类词哈希成页码，导致点「海洋」看到的其实是图库第 N 页的无关图片，已废弃。
      * 结果映射为 Pexels 同构格式，渲染层零感知。
      */
-    async searchPicsum(query, page = 1) {
-        const q = (query || '').trim();
+    async searchPicsum(page = 1) {
         const PICSUM_TOTAL_PAGES = 60; // 图库约 1080 张，每页 18 张
-
-        // 有搜索词/分类词时，用词做确定性页码偏移（同一词 → 同一页），翻页在此基础上递增
-        const seed = q
-            ? [...q].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % PICSUM_TOTAL_PAGES
-            : 0;
-        const realPage = ((seed + page - 1) % PICSUM_TOTAL_PAGES) + 1;
+        const realPage = ((page - 1) % PICSUM_TOTAL_PAGES) + 1;
 
         try {
             const response = await fetch(
@@ -343,7 +363,6 @@ class WallpaperManager {
                 throw new Error('Picsum 返回空列表');
             }
 
-            this.currentQuery = q || this.currentQuery;
             this.currentPage = page;
             this.totalWallpapers = PICSUM_TOTAL_PAGES * WALLPAPERS_PER_PAGE;
             this.totalPages = PICSUM_TOTAL_PAGES;

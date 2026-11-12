@@ -596,6 +596,20 @@ class NewTabApp {
                 return;
             }
 
+            // 图源不支持按分类检索时如实告知：不能让用户以为筛选生效了，
+            // 却看着一堆与分类无关的图（这正是「分类与内容不匹配」的来源）
+            if (result.categorySupported === false && result.requestedCategory) {
+                window.showToast(
+                    `当前图源不支持按分类筛选，已改为浏览模式。\n想看「分类」结果请在设置里切换到 Wallhaven 图源。`,
+                    'warning',
+                    4200
+                );
+                this.markCategoryUnsupported();
+            } else {
+                // 分类真的筛选成功了（或纯浏览），把上一次的告警撤掉，避免陈旧提示常驻
+                this.clearCategoryUnsupported();
+            }
+
             this.renderWallpaperGrid(result.photos);
             this.updatePagination();
         } finally {
@@ -724,6 +738,29 @@ class NewTabApp {
         }
 
         return [...new Set(range)];
+    }
+
+    /**
+     * 图源不支持分类检索时，在分类侧栏给出可见提示。
+     * 只提示一次（同一图源不重复刷），并在图源切回可搜索时清除。
+     */
+    markCategoryUnsupported() {
+        const sidebar = document.getElementById(window.SELECTORS.wallpaperCategoriesSidebar);
+        if (!sidebar) return;
+        let hint = sidebar.querySelector('.wallpaper-category-hint');
+        if (!hint) {
+            hint = document.createElement('p');
+            hint.className = 'wallpaper-category-hint';
+            sidebar.appendChild(hint);
+        }
+        hint.textContent =
+            '提示：当前图源不支持按分类筛选，分类将改为浏览模式。到设置里切换为 Wallhaven 可按分类出图。';
+    }
+
+    clearCategoryUnsupported() {
+        const sidebar = document.getElementById(window.SELECTORS.wallpaperCategoriesSidebar);
+        const hint = sidebar ? sidebar.querySelector('.wallpaper-category-hint') : null;
+        if (hint) hint.remove();
     }
 
     // 渲染壁纸分类侧栏
