@@ -146,9 +146,12 @@ class AdvancedPagination {
         }
 
         const itemElement = document.createElement('a');
-        itemElement.href = item.url;
+        // 只把 http(s) 写进 href：快捷方式数据可能来自备份导入，协议不可信
+        itemElement.href = window.UrlSafe ? window.UrlSafe.href(item.url) : item.url;
         itemElement.className = 'quick-access-item';
         itemElement.target = '_blank';
+        // target=_blank 显式带 noopener：不把 window.opener 交给目标站点
+        itemElement.rel = 'noopener noreferrer';
         itemElement.dataset.index = globalIndex;
         itemElement.dataset.itemId = item.id || globalIndex;
         itemElement.dataset.page = this.currentPage;
@@ -179,7 +182,8 @@ class AdvancedPagination {
             icon.loading = 'lazy';
             icon.decoding = 'async';
             icon.referrerPolicy = 'no-referrer';
-            icon.src = `https://www.google.com/s2/favicons?sz=128&domain_url=${item.url}`;
+            // 必须 encode：URL 自带 ?a=1&b=2 时，未转义的 & 会串成 s2 的第二个参数，图标就取错了
+            icon.src = `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(item.url)}`;
             icon.className = 'icon';
             icon.alt = `${item.name} Icon`;
 

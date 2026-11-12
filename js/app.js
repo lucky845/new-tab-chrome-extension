@@ -38,6 +38,7 @@ class NewTabApp {
         this.notesManager = new NotesManager();
         this.pomodoroManager = new PomodoroManager();
         this.backupManager = new BackupManager();
+        this.themeManager = new ThemeManager();
 
         // 快捷方式文件夹
         this.activeFolderIndex = null;
@@ -64,6 +65,10 @@ class NewTabApp {
     async init() {
         try {
             console.log('正在初始化新标签页应用...');
+
+            // 主题先于其他模块：首帧已由 js/theme-boot.js 同步预置（防白闪），
+            // 这里用 chrome.storage 真值校正，并启动跨天/跟随系统的监听。
+            await this.themeManager.init();
 
             // 初始化各个模块（settings.init 内含旧键迁移）
             await Promise.all([
@@ -301,6 +306,18 @@ class NewTabApp {
                     clearSearchBtn.classList.add('visible');
                 } else {
                     clearSearchBtn.classList.remove('visible');
+                }
+            });
+        }
+
+        // Esc 关闭搜索历史下拉：点外部能关，键盘用户按 Esc 也该能关。
+        // 这里 stopPropagation，避免这次 Esc 顺手把设置面板/文件夹蒙版也关掉。
+        if (searchInput) {
+            searchInput.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && !searchHistoryDropdown.classList.contains('u-hidden')) {
+                    e.stopPropagation();
+                    this.hideSearchHistory();
+                    searchInput.blur();
                 }
             });
         }
@@ -1205,18 +1222,21 @@ class NewTabApp {
 
         const menu = document.createElement('div');
         menu.className = 'context-menu';
+        // 配色全部走 style.css 的令牌：菜单跟主题一起翻面（浅色=霜白弹层，深色=冷黑弹层）。
+        // 这里不能写死颜色——右键菜单会同时出现在两套主题下，写死一份必然有一套看不清。
         menu.style.cssText = `
             position: fixed;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--glass-popover-fill);
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            border: 1px solid var(--glass-rim);
             border-radius: 8px;
             padding: 6px 0;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--glass-shadow);
             z-index: 10000;
             min-width: 140px;
             font-size: 14px;
-            color: #000000;
+            color: var(--text-primary);
         `;
 
         const addMenuRow = (
@@ -1230,15 +1250,21 @@ class NewTabApp {
                 padding: ${small ? '6px 16px 6px 28px' : '8px 16px'};
                 cursor: ${disabled ? 'default' : 'pointer'};
                 transition: background-color 0.2s;
-                color: ${danger ? '#e74c3c' : disabled ? 'rgba(0,0,0,0.35)' : '#000'};
+                color: ${
+                    danger
+                        ? 'var(--color-error)'
+                        : disabled
+                          ? 'rgb(var(--ink) / calc(0.38 * var(--text-k)))'
+                          : 'var(--text-primary)'
+                };
                 font-size: ${small ? '13px' : '14px'};
                 white-space: nowrap;
             `;
             if (!disabled) {
                 row.onmouseover = () =>
                     (row.style.backgroundColor = danger
-                        ? 'rgba(231, 76, 60, 0.1)'
-                        : 'rgba(0, 0, 0, 0.08)');
+                        ? 'rgb(var(--danger) / 0.12)'
+                        : 'rgb(var(--ink) / calc(0.08 * var(--wash-k)))');
                 row.onmouseout = () => (row.style.backgroundColor = 'transparent');
                 row.onclick = () => {
                     menu.remove();
@@ -1390,7 +1416,14 @@ class NewTabApp {
             cell.dataset.url = site.url;
             cell.addEventListener('click', ev => {
                 if (ev.target.closest('.folder-site-remove')) return;
-                window.open(site.url, '_blank', 'noopener');
+                // 文件夹里的地址可能来自备份导入，统一走 UrlSafe：只放行 http(s) + noopener
+                if (window.UrlSafe) {
+                    if (!window.UrlSafe.open(site.url)) {
+                        console.warn('[快捷访问] 已跳过不支持的地址协议:', site.url);
+                    }
+                } else {
+                    window.open(site.url, '_blank', 'noopener');
+                }
             });
 
             const iconWrap = document.createElement('div');
@@ -1599,6 +1632,128 @@ class NewTabApp {
         this.bindWallpaperAdjustmentEvents();
         this.bindCustomEngineEvents();
         this.bindBackupEvents();
+        this.bindThemeEvents();
+    }
+
+    // ---------- 主题 ----------
+
+    /**
+     * 主题控件绑定。
+     * 说明：主题切换是即时生效的（不等「保存」），因为它属于观感偏好，
+     * 用户点下去立刻看到效果才符合预期；其余设置仍需保存。
+     */
+    bindThemeEvents() {
+        // 预览语义：面板内改动只作用于「当前显示」，不写 storage。
+        // 点「保存」才落盘；点「关闭」/遮罩/取消一律回滚到打开面板时的快照。
+        const radios = document.querySelectorAll('input[name="theme-mode"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (!radio.checked) return;
+                this.previewThemeMode(radio.value);
+            });
+        });
+
+        const lightStart = document.getElementById('theme-light-start');
+        const darkStart = document.getElementById('theme-dark-start');
+        const onTimeChange = () => this.previewThemeSunWindow();
+        if (lightStart) lightStart.addEventListener('change', onTimeChange);
+        if (darkStart) darkStart.addEventListener('change', onTimeChange);
+    }
+
+    // 预览某个主题模式（不持久化）
+    previewThemeMode(mode) {
+        const tm = this.themeManager;
+        // 暂存到内存态后重新解析，不改 storage、不写 localStorage 镜像
+        tm.settings = { ...tm.settings, mode };
+        tm.apply();
+        this.renderThemeSunWindow();
+        this.renderThemeStatus();
+        this.markThemeDirty();
+    }
+
+    // 预览日出日落的自定义时段（不持久化）
+    previewThemeSunWindow() {
+        const lightStart = document.getElementById('theme-light-start');
+        const darkStart = document.getElementById('theme-dark-start');
+        const tm = this.themeManager;
+        const next = { ...tm.settings };
+        if (lightStart && lightStart.value) next.lightStart = lightStart.value;
+        if (darkStart && darkStart.value) next.darkStart = darkStart.value;
+        tm.settings = next;
+        tm.apply();
+        this.renderThemeStatus();
+        this.markThemeDirty();
+    }
+
+    // 记录打开面板时的主题快照，供回滚
+    snapshotTheme() {
+        const tm = this.themeManager;
+        this._themeSnapshot = { ...tm.settings };
+    }
+
+    // 是否有未保存的主题改动
+    markThemeDirty() {
+        const hint = document.getElementById('theme-pending-hint');
+        const tm = this.themeManager;
+        const snap = this._themeSnapshot;
+        if (!snap) return;
+        const dirty =
+            snap.mode !== tm.settings.mode ||
+            snap.lightStart !== tm.settings.lightStart ||
+            snap.darkStart !== tm.settings.darkStart;
+        if (hint) hint.classList.toggle('u-hidden', !dirty);
+    }
+
+    // 回滚到打开面板时的主题（关闭/取消时调用）
+    restoreThemeSnapshot() {
+        const snap = this._themeSnapshot;
+        if (!snap) return;
+        const tm = this.themeManager;
+        tm.settings = { ...snap };
+        tm.apply();
+        this.renderThemeSelection();
+        const hint = document.getElementById('theme-pending-hint');
+        if (hint) hint.classList.add('u-hidden');
+    }
+
+    // 回显主题选择（打开设置面板时调用）
+    renderThemeSelection() {
+        const state = this.themeManager.getState();
+        document.querySelectorAll('input[name="theme-mode"]').forEach(radio => {
+            radio.checked = radio.value === state.mode;
+        });
+        const lightStart = document.getElementById('theme-light-start');
+        const darkStart = document.getElementById('theme-dark-start');
+        if (lightStart) lightStart.value = state.lightStart;
+        if (darkStart) darkStart.value = state.darkStart;
+        this.renderThemeSunWindow();
+        this.renderThemeStatus();
+    }
+
+    // 只有日出日落模式才显示自定义时段
+    renderThemeSunWindow() {
+        const box = document.getElementById('theme-sun-window');
+        if (!box) return;
+        const isSun = this.themeManager.settings.mode === 'sun';
+        box.classList.toggle('u-hidden', !isSun);
+    }
+
+    // 状态说明：用真实日出日落还是自定义时段，必须让用户看得见
+    renderThemeStatus() {
+        const el = document.getElementById('theme-sun-status');
+        if (!el) return;
+        if (this.themeManager.settings.mode !== 'sun') {
+            el.classList.add('u-hidden');
+            el.textContent = '';
+            return;
+        }
+        const st = this.themeManager.getState();
+        el.classList.remove('u-hidden');
+        if (st.sunTimes && !st.sunApproximate) {
+            el.textContent = `今日日出 ${st.sunTimes.sunrise}、日落 ${st.sunTimes.sunset}，将按此时刻自动切换。`;
+        } else {
+            el.textContent = `未取得当地日出日落，暂用自定义时段（${st.lightStart} 起浅色、${st.darkStart} 起深色）。`;
+        }
     }
 
     // ---------- 数据备份与恢复 ----------
@@ -1683,6 +1838,12 @@ class NewTabApp {
             }
             if (result.unknown && result.unknown.length) {
                 notes.push(`保留 ${result.unknown.length} 项未知数据`);
+            }
+            if (result.droppedLinks) {
+                notes.push(`跳过 ${result.droppedLinks} 个不支持的链接`);
+            }
+            if (result.droppedItems) {
+                notes.push(`跳过 ${result.droppedItems} 项类型不符的数据`);
             }
             const detail = notes.length ? `（${notes.join('；')}）` : '';
             const when = result.exportedAt ? `，备份于 ${result.exportedAt.slice(0, 10)}` : '';
@@ -1854,6 +2015,10 @@ class NewTabApp {
         if (brightnessValue) brightnessValue.textContent = `${Math.round(brightness * 100)}%`;
         if (blurValue) blurValue.textContent = `${blur}px`;
 
+        // 回显主题，并记录快照供「未保存则回滚」使用
+        this.renderThemeSelection();
+        this.snapshotTheme();
+
         // 回显壁纸图源
         const sourceValue = this.settingsManager.getWallpaperSource();
         document
@@ -1869,6 +2034,8 @@ class NewTabApp {
     closeSettingsPanel() {
         const settingsPanel = document.getElementById(window.SELECTORS.settingsPanel);
         if (settingsPanel) settingsPanel.classList.add('u-hidden');
+        // 未点「保存」就关闭：主题预览必须回滚，否则"保存"按钮形同虚设
+        this.restoreThemeSnapshot();
     }
 
     // 保存设置（存储统一走 settingsManager，随后联动壁纸与天气）
@@ -1899,6 +2066,12 @@ class NewTabApp {
             // 图源可能换了能力：旧图源留下的「不支持分类」告警必须清掉，
             // 否则用户切到 Wallhaven 后仍看到「当前图源不支持筛选」的过期提示
             this.clearCategoryUnsupported();
+
+            // 主题：预览态在这里才真正落盘
+            await this.themeManager.save(this.themeManager.settings);
+            this.snapshotTheme();
+            const pendingHint = document.getElementById('theme-pending-hint');
+            if (pendingHint) pendingHint.classList.add('u-hidden');
 
             // 标语：即时生效于时钟下方
             await this.settingsManager.setTagline(tagline);

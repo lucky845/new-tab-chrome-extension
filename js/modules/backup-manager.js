@@ -324,6 +324,14 @@ class BackupManager {
             accepted[key] = value;
         }
 
+        // 链接字段的安全清洗：备份文件是外部输入，里面的 URL 协议不可信。
+        // 渲染端（advanced-pagination 的 <a href>、app.js 的 window.open、壁纸 background-image）
+        // 虽然也做了兜底，但数据边界先拦一刀成本最低，也能把「剔除了几条」如实告诉用户。
+        const droppedLinks = this.sanitizeLinks(accepted);
+        // 字段级清洗：顶层类型对得上不代表内容能用（settings 里塞字符串会让滑杆算出 NaN，
+        // todos/notes 里塞数字会让渲染端取 .content 直接崩）。这里按各自的真实结构逐字段收敛。
+        const droppedItems = this.sanitizeValues(accepted);
+
         if (Object.keys(accepted).length === 0) {
             throw new Error('备份文件里没有可导入的数据（未找到已知字段）');
         }
@@ -339,7 +347,187 @@ class BackupManager {
             skippedCache: skippedCache,
             exportedAt: exportedAt,
             isStandard: isStandard,
+            droppedLinks: droppedLinks,
+            droppedItems: droppedItems,
         };
+    }
+
+    /**
+     * 清洗备份数据里的链接字段（就地修改）。
+     * 只处理「会被当成地址去打开」的字段：快捷方式、文件夹内条目、自定义搜索引擎、壁纸地址。
+     * 判定标准与 js/utils/url-safe.js 一致（本模块也要能在没有 window 的环境下跑，故带正则兜底）。
+     * @param {Object} accepted 已通过类型校验的数据
+     * @returns {number} 被剔除的条目数
+     */
+    sanitizeLinks(accepted) {
+        const isHttp =
+            typeof window !== 'undefined' && window.UrlSafe
+                ? url => window.UrlSafe.isHttp(url)
+                : url => /^https?:\/\//i.test(String(url == null ? '' : url).trim());
+        let dropped = 0;
+
+        if (Array.isArray(accepted.quickAccessSites)) {
+            const sites = [];
+            for (const node of accepted.quickAccessSites) {
+                if (!node || typeof node !== 'object') {
+                    dropped++;
+                    continue;
+                }
+                if (node.isFolder) {
+                    const items = Array.isArray(node.items) ? node.items : [];
+                    const keptItems = items.filter(item => {
+                        const ok = !!item && typeof item === 'object' && isHttp(item.url);
+                        if (!ok) dropped++;
+                        return ok;
+                    });
+                    node.items = keptItems;
+                    // 空文件夹保留：用户可能就是要占位，静默删掉等于吞数据
+                    sites.push(node);
+                    continue;
+                }
+                if (!isHttp(node.url)) {
+                    dropped++;
+                    continue;
+                }
+                sites.push(node);
+            }
+            accepted.quickAccessSites = sites;
+        }
+
+        if (Array.isArray(accepted.customEngines)) {
+            accepted.customEngines = accepted.customEngines.filter(engine => {
+                const ok = !!engine && typeof engine === 'object' && isHttp(engine.url);
+                if (!ok) dropped++;
+                return ok;
+            });
+        }
+
+        // 壁纸地址会进 background-image：非图片地址留着只会变成远程探测
+        const isImageOk =
+            typeof window !== 'undefined' && window.UrlSafe
+                ? url => window.UrlSafe.isImageSource(url)
+                : url => /^(https?:\/\/|data:image\/)/i.test(String(url == null ? '' : url).trim());
+        if ('savedWallpaperUrl' in accepted && !isImageOk(accepted.savedWallpaperUrl)) {
+            delete accepted.savedWallpaperUrl;
+            dropped++;
+        }
+
+        return dropped;
+    }
+
+    /**
+     * 字段级清洗（就地修改）。顶层类型校验管不到字段内部：
+     *   settings.wallpaperBrightness = "abc" → 滑杆/透明度算出 NaN，整页背景直接失效
+     *   todos[0].content 不是字符串 → 渲染端 (content || '').toLowerCase() 抛异常
+     * 处理原则与链接清洗一致：能确认类型的留下，确认不了的逐个丢弃并计数，
+     * 让各模块回落到自己的默认值，而不是带着坏值去渲染。
+     * @param {Object} accepted
+     * @returns {number} 被剔除的字段/条目数
+     */
+    sanitizeValues(accepted) {
+        const isPlainObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
+        const asNumber = (v, min, max) => {
+            if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+            return Math.min(max, Math.max(min, v));
+        };
+        const asString = v => (typeof v === 'string' ? v : undefined);
+        let dropped = 0;
+
+        // ---- settings：按真实默认值的类型收敛；未登记字段原样保留（向前兼容）----
+        if (isPlainObject(accepted.settings)) {
+            const rules = {
+                pexelsApiKey: asString,
+                weatherApiKey: asString,
+                weatherCity: asString,
+                temperatureUnit: v => (v === 'celsius' || v === 'fahrenheit' ? v : undefined),
+                wallpaperQuery: asString,
+                searchEngine: asString,
+                tagline: asString,
+                // 与设置面板滑杆的 min/max 对齐（newtab.html:614 起）
+                wallpaperBrightness: v => asNumber(v, 0.3, 1),
+                wallpaperBlur: v => asNumber(v, 0, 20),
+                showSideWidgets: v => (typeof v === 'boolean' ? v : undefined),
+                wallpaperSource: v => (v === 'picsum' || v === 'wallhaven' ? v : undefined),
+            };
+            const cleanSettings = {};
+            for (const key of Object.keys(accepted.settings)) {
+                const rule = rules[key];
+                if (!rule) {
+                    cleanSettings[key] = accepted.settings[key];
+                    continue;
+                }
+                const ok = rule(accepted.settings[key]);
+                if (ok === undefined) {
+                    dropped++;
+                    continue;
+                }
+                cleanSettings[key] = ok;
+            }
+            accepted.settings = cleanSettings;
+        }
+
+        // ---- todos：结构见 js/modules/todo-manager.js:6 ----
+        if (Array.isArray(accepted.todos)) {
+            const kept = [];
+            for (const todo of accepted.todos) {
+                if (!isPlainObject(todo) || typeof todo.content !== 'string') {
+                    dropped++;
+                    continue;
+                }
+                const item = Object.assign({}, todo);
+                item.important = todo.important === true;
+                item.done = todo.done === true;
+                item.category =
+                    ['work', 'life', 'normal'].indexOf(todo.category) !== -1
+                        ? todo.category
+                        : 'normal';
+                if (typeof todo.createdAt !== 'number' || !Number.isFinite(todo.createdAt)) {
+                    delete item.createdAt;
+                }
+                if (typeof todo.completedAt !== 'number' || !Number.isFinite(todo.completedAt)) {
+                    item.completedAt = null;
+                }
+                item.dueDate = typeof todo.dueDate === 'string' ? todo.dueDate : null;
+                kept.push(item);
+            }
+            accepted.todos = kept;
+        }
+
+        // ---- notes：结构见 js/modules/notes-manager.js:5 ----
+        if (Array.isArray(accepted.notes)) {
+            accepted.notes = accepted.notes
+                .filter(note => {
+                    const ok = isPlainObject(note) && typeof note.content === 'string';
+                    if (!ok) dropped++;
+                    return ok;
+                })
+                .map(note => {
+                    const item = Object.assign({}, note);
+                    item.pinned = note.pinned === true;
+                    return item;
+                });
+        }
+
+        // ---- searchHistory：字符串数组，去重并限制长度 ----
+        if (Array.isArray(accepted.searchHistory)) {
+            const seen = Object.create(null);
+            const kept = [];
+            for (const word of accepted.searchHistory) {
+                if (typeof word !== 'string' || !word) {
+                    dropped++;
+                    continue;
+                }
+                if (seen[word]) {
+                    dropped++;
+                    continue;
+                }
+                seen[word] = true;
+                kept.push(word);
+            }
+            accepted.searchHistory = kept.slice(0, 20);
+        }
+
+        return dropped;
     }
 
     /**
@@ -350,7 +538,12 @@ class BackupManager {
         if (typeof text !== 'string' || !text.trim()) {
             throw new Error('文件内容为空');
         }
-        if (text.length > this.MAX_IMPORT_BYTES) {
+        // 用字节数而不是字符数：中文一个字占 3 字节，按 length 判会放进来三倍大的文件
+        const bytes =
+            typeof TextEncoder !== 'undefined'
+                ? new TextEncoder().encode(text).length
+                : text.length;
+        if (bytes > this.MAX_IMPORT_BYTES) {
             const mb = (this.MAX_IMPORT_BYTES / 1024 / 1024).toFixed(0);
             throw new Error('备份文件过大（超过 ' + mb + ' MB），已拒绝导入');
         }
@@ -375,6 +568,8 @@ class BackupManager {
             forwardCompat: checked.forwardCompat,
             migratedTo: checked.migratedTo,
             exportedAt: checked.exportedAt,
+            droppedLinks: checked.droppedLinks,
+            droppedItems: checked.droppedItems,
         };
     }
 }

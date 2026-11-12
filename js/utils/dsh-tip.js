@@ -128,33 +128,36 @@
     const DURATION = { success: 1800, info: 2200, warning: 3200, error: 4000, loading: 0 };
 
     /* ---------------- 样式：一次性注入 ---------------- */
+    // 所有颜色都优先读 style.css 的令牌，fallback 保留一套深色值，让组件脱离本页样式
+    // 也能独立运行。这样提示条会跟着主题一起翻面，而不是在两套主题下都是一块深色板。
     const STYLE_ID = 'dsh-tip-style';
     const CSS = [
         '.dsh-tip{position:fixed;left:0;top:0;z-index:6100;display:flex;align-items:center;gap:8px;',
         'width:max-content;max-width:min(320px,calc(100vw - 16px));box-sizing:border-box;',
-        'padding:8px 10px 8px 12px;border-radius:var(--radius-control,8px);border:1px solid var(--dsh-tip-border,rgba(255,255,255,.16));',
-        'background:rgba(18,24,30,.88);-webkit-backdrop-filter:blur(var(--blur-soft,5px));backdrop-filter:blur(var(--blur-soft,5px));',
-        'box-shadow:0 8px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08);color:var(--text-primary,#fff);',
+        'padding:8px 10px 8px 12px;border-radius:var(--radius-control,8px);border:1px solid var(--dsh-tip-border,var(--glass-edge,rgba(255,255,255,.16)));',
+        'background:var(--glass-popover-fill,rgba(18,24,30,.88));-webkit-backdrop-filter:blur(var(--blur-soft,5px));backdrop-filter:blur(var(--blur-soft,5px));',
+        'box-shadow:var(--glass-shadow,0 8px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08));color:var(--text-primary,#fff);',
         'font-size:13px;line-height:1.45;font-weight:500;text-align:left;',
         'opacity:0;transition:opacity .18s cubic-bezier(.2,.8,.2,1);will-change:transform,opacity}',
         '.dsh-tip--visible{opacity:1}',
         '.dsh-tip__icon{display:inline-flex;flex:0 0 auto;width:14px;height:14px;color:var(--tip-accent,var(--text-tertiary,#999))}',
         '.dsh-tip__icon svg{display:block}',
         '.dsh-tip__text{flex:1 1 auto;min-width:0;word-break:break-word}',
-        '.dsh-tip__action{flex:0 0 auto;height:22px;padding:0 8px;border:1px solid rgba(255,255,255,.2);border-radius:var(--radius-xs,6px);',
-        'background:rgba(255,255,255,.12);color:inherit;font:inherit;font-size:12px;cursor:pointer;transition:background-color .2s ease}',
-        '.dsh-tip__action:hover{background:rgba(255,255,255,.22)}',
+        '.dsh-tip__action{flex:0 0 auto;height:22px;padding:0 8px;border:1px solid var(--surface-border,rgba(255,255,255,.2));border-radius:var(--radius-xs,6px);',
+        'background:var(--surface-1,rgba(255,255,255,.12));color:inherit;font:inherit;font-size:12px;cursor:pointer;transition:background-color .2s ease}',
+        '.dsh-tip__action:hover{background:var(--surface-2,rgba(255,255,255,.22))}',
         '.dsh-tip__action:focus-visible{outline:2px solid var(--tip-accent,currentColor);outline-offset:1px}',
         '.dsh-tip__close{flex:0 0 auto;display:grid;place-items:center;width:18px;height:18px;margin-right:-4px;padding:0;',
-        'border:0;border-radius:50%;background:transparent;color:rgba(255,255,255,.6);font-size:14px;line-height:1;cursor:pointer}',
-        '.dsh-tip__close:hover{background:rgba(255,255,255,.14);color:#fff}',
-        // 主色统一读 style.css :root 的 --color-*（单一真源）；fallback 让组件脱离本页样式仍可独立运行
-        '.dsh-tip--success{--tip-accent:var(--color-success,#3ddc97);--dsh-tip-border:rgba(61,220,151,.45)}',
-        '.dsh-tip--warning{--tip-accent:var(--color-warning,#ffd166);--dsh-tip-border:rgba(255,209,102,.45)}',
-        '.dsh-tip--error{--tip-accent:var(--color-error,#ff8a8f);--dsh-tip-border:rgba(255,138,143,.50)}',
-        '.dsh-tip--info{--tip-accent:var(--color-info,#a5d8ff);--dsh-tip-border:rgba(165,216,255,.42)}',
-        '.dsh-tip--loading{--tip-accent:var(--color-loading,#4ec2c6);--dsh-tip-border:rgba(78,194,198,.45)}',
-        '.dsh-tip__arrow{position:absolute;width:12px;height:12px;background:#12181e;border:1px solid rgba(255,255,255,.16);',
+        'border:0;border-radius:50%;background:transparent;color:var(--text-secondary,rgba(255,255,255,.78));font-size:14px;line-height:1;cursor:pointer}',
+        '.dsh-tip__close:hover{background:var(--surface-2,rgba(255,255,255,.14));color:var(--text-primary,#fff)}',
+        // 主色统一读 style.css 的裸通道语义色（--ok/--warn/--danger/--info/--accent），
+        // 这些通道在浅色主题下是压深档、深色主题下是亮档，边框自动跟着走。
+        '.dsh-tip--success{--tip-accent:var(--color-success,#3ddc97);--dsh-tip-border:rgb(var(--ok,61 220 151) / .45)}',
+        '.dsh-tip--warning{--tip-accent:var(--color-warning,#ffd166);--dsh-tip-border:rgb(var(--warn,255 209 102) / .45)}',
+        '.dsh-tip--error{--tip-accent:var(--color-error,#ff8a8f);--dsh-tip-border:rgb(var(--danger,255 138 143) / .50)}',
+        '.dsh-tip--info{--tip-accent:var(--color-info,#a5d8ff);--dsh-tip-border:rgb(var(--info,165 216 255) / .42)}',
+        '.dsh-tip--loading{--tip-accent:var(--color-loading,#4ec2c6);--dsh-tip-border:rgb(var(--accent,78 194 198) / .45)}',
+        '.dsh-tip__arrow{position:absolute;width:12px;height:12px;background:var(--glass-popover-fill,#12181e);border:1px solid var(--glass-edge,rgba(255,255,255,.16));',
         'transform:rotate(45deg);pointer-events:none;z-index:-1}',
         '@media (prefers-reduced-motion:reduce){.dsh-tip{transition:opacity .05s linear}}',
         '.dsh-tip-toasts{position:fixed;left:50%;bottom:32px;width:max-content;max-width:calc(100vw - 24px);',

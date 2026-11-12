@@ -76,9 +76,10 @@ class WeatherManager {
                 await this.updateWeather();
             }
 
-            // 设置定时更新
+            // 设置定时更新：保存句柄，重复 init 时先清掉旧定时器，避免叠加请求
             const updateInterval = window.WEATHER_CONFIG?.UPDATE_INTERVAL || 30 * 60 * 1000;
-            setInterval(() => {
+            if (this.updateTimer) clearInterval(this.updateTimer);
+            this.updateTimer = setInterval(() => {
                 this.updateWeather();
             }, updateInterval);
         } catch (error) {
@@ -1050,7 +1051,21 @@ class WeatherManager {
         const locationEl = document.getElementById('location');
 
         if (temperatureEl) temperatureEl.textContent = '--°C';
-        if (weatherDescEl) weatherDescEl.textContent = message;
+        if (weatherDescEl) {
+            // 卡面只放一句短语：整句错误在 360px 的卡片里只能靠省略号截断，读起来是半句话。
+            // 完整原因已经由下方 toast 给出，卡面保留可扫读的状态词即可。
+            const short = /权限被拒绝|NotAllowed|Permission/.test(message)
+                ? '定位未授权'
+                : /超时|timeout/.test(message)
+                  ? '定位超时'
+                  : /位置信息不可用|未找到可用/.test(message)
+                    ? '无法定位'
+                    : /城市/.test(message)
+                      ? '城市无效'
+                      : '天气获取失败';
+            weatherDescEl.textContent = short;
+            weatherDescEl.title = message;
+        }
         if (locationEl) {
             // 给可执行的下一步，而不是笼统的「获取失败」
             if (/城市/.test(message)) {
@@ -1095,10 +1110,39 @@ class WeatherManager {
                     label: '定位设置',
                     title: '打开浏览器定位设置',
                     keepOpen: true,
-                    onClick: () => window.open('chrome://settings/content/location', '_blank'),
+                    onClick: () => this.openLocationSettings(),
                 },
             ],
         });
+    }
+
+    /**
+     * 打开浏览器的定位权限设置。
+     * 扩展页面无法用 window.open 打开 chrome:// 地址（会被直接拒绝且无任何反馈），
+     * 改用 chrome.tabs.create，并读取 lastError；连这个都被拦时给出文字指引，别留一个点了没反应的按钮。
+     */
+    openLocationSettings() {
+        const url = 'chrome://settings/content/location';
+        const fallback = () => {
+            this.showWeatherTip({
+                type: 'info',
+                message: '请在地址栏打开 ' + url + ' ，允许本站使用位置信息后点「重试授权」',
+                duration: 0,
+                closable: true,
+            });
+        };
+        try {
+            if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+                chrome.tabs.create({ url: url }, () => {
+                    // 读一次 lastError：不读会被标记为未处理错误，且这里正是判断成功与否的依据
+                    if (chrome.runtime && chrome.runtime.lastError) fallback();
+                });
+                return;
+            }
+        } catch (error) {
+            console.warn('打开定位设置失败:', error && error.message);
+        }
+        fallback();
     }
 
     /**
