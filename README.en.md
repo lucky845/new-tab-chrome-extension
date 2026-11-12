@@ -10,8 +10,8 @@ New Tab Pro turns your new tab into a clean and efficient workspace: Picsum wall
 
 ### 🌟 Wallpaper
 
-- Picsum keyless gallery by default (Unsplash curated photos): category browsing, pagination, random switch
-- Wallhaven as an optional source (settings switch; supports keyword search, needs access to wallhaven.cc)
+- Picsum keyless gallery by default (Unsplash curated photos): page browsing, pagination, random switch. **No category/keyword filtering** (the service ignores `?q=`); category requests fall through to Wallhaven automatically
+- Wallhaven as an optional source (settings switch; the only keyless source with **real category/keyword filtering**, needs access to wallhaven.cc)
 - Pexels (optional key) for keyword search
 - Cached-first loading with no flicker; brightness 30–100% and blur 0–20px
 

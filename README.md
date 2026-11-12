@@ -14,8 +14,8 @@
 <tr><td width="50%" valign="top">
 
 **🖼️ 壁纸**
-- Picsum 免 Key 图库（Unsplash 精选）：分类浏览 + 分页 + 随机换壁纸（默认）
-- Wallhaven 图源可选：设置中切换，支持关键词搜索，需能访问境外网络
+- Picsum 免 Key 图库（Unsplash 精选）：按页浏览 + 翻页 + 随机换壁纸（默认）；**不支持分类/关键词筛选**（实测服务端忽略 `?q=`），分类需求自动改走 Wallhaven
+- Wallhaven 图源可选：设置中切换，**唯一支持分类/关键词真正筛选**的免 Key 图源，需能访问境外网络
 - Pexels（可选 Key）：填写后切换为 Pexels 图源
 - 缓存优先加载，刷新无闪烁
 - 亮度 30%–100%、模糊 0–20px 实时调节
@@ -106,7 +106,7 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 
 | 配置 | 作用 | 不填会怎样 |
 | --- | --- | --- |
-| 壁纸图源 | Picsum（默认）/ Wallhaven 二选一 | 默认 Picsum，国内直连稳定 |
+| 壁纸图源 | Picsum（默认）/ Wallhaven 二选一 | 默认 Picsum 国内直连稳定但不支持分类筛选；要分类请选 Wallhaven |
 | Pexels API Key | 关键词搜索壁纸（Pexels 图源） | 使用所选免 Key 图源浏览 |
 | 高德 Web 服务 Key | 切换天气数据源为高德 | 使用 Open-Meteo 免费数据 |
 | 天气城市 | 固定城市 | 自动定位（失败回退上次城市） |
@@ -154,6 +154,7 @@ newtab.html                 单页结构
 - **UI 与业务分离**：manager 只做数据与存储，渲染全部在 `app.js`
 - **选择器常量化**：所有 `getElementById` 走 `window.SELECTORS`，杜绝拼写错误导致的静默失败
 - **失败兜底**：壁纸 → Pexels(可选) → Picsum 随机 → 保留当前；天气 → Open-Meteo → 高德 → 缓存
+- **图源能力如实告知**：Picsum 是纯图库，实测服务端忽略 `?q=`（带不带返回同一批图），因此分类筛选会改走 Wallhaven（真支持 `q=` 检索）；Wallhaven 不可达时回落浏览模式并在侧栏明示「当前图源不支持按分类筛选」，绝不用哈希页码冒充分类结果
 - **交互一致**：确认/输入一律走 `dshDialog`（Promise 化，Esc 取消、Enter 确认、Tab 焦点囚禁、校验内联报错），不用会阻塞渲染且无法样式化的原生 `confirm`/`prompt`；危险操作传 `danger: true` 保留红色强调
 
 ---
@@ -180,6 +181,7 @@ npm run format     # Prettier
 - [x] 小工具面板（12 个纯本地工具）（v1.3.1）
 - [x] 快捷方式文件夹分组（v1.3.2）
 - [x] 数据导入导出（v1.5.0）
+- [x] 统一确认/输入对话框、备份与恢复前向兼容、壁纸分类筛选修复（v1.6.0）
 - [ ] 主题切换
 
 ---

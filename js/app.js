@@ -556,7 +556,8 @@ class NewTabApp {
     async searchWallpapers(query, page, { skipCategoryHighlight = false } = {}) {
         const wm = this.wallpaperManager;
 
-        // 无 Pexels Key 时 manager 自动切换 Picsum 免 Key 图库，UI 流程完全一致
+        // 无 Pexels Key 时：无分类词走 Picsum 浏览，有分类词自动尝试 Wallhaven，
+        // 都不支持时由下方 categorySupported 分支如实告知（不再用哈希页码冒充分类）
 
         // 更新UI中的高亮分类
         if (!skipCategoryHighlight) {
@@ -594,6 +595,20 @@ class NewTabApp {
                 }
                 window.showToast(result.error || '壁纸加载失败，请检查网络', 'error', 4000);
                 return;
+            }
+
+            // 图源不支持按分类检索时如实告知：不能让用户以为筛选生效了，
+            // 却看着一堆与分类无关的图（这正是「分类与内容不匹配」的来源）
+            if (result.categorySupported === false && result.requestedCategory) {
+                window.showToast(
+                    `当前图源不支持按分类筛选，已改为浏览模式。\n想看「分类」结果请在设置里切换到 Wallhaven 图源。`,
+                    'warning',
+                    4200
+                );
+                this.markCategoryUnsupported();
+            } else {
+                // 分类真的筛选成功了（或纯浏览），把上一次的告警撤掉，避免陈旧提示常驻
+                this.clearCategoryUnsupported();
             }
 
             this.renderWallpaperGrid(result.photos);
@@ -724,6 +739,29 @@ class NewTabApp {
         }
 
         return [...new Set(range)];
+    }
+
+    /**
+     * 图源不支持分类检索时，在分类侧栏给出可见提示。
+     * 只提示一次（同一图源不重复刷），并在图源切回可搜索时清除。
+     */
+    markCategoryUnsupported() {
+        const sidebar = document.getElementById(window.SELECTORS.wallpaperCategoriesSidebar);
+        if (!sidebar) return;
+        let hint = sidebar.querySelector('.wallpaper-category-hint');
+        if (!hint) {
+            hint = document.createElement('p');
+            hint.className = 'wallpaper-category-hint';
+            sidebar.appendChild(hint);
+        }
+        hint.textContent =
+            '提示：当前图源不支持按分类筛选，分类将改为浏览模式。到设置里切换为 Wallhaven 可按分类出图。';
+    }
+
+    clearCategoryUnsupported() {
+        const sidebar = document.getElementById(window.SELECTORS.wallpaperCategoriesSidebar);
+        const hint = sidebar ? sidebar.querySelector('.wallpaper-category-hint') : null;
+        if (hint) hint.remove();
     }
 
     // 渲染壁纸分类侧栏
@@ -1858,6 +1896,9 @@ class NewTabApp {
 
             // 图源切换即时同步到壁纸管理器
             this.wallpaperManager.wallpaperSource = wallpaperSource;
+            // 图源可能换了能力：旧图源留下的「不支持分类」告警必须清掉，
+            // 否则用户切到 Wallhaven 后仍看到「当前图源不支持筛选」的过期提示
+            this.clearCategoryUnsupported();
 
             // 标语：即时生效于时钟下方
             await this.settingsManager.setTagline(tagline);
