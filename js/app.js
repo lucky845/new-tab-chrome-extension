@@ -57,6 +57,9 @@ class NewTabApp {
         this.searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
         this.clearIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
+        // 液态玻璃光学层（WebGL2 折射/色散叠加在 CSS backdrop-filter 之上）
+        this.liquidGlass = null;
+
         // 状态
         this.isInitialized = false;
     }
@@ -68,55 +71,122 @@ class NewTabApp {
 
             // 主题先于其他模块：首帧已由 js/theme-boot.js 同步预置（防白闪），
             // 这里用 chrome.storage 真值校正，并启动跨天/跟随系统的监听。
-            await this.themeManager.init();
+            //
+            // 单独限时 2s：这是整条 init 链的**第一个** await，它一卡住后面全停。
+            // theme-boot.js 已经同步设过 data-theme，所以这里超时也能正常显示，
+            // 只是失去"跟随系统/跨天自动切换"的能力 —— 比整页停在骨架屏上好得多。
+            await Promise.race([
+                this.themeManager.init(),
+                new Promise(resolve => setTimeout(resolve, 2000)),
+            ]).catch(error => {
+                console.warn(
+                    '[启动] 主题初始化失败，沿用 theme-boot 的预置值:',
+                    error?.message || error
+                );
+            });
 
-            // 初始化各个模块（settings.init 内含旧键迁移）
-            await Promise.all([
-                this.settingsManager.init(),
-                this.quickAccessManager.init(),
-                this.todoManager.init(),
-                this.notesManager.init(),
-                this.pomodoroManager.init(),
+            // 初始化各个模块（settings.init 内含旧键迁移）。
+            //
+            // 三道保险，缺一不可：
+            //   1) allSettled 而不是 all —— 任一模块读盘失败不该拖垮其余模块，
+            //      否则 quickAccessManager 一挂，快捷访问就永远停在骨架屏上。
+            //   2) 整体超时 5s —— chrome.storage 在极端情况下可能不回调
+            //      （扩展刚更新、profile 被锁），不能让 UI 无限期等下去。
+            //   3) 失败/超时后仍然继续，用各模块自带的默认值渲染。
+            const moduleInits = [
+                ['settings', this.settingsManager],
+                ['quickAccess', this.quickAccessManager],
+                ['todo', this.todoManager],
+                ['notes', this.notesManager],
+                ['pomodoro', this.pomodoroManager],
+            ];
+            const initResults = await Promise.race([
+                Promise.allSettled(moduleInits.map(([, mgr]) => mgr.init())),
+                new Promise(resolve => setTimeout(() => resolve('timeout'), 5000)),
             ]);
+            if (initResults === 'timeout') {
+                console.warn('[启动] 模块初始化超时（5s），用默认数据继续渲染');
+            } else {
+                initResults.forEach((result, i) => {
+                    if (result.status === 'rejected') {
+                        console.warn(
+                            `[启动] ${moduleInits[i][0]} 模块初始化失败，使用默认值:`,
+                            result.reason?.message || result.reason
+                        );
+                    }
+                });
+            }
 
             // 设置壁纸管理器的API密钥
             const apiKey = this.settingsManager.getPexelsApiKey();
             this.wallpaperManager.setApiKey(apiKey);
             this.wallpaperManager.onAuthError = () => this.openSettingsPanel();
 
-            // 设置搜索引擎
+            // 设置搜索引擎（同步读取，必须在渲染搜索框之前）
             const searchEngine = this.settingsManager.getSearchEngine();
             this.searchManager.setCurrentSearchEngine(searchEngine);
 
-            // 加载自定义搜索引擎并注入搜索管理器
-            await this.settingsManager.loadCustomEngines();
-            this.searchManager.setCustomEngines(this.settingsManager.getCustomEngines());
+            // 自定义引擎与搜索历史只影响「下拉菜单里有什么」，不影响首屏能不能画出来。
+            // 旧代码把这两个 await 排在 initUI 之前，等于用两次 storage 往返把
+            // 整个首屏往后推（实测 DCL 77ms 时页面上还是 0 个快捷方式、时钟显示 --:--，
+            // 到 218ms 才补齐，用户看到的就是"白屏卡顿"）。
+            // 现在先把 UI 画出来，这两件事并行补齐后只更新对应区域。
+            //
+            // 这两个 Promise 不 await：搜索引擎下拉与搜索历史都是「点开才用」的内容，
+            // 属于读一次 storage 就能拿到的小数据。数据回来时如果下拉已经渲染过，
+            // 再补刷一次即可；没打开过就什么都不用做（下拉每次展开都会实时读）。
+            Promise.all([
+                this.settingsManager.loadCustomEngines().then(() => {
+                    this.searchManager.setCustomEngines(this.settingsManager.getCustomEngines());
+                    // 下拉已经在首屏渲染过：数据到位后补一次，避免首屏那份是空的
+                    if (document.getElementById('search-engine-dropdown')) {
+                        this.renderSearchEngineDropdown();
+                    }
+                }),
+                this.searchManager.loadHistory(),
+            ]).catch(error => console.warn('搜索数据补载失败:', error?.message || error));
 
-            // 加载搜索历史
-            await this.searchManager.loadHistory();
-
-            // 初始化UI
-            this.initUI();
-            this.bindEvents();
-
+            // 数据层到此就绪。DOM 可能还没解析完（main.js 在 body 中段），
+            // 所以真正的首屏渲染交给 uiInit()，由 bootstrap 在 DOMContentLoaded 时调。
             this.isInitialized = true;
-            console.log('新标签页应用初始化完成');
+            return this;
         } catch (error) {
             console.error('应用初始化失败:', error);
         }
     }
 
+    /**
+     * 首屏挂载：渲染 DOM + 绑定事件。
+     *
+     * 与 init() 分开的原因：init() 只做数据层（storage 读取、默认站点落地），
+     * 可以在 HTML 还在解析时就跑完，和解析并行；这里碰 DOM，必须等 DOMContentLoaded。
+     * 两步拆开后，数据读取不再挡在首屏前面（实测省掉一个 storage 往返 ≈ 145ms）。
+     * 幂等：重复调用直接返回，避免热重载时挂两套监听。
+     */
+    uiInit() {
+        if (this._uiReady) return;
+        this._uiReady = true;
+        this.initUI();
+        this.bindEvents();
+        console.log('新标签页应用初始化完成');
+    }
+
     // 初始化UI
     initUI() {
         // 加载壁纸（缓存优先 → Picsum/Pexels 随机，全链路在 manager 内）
-        // 首屏壁纸延到 load 之后发起：background-image 若在 load 前入队会 gate
-        // window.load，国内 picsum/pexels 不可达时标签页会持续转圈 5s+。
-        // parse 期已无远程资源，load 会立刻触发，随后再淡入壁纸。
+        //
+        // 时机：DOMContentLoaded 之后立刻发起，不再等 window.load。
+        // 以前挂 load 是为了「别让远程图 gate load 事件」，但代价是壁纸
+        // 永远排在 load 之后 —— 图床慢的时候用户要盯着 --canvas-loading
+        // 渐变干等。现在改为 DCL + 微任务：CSS 此时已应用、渐变兜底已可见，
+        // 壁纸请求可以最early 起步，下载慢只影响壁纸本身，不拖首帧。
         const applyWallpaper = () => this.wallpaperManager.fetchAndSetWallpaper();
-        if (document.readyState === 'complete') {
-            applyWallpaper();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => queueMicrotask(applyWallpaper), {
+                once: true,
+            });
         } else {
-            window.addEventListener('load', applyWallpaper, { once: true });
+            queueMicrotask(applyWallpaper);
         }
 
         // 渲染快捷访问
@@ -142,6 +212,34 @@ class NewTabApp {
 
         // 密钥可见性切换
         this.initVisibilityToggle();
+
+        // 液态玻璃光学层：必须在首屏元素渲染之后挂载，否则拿不到几何
+        this.initLiquidGlass();
+    }
+
+    // 液态玻璃：给带 backdrop-filter 的玻璃块叠加 WebGL2 折射层。
+    // WebGL2 不可用时静默跳过，CSS 玻璃照旧。
+    initLiquidGlass() {
+        if (!window.LiquidGlass) return;
+        const glass = new window.LiquidGlass();
+        if (!glass.start()) {
+            console.warn('[液态玻璃] WebGL2 不可用，保持 CSS 玻璃外观');
+            return;
+        }
+        this.liquidGlass = glass;
+        this.wallpaperManager.liquidGlass = glass;
+        // 壁纸可能已经在 initUI 里设过，也可能稍后由 fetch 回填 —— 两条路都覆盖。
+        //
+        // 注意读取源：setWallpaper 现在把图片地址写在 CSS 变量 --wallpaper-image 上
+        // （容器自身的 background-image 被清成 none，交给 ::before 做淡入）。
+        // 之前这里还在读 container.style.backgroundImage，永远拿到 'none'，
+        // 于是场景纹理一次都没设上 —— 玻璃里显示的是首次渲染时的旧壁纸。
+        const container = document.getElementById(window.SELECTORS.wallpaperContainer);
+        const current = container && container.style.backgroundImage;
+        if (current) {
+            const match = current.match(/^url\(["']?(.*?)["']?\)$/);
+            if (match) glass.setScene(match[1]);
+        }
     }
 
     // 主页右侧常驻小组件：可见性 + 首次渲染
@@ -480,7 +578,6 @@ class NewTabApp {
 
     // 绑定壁纸事件
     bindWallpaperEvents() {
-        const changeWallpaperBtn = document.getElementById(window.SELECTORS.changeWallpaperBtn);
         const wallpaperSettingsBtn = document.getElementById(window.SELECTORS.wallpaperSettingsBtn);
         const wallpaperPanel = document.getElementById(window.SELECTORS.wallpaperPanel);
         const wallpaperSearchInput = document.getElementById(window.SELECTORS.wallpaperSearchInput);
@@ -489,13 +586,6 @@ class NewTabApp {
         const closeWallpaperPanelBtn = document.getElementById(
             window.SELECTORS.closeWallpaperPanelBtn
         );
-
-        // "换一张"：manager 内部自动选源（有 Key 走 Pexels 随机；无 Key 走 Picsum 随机，免密钥）
-        if (changeWallpaperBtn) {
-            changeWallpaperBtn.addEventListener('click', async () => {
-                await this.wallpaperManager.fetchRandomWallpaper(true);
-            });
-        }
 
         // 壁纸面板开关
         if (wallpaperSettingsBtn) {

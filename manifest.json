@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "__MSG_appName__",
-    "version": "1.8.0",
+    "version": "1.8.1",
     "description": "__MSG_appDescription__",
     "chrome_url_overrides": {
         "newtab": "newtab.html"
@@ -16,7 +16,11 @@
         "https://api.open-meteo.com/",
         "https://geocoding-api.open-meteo.com/",
         "https://wallhaven.cc/",
-        "https://picsum.photos/"
+        "https://picsum.photos/",
+        "https://*.picsum.photos/",
+        "https://images.pexels.com/",
+        "https://th.wallhaven.cc/",
+        "https://w.wallhaven.cc/"
     ],
     "icons": {
         "16": "icons/icon16.png",

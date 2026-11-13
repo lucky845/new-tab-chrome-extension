@@ -27,6 +27,8 @@ js/
 │   └── selectors.js            # 全局选择器与 ID 常量（window.SELECTORS）
 ├── utils/
 │   ├── request.js              # 统一请求封装（超时/重试/退避/错误解析）
+│   ├── liquid-glass.js         # 液态玻璃：WebGL2 折射渲染（FBO 池化 / 累积降噪 / cover 采样）
+│   ├── icon-safe.js            # 站点图标清洗 + 近白图标反相
 │   └── url-safe.js             # 链接协议白名单（只放行 http(s)，open() 自带 noopener）
 ├── theme-boot.js               # 首屏主题预置（同步执行，防白闪）
 ├── app.js                      # 主应用类
@@ -110,6 +112,7 @@ js/
 - `components/weather-icons.js`: 将中文天气现象映射到内置 SVG
 - `constants/selectors.js`: 中央化所有 dom id/选择器，统一经 `window.SELECTORS` 访问，减少魔法字符串
 - `utils/request.js`: 统一 `fetchJSON(url, { timeout, retries, retryDelay, backoff })`
+- `utils/liquid-glass.js`: 液态玻璃渲染器。`LiquidGlass`（调度 / 几何 / 累积）与 `GlassRenderer`（WebGL2）。三条约束要记住：① FBO 按尺寸池化，命中不代表内容有效，尺寸切换必须让调用方 reset；② 导出用的默认帧缓冲只增不减（赋值 `canvas.width` 会重建整个绘图缓冲，比建 FBO 更贵），导出按左下角取子矩形；③ 场景采样必须按 `background-size: cover` 反算绘制矩形，直接拿视口尺寸当 uv 会整体错位
 - `utils/url-safe.js`: 链接安全工具（`isHttp` / `isImageSource` / `href` / `open`）。快捷方式、自定义搜索引擎、壁纸地址、备份导入的数据都可能带任意协议，统一在这里挡掉 `javascript:` / `data:` 等非 http(s) 地址，`open()` 默认带 `noopener,noreferrer`
 - `config/weather-config.js`: 天气 API BASE_URL、缓存 TTL、最小请求间隔等
 

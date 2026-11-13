@@ -360,6 +360,10 @@ class AdvancedPagination {
             // 拖拽开始
             onStart: evt => {
                 evt.item.style.opacity = '0.5';
+                // 拖影快照不会渲染 WebGL 后备缓冲（实测 dragstart 里 canvas 读到
+                // [0,0,0,0] 全透明），图标会在拖影里凭空消失、看起来像"拖不动"。
+                // 先把每块玻璃烤成静态 <img>，快照里才有真实像素。
+                window.app?.liquidGlass?.freezeAll();
                 this._hoverCandidate = null;
                 this._hoverSince = 0;
                 this._dragSnapshot = null;
@@ -392,6 +396,8 @@ class AdvancedPagination {
             // 因此必须使用 onMove 阶段记录的目标索引，不能在 onEnd 里重新做命中检测
             onEnd: evt => {
                 evt.item.style.opacity = '';
+                // 拖拽结束立刻拆掉静态图，恢复实时折射
+                window.app?.liquidGlass?.unfreezeAll();
                 clearInterval(this._mergeTimer);
                 this._mergeTimer = null;
                 grid.querySelectorAll('.merge-target, .merge-candidate').forEach(el =>
@@ -457,6 +463,18 @@ class AdvancedPagination {
         const next = this.items.slice();
         next.splice(startIndex, pageItems.length, ...pageItems);
         this.items = next;
+
+        // 关键：重排后必须把 data-index 重写成新位置。
+        // 旧代码只更新了 this.items，DOM 上的 data-index 仍是拖动前那份，
+        // 于是第二次拖动时 handleItemMove 按旧索引取条目 —— 顺序存下来的和
+        // 画面显示的就不是一回事（表现为"拖了但没生效"）。
+        // 用 next 的全局下标重新标注被拖页里的每个格子。
+        const orderedNodes = nodes.filter(node =>
+            Number.isInteger(parseInt(node.dataset.index, 10))
+        );
+        orderedNodes.forEach((node, offset) => {
+            node.dataset.index = String(startIndex + offset);
+        });
 
         this.onItemMove(this.items);
     }

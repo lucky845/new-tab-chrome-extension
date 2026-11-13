@@ -11,15 +11,43 @@ class QuickAccessManager {
 
     // 初始化
     async init() {
-        await this.loadSites();
+        // 每一步都兜住：任何一次 storage 失败都不能让快捷访问整体停摆。
+        // 之前这里是一条裸的 await 链 —— loadSites() 抛错就整个 init 中断，
+        // initUI() 永远跑不到，页面停在骨架屏上（用户看到的就是"一大块灰"）。
+        // 现在即使全部失败，也至少能拿默认站点渲染出来。
+        try {
+            await this.loadSites();
+        } catch (error) {
+            console.error('[快捷访问] 读取失败，回退默认站点:', error?.message || error);
+            this.sites = [];
+        }
+
         const isFirstRun = this.sites.length === 0;
         if (isFirstRun) {
-            this.sites = JSON.parse(JSON.stringify(this.defaultSites));
-            await this.saveSites();
+            // 首次运行 / 读取失败：都视为空，用默认站点兜底
+            try {
+                this.sites = JSON.parse(JSON.stringify(this.defaultSites));
+                await this.saveSites();
+            } catch (error) {
+                console.warn('[快捷访问] 默认站点保存失败（仍会显示）:', error?.message || error);
+            }
         }
-        // 首次（含全新安装）在主面板第一位插入演示文件夹；只插一次，不动用户已有数据
-        await this.seedDemoFolder();
-        if (!isFirstRun) await this.normalizeFolders();
+
+        // 下面两步都是"锦上添花"：失败不影响面板出内容
+        try {
+            await this.seedDemoFolder();
+        } catch (error) {
+            console.warn('[快捷访问] 演示文件夹插入失败:', error?.message || error);
+        }
+        if (!isFirstRun) {
+            try {
+                await this.normalizeFolders();
+            } catch (error) {
+                console.warn('[快捷访问] 文件夹归一化失败:', error?.message || error);
+            }
+        }
+        // 最后再兜一道：保证至少有一个可渲染的条目列表
+        if (!Array.isArray(this.sites)) this.sites = [];
     }
 
     /**
@@ -355,6 +383,15 @@ class QuickAccessManager {
 
     // 获取所有快捷访问项目
     getSites() {
+        // 兜底：正常路径下 sites 一定已被 init() 填好；但 storage 卡死/超时时
+        // init 可能没能完成赋值，这里返回默认站点而不是空数组 ——
+        // 空数组会让首屏停在骨架屏上，而"有内容但可能不是用户自己的"至少可用。
+        if (!Array.isArray(this.sites) || this.sites.length === 0) {
+            if (!this._fallbackSites) {
+                this._fallbackSites = JSON.parse(JSON.stringify(this.defaultSites || []));
+            }
+            return this._fallbackSites;
+        }
         return this.sites;
     }
 
