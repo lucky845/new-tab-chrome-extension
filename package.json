@@ -1,6 +1,6 @@
 {
   "name": "new-tab-chrome-extension",
-  "version": "1.8.1",
+  "version": "1.8.0",
   "private": true,
   "description": "Custom new tab Chrome/Edge extension",
   "license": "MIT",
