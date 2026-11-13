@@ -9,6 +9,16 @@
         <script src="js/modules/theme-manager.js"></script>
         <script src="js/theme-boot.js"></script>
         <link rel="stylesheet" href="style.css" />
+        <!-- 非首屏样式（设置/壁纸/小工具/文件夹弹层/对话框）延后加载：
+             media=print 让浏览器不把它挡在首帧关键路径上，加载完再切回 all。
+             不支持 onload 时最坏情况是这些面板首次打开时样式晚到，仍是纯 CSS 方案。 -->
+        <link rel="preload" as="style" href="style-async.css" />
+        <link
+            rel="stylesheet"
+            href="style-async.css"
+            media="print"
+            onload="this.media='all'"
+        />
     </head>
     <body>
         <!-- 液态玻璃第 2 层：折射扭曲滤镜定义。
@@ -431,6 +441,7 @@
         <script src="js/utils/dsh-dialog.js"></script>
         <script src="js/utils/icon-safe.js"></script>
     <script src="js/utils/url-safe.js"></script>
+    <script src="js/utils/glass-edge.js"></script>
 
         <!-- 功能模块 -->
         <script src="js/modules/wallpaper-manager.js"></script>

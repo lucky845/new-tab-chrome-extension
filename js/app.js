@@ -66,12 +66,12 @@ class NewTabApp {
         try {
             console.log('正在初始化新标签页应用...');
 
-            // 主题先于其他模块：首帧已由 js/theme-boot.js 同步预置（防白闪），
-            // 这里用 chrome.storage 真值校正，并启动跨天/跟随系统的监听。
-            await this.themeManager.init();
-
-            // 初始化各个模块（settings.init 内含旧键迁移）
+            // 首帧主题已由 js/theme-boot.js 同步预置（防白闪），这里的 init 只是用
+            // chrome.storage 真值校正并挂上跨天/跟随系统监听——和其余模块互不依赖，
+            // 串行 await 等于白等一次往返，直接并进同一个 Promise.all。
             await Promise.all([
+                this.themeManager.init(),
+                // settings.init 内含旧键迁移，但它只写 storage，不影响本次读取
                 this.settingsManager.init(),
                 this.quickAccessManager.init(),
                 this.todoManager.init(),
@@ -88,16 +88,26 @@ class NewTabApp {
             const searchEngine = this.settingsManager.getSearchEngine();
             this.searchManager.setCurrentSearchEngine(searchEngine);
 
-            // 加载自定义搜索引擎并注入搜索管理器
-            await this.settingsManager.loadCustomEngines();
-            this.searchManager.setCustomEngines(this.settingsManager.getCustomEngines());
-
-            // 加载搜索历史
-            await this.searchManager.loadHistory();
-
-            // 初始化UI
+            // 先渲染，再补数据：自定义引擎与搜索历史只影响两个下拉框的内容，
+            // 让它们排在首屏渲染之后，快捷块/侧卡能早一帧出来。
             this.initUI();
             this.bindEvents();
+
+            Promise.all([
+                this.settingsManager
+                    .loadCustomEngines()
+                    .then(() =>
+                        this.searchManager.setCustomEngines(this.settingsManager.getCustomEngines())
+                    ),
+                this.searchManager.loadHistory(),
+            ]).catch(error => console.warn('[启动] 搜索结果补数据失败:', error));
+
+            // 入场动画只跑一次：渲染完成后下一帧撤掉 is-booting
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setTimeout(() => document.documentElement.classList.remove('is-booting'), 1200);
+                });
+            });
 
             this.isInitialized = true;
             console.log('新标签页应用初始化完成');
@@ -131,11 +141,21 @@ class NewTabApp {
         // 时钟 / 问候 / 标语
         this.startClock();
 
-        // 主页右侧常驻小组件（可开关）
-        this.initSideWidgets();
-
-        // 右翼小工具宫格
-        this.renderToolsCard();
+        // 两翼小组件与工具宫格推迟到空闲帧：它们要建 4 张卡 + 12 个按钮，
+        // 首帧只需要「时钟 + 搜索 + 快捷块」这三样主干。
+        // 显隐必须先切（只是 classList.toggle，很便宜），否则用户关了小组件会看到闪一下。
+        this.applySideWidgetsVisibility();
+        const renderSecondary = () => {
+            this.renderTodoCard();
+            this.renderNotesCard();
+            this.renderPomodoroCard();
+            this.renderToolsCard();
+        };
+        if (window.requestIdleCallback) {
+            window.requestIdleCallback(renderSecondary, { timeout: 600 });
+        } else {
+            setTimeout(renderSecondary, 120);
+        }
 
         // 壁纸亮度 / 模糊
         this.applyWallpaperAdjustments();
@@ -2729,18 +2749,65 @@ class NewTabApp {
             textarea.className = 'note-content';
             textarea.placeholder = '随手记点什么…（自动保存）';
             textarea.value = note.content || '';
-            textarea.addEventListener('input', () => {
-                if (this.noteSaveTimers.has(note.id)) {
-                    clearTimeout(this.noteSaveTimers.get(note.id));
+            // 自动保存 + 输入法保护（这两件事必须一起做）：
+            //   1) 组字期间（拼音还没上屏）input 会连续触发，此时落盘会把半截拼音写进去；
+            //      更糟的是保存后重渲染会把正在组字的 textarea 整个换掉，组字窗口直接被掐断。
+            //      → compositionstart 到 compositionend 之间一律不排保存，等上屏后再排。
+            //   2) 保存后不立刻重渲染：焦点还在这只输入框里时只记 pending，blur 时再补，
+            //      否则 DOM 重建会把光标、选区和组字状态一起丢掉。
+            //   3) 防抖 500ms → 900ms：给输入法组字和「想一下」留出停顿，词中间不落盘。
+            let composing = false;
+            let saveTimer = null;
+            let lastSavedContent = note.content || '';
+            let lastSaveToastAt = 0;
+
+            const commitNote = async () => {
+                saveTimer = null;
+                this.noteSaveTimers.delete(note.id);
+                const value = textarea.value;
+                if (value === lastSavedContent) return;
+                await this.notesManager.updateNote(note.id, value);
+                lastSavedContent = value;
+                const now = Date.now();
+                if (now - lastSaveToastAt > 3000) {
+                    lastSaveToastAt = now;
+                    window.showToast('便签已保存', 'success', 1200);
                 }
-                this.noteSaveTimers.set(
-                    note.id,
-                    setTimeout(async () => {
-                        await this.notesManager.updateNote(note.id, textarea.value);
-                        this.noteSaveTimers.delete(note.id);
-                        this.renderNotesCard();
-                    }, 500)
-                );
+                if (document.activeElement === textarea) {
+                    this.notesRenderPending = true;
+                } else {
+                    this.renderNotesCard();
+                }
+            };
+
+            const scheduleNoteSave = () => {
+                if (saveTimer) clearTimeout(saveTimer);
+                saveTimer = setTimeout(commitNote, 900);
+                this.noteSaveTimers.set(note.id, saveTimer);
+            };
+
+            textarea.addEventListener('compositionstart', () => {
+                composing = true;
+            });
+            textarea.addEventListener('compositionend', () => {
+                composing = false;
+                scheduleNoteSave();
+            });
+            textarea.addEventListener('input', event => {
+                // isComposing 兜底：某些输入法不发 compositionend，只靠事件标志
+                if (composing || event.isComposing) return;
+                scheduleNoteSave();
+            });
+            textarea.addEventListener('blur', () => {
+                if (saveTimer) {
+                    clearTimeout(saveTimer);
+                    saveTimer = null;
+                    commitNote();
+                }
+                if (this.notesRenderPending && document.activeElement !== textarea) {
+                    this.notesRenderPending = false;
+                    this.renderNotesCard();
+                }
             });
 
             const meta = document.createElement('div');

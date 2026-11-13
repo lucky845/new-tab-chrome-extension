@@ -154,12 +154,14 @@ ESLint is configured for browser extensions and recognizes globals like `chrome`
 - [x] Theme switching: light (as-is) / dark (veiled wallpaper) / follow system / sunrise–sunset (v1.7.0)
 - [x] Three-layer liquid glass (blur + SVG refraction + edge light) with measured acceptance for glass chroma and text contrast (v1.7.1)
 - [x] Theme system and liquid-glass rebuild, unified panel material, panel enter/exit motion, URL-scheme and import-field sanitising (v1.8.0)
+- [x] First-paint performance, edge refraction, weather quota protection and a batch of UX fixes (v1.8.1)
 
 ## 🗓️ Changelog
 
 | Version | Highlights |
 | --- | --- |
-| **v1.8.0** | Role-graded liquid glass rebuild, theme system with zero first-paint flash, unified panel material across six overlays, rebuilt folder preview and count badge, panel enter/exit motion, import sanitising for URL schemes and field types, assorted security fix-ups |
+| **v1.8.1** | Faster first paint (parallel init, deferred non-critical data, async non-first-screen CSS), panel entrance motion, edge refraction on shortcut tiles (SVG displacement map), visible monochrome-light icons in the light theme, weather API quota protection (multi-level cache / failure cooldown / cached-data badge), IME-safe note saving |
+| v1.8.0 | Role-graded liquid glass rebuild, theme system with zero first-paint flash, unified panel material across six overlays, rebuilt folder preview and count badge, panel enter/exit motion, import sanitising for URL schemes and field types, assorted security fix-ups |
 | v1.7.1 | Three-layer liquid glass (blur + SVG refraction + edge light) with measured glass-chroma and text-contrast acceptance |
 | v1.7.0 | Theme switching: light (raw wallpaper) / dark (veiled) / follow system / sunrise–sunset |
 | v1.6.0 | Unified confirm/input dialog, forward-compatible backup & restore, wallpaper category filter fix |

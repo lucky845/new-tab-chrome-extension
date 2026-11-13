@@ -110,13 +110,13 @@
          · 装饰档 --glass-*       快捷块、天气卡：要「看得见背后」，低模糊 + 薄纱；
          · 字段档 --glass-field-* 搜索框：自己带文字，底比装饰档实一档；
          · 卡片档 --glass-card-*  侧翼小组件：小字密，模糊更高、tint 更实，只留色相。 */
-    --glass-blur: 28px;
-    --glass-saturate: 118%;
+    --glass-blur: 30px;
+    --glass-saturate: 124%;
     /* 合成链：先折射（光被玻璃弯折）→ 再模糊（材质内散射）→ 最后显色。
        brightness/contrast 只做轻微校正：旧版 brightness 1.1 把白纱洗成灰，
        色全靠 saturate 硬拉，玻璃于是又亮又灰。 */
-    --glass-brightness: 1.3;
-    --glass-contrast: 1.03;
+    --glass-brightness: 1.06;
+    --glass-contrast: 1.02;
     /* 第 2 层：SVG 位移折射。滤镜定义见 newtab.html 里 <svg class="liquid-refract-defs">
        （feTurbulence → feGaussianBlur → feDisplacementMap scale 40）。
        顺序按光学来：先折射再模糊，实测比反过来多 11 个百分点的高频位移
@@ -132,25 +132,25 @@
        买一个看不见的效果。位移留给真正能被眼睛分辨的小块玻璃（快捷块、搜索框、侧卡）。 */
     --glass-overlay-backdrop: blur(var(--overlay-blur));
     /* 装饰档 tint：薄到只剩一层纱。颜色靠 backdrop 从壁纸里「提」，不靠刷白。 */
-    --glass-fill: rgb(var(--spec) / 0.36);
-    --glass-fill-hover: rgb(var(--spec) / 0.46);
+    --glass-fill: rgb(var(--spec) / 0.52);
+    --glass-fill-hover: rgb(var(--spec) / 0.62);
     /* 字段档：搜索框。低模糊是对的（要看见背后的形状），但 0.14 撑不住 18px 的字，
        所以这一档单独加实底；模糊也不能跟着放大，放大了又变成"糊成一团"。
        0.56 → 0.42：0.56 盖住壁纸 55% 的色，配上 brightness 1.3 就成了「白药丸」——
        看得出是白的，看不出是玻璃。0.42 让壁纸的色块透上来（实测字底仍有 4.6:1），
        再叠砂面颗粒，材质才立得住。 */
-    --glass-field-fill: rgb(var(--spec) / 0.42);
-    --glass-field-fill-hover: rgb(var(--spec) / 0.52);
+    --glass-field-fill: rgb(var(--spec) / 0.52);
+    --glass-field-fill-hover: rgb(var(--spec) / 0.62);
     --glass-field-blur: 24px;
-    --glass-field-saturate: 118%;
+    --glass-field-saturate: 124%;
     --glass-field-backdrop: blur(var(--glass-field-blur)) saturate(var(--glass-field-saturate))
         brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
     /* 卡片档：侧翼小组件。11–14px 的小字必须有一个亮度地板，
        所以 tint 更实、模糊更高（把背后的花纹压成色块，而不是让花纹直接顶到字上）。
        tint 越实透过的色越少，色相靠更高的 saturate 从剩下的底里抢回来。 */
-    --glass-card-fill: rgb(var(--spec) / 0.42);
-    --glass-card-blur: 28px;
-    --glass-card-saturate: 120%;
+    --glass-card-fill: rgb(var(--spec) / 0.6);
+    --glass-card-blur: 30px;
+    --glass-card-saturate: 132%;
     --glass-card-backdrop: blur(var(--glass-card-blur)) saturate(var(--glass-card-saturate))
         brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
     /* 面板级：坐在全屏遮罩之上，遮罩已提供一层压暗，tint 相应更实以免发糊。 */
@@ -159,47 +159,59 @@
        同一批文字回到 5.5:1 以上——面板可以厚，装饰件不行，两件事分开。 */
     /* 0.72 → 0.60：面板底下现在是白霜遮罩（亮、均匀），再刷 0.72 的白就透不出霜面，
        面板读成一张白纸。0.60 让磨砂从面板里透出来，边界交给白描边 + 面板投影。 */
-    --glass-panel-fill: rgb(var(--spec) / 0.52);
+    --glass-panel-fill: rgb(var(--spec) / 0.66);
     /* 浮层级：嵌在别的玻璃内部，禁止再叠 blur，靠更实的 tint + 轮廓光浮起来 */
-    --glass-popover-fill: rgb(var(--spec) / 0.8);
+    --glass-popover-fill: rgb(var(--spec) / 0.86);
     /* 高光：左上角径向光斑（曲面反射）+ 纵向渐变（顶部受光 → 底部背光）。 */
     --glass-sheen:
         radial-gradient(
             120% 90% at 24% -28%,
-            rgb(var(--spec) / 0.14) 0%,
-            rgb(var(--spec) / 0.02) 42%,
-            rgb(var(--spec) / 0) 70%
+            rgb(var(--spec) / 0.22) 0%,
+            rgb(var(--spec) / 0.04) 40%,
+            rgb(var(--spec) / 0) 68%
         ),
         linear-gradient(
             180deg,
-            rgb(var(--spec) / 0.04) 0%,
+            rgb(var(--spec) / 0.05) 0%,
             rgb(var(--spec) / 0) 46%,
-            rgb(var(--shadow) / 0.05) 100%
+            rgb(var(--shadow) / 0.04) 100%
+        ),
+        /* 底部积光：光从下面穿出去在近边处散开，是玻璃和"半透明白卡"的分水岭 */
+        radial-gradient(
+            70% 32% at 50% 118%,
+            rgb(var(--spec) / 0.1) 0%,
+            rgb(var(--spec) / 0.02) 55%,
+            rgb(var(--spec) / 0) 100%
         );
     /* 断面：一条均匀描边是塑料，渐变的一圈才是玻璃。
        下面的 --glass-bevel 给 ::after 用（content-box 遮罩抠出 1px 环），
        方向固定在 154deg：左上迎光最亮，右下背光压暗。 */
     --glass-bevel: linear-gradient(
         154deg,
-        rgb(var(--spec) / 0.95) 0%,
-        rgb(var(--spec) / 0.62) 14%,
-        rgb(var(--spec) / 0.08) 44%,
-        rgb(var(--shadow) / 0.05) 70%,
-        rgb(var(--shadow) / 0.14) 100%
+        rgb(var(--spec) / 1) 0%,
+        rgb(var(--spec) / 0.5) 10%,
+        rgb(var(--spec) / 0.04) 38%,
+        rgb(var(--shadow) / 0.06) 66%,
+        rgb(var(--shadow) / 0.26) 100%
     );
+    /* 边缘透镜：1.5px 的断面之外再给 1.5px 的「侧壁折射」——
+       断面环本身就是玻璃厚度，只有描边没有折射时它会读成贴纸。
+       用 backdrop-filter 在这一圈里把背景再提亮+提饱和，肉眼看到的就是
+       「光穿过厚边被弯折、变亮、变艳」的那一圈。 */
+    --glass-lens: blur(1px) brightness(1.22) saturate(1.55);
     /* 砂面：feTurbulence 生成的静态噪点，5% 叠加。真实玻璃不是数学级光滑的，
        这一层让"模糊色块"变成"有质感的材质"，成本一张小图。 */
     --glass-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
-    --glass-grain-opacity: 0.1;
+    --glass-grain-opacity: 0.04;
     --glass-rim: rgb(var(--spec) / 1);
-    --glass-rim-side: rgb(var(--spec) / 0.6);
-    --glass-shade: rgb(var(--shadow) / 0.12);
+    --glass-rim-side: rgb(var(--spec) / 0.72);
+    --glass-shade: rgb(var(--shadow) / 0.1);
     --glass-shade-side: rgb(var(--shadow) / 0.08);
     --glass-inner-glow: rgb(var(--spec) / 0.6);
     --glass-inner-shade: rgb(var(--shadow) / 0.18);
     /* 外发丝线：亮壁纸上的白玻璃如果只有内亮线，边界会「溶」进背景，
        外面必须压一条极淡的暗线把形状钉住。 */
-    --glass-hairline: rgb(var(--shadow) / 0.12);
+    --glass-hairline: rgb(var(--shadow) / 0.2);
     --glass-shadow:
         inset 0 1px 0 var(--glass-rim),
         inset 0 -2px 4px -1px var(--glass-shade),
@@ -352,6 +364,20 @@
     color: var(--text-primary);
     line-height: 1;
     margin-bottom: 4px;
+}
+
+/* 天气数据来自缓存（接口失败/冷却期）时常驻的小标记：
+   失败提示 5s 就没了，用户需要继续知道这不是实时数据 */
+.weather-widget.is-stale #weather-desc::after {
+    content: ' · 缓存';
+    font-size: 11px;
+    font-weight: 500;
+    color: rgb(var(--ink) / calc(0.55 * var(--text-k)));
+    letter-spacing: 0.02em;
+}
+
+.weather-widget.is-stale #weather-svg {
+    opacity: 0.75;
 }
 
 .weather-desc {
@@ -809,629 +835,7 @@ body {
     display: none !important;
 }
 
-/* 设置面板 */
-.settings-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    /* 遮罩与便签/待办弹窗同源（--overlay-bg + --glass-overlay-backdrop），
-       不再全屏跑 SVG 位移：见令牌处注释。 */
-    background: var(--overlay-bg);
-    backdrop-filter: var(--glass-overlay-backdrop);
-    -webkit-backdrop-filter: var(--glass-overlay-backdrop);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* 全屏 modal 层：盖住天气/时钟等页面组件，低于统一对话框 dsh-dialog（--z-confirm: 10000） */
-    z-index: var(--z-overlay);
-    opacity: 1;
-    transition:
-        opacity 0.3s ease,
-        visibility 0.3s ease;
-}
-
-.settings-panel.hidden {
-    opacity: 0;
-    visibility: hidden;
-}
-
-/* 面板内容层：便签/待办弹窗、设置、壁纸、小工具、文件夹共用同一套玻璃。
-   之前各写各的（面板圆角 20 / 弹窗 16、投影两套令牌），叠在一起看就是「几种不同的玻璃」。
-   这里只保留尺寸与内边距在各自规则里，材质统一交给这一条。 */
-.widget-content,
-.settings-content,
-.folder-popover {
-    background-color: var(--glass-panel-fill);
-    background-image: var(--glass-sheen);
-    border: 1px solid var(--glass-edge);
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-shadow);
-    color: var(--text-primary);
-    box-sizing: border-box;
-}
-
-.settings-content {
-    /* 关闭按钮(.close-panel-btn)以本容器为定位基准，缺少 relative 会逃逸到 .settings-panel(fixed) 的视口右上角 */
-    position: relative;
-    padding: 30px 40px;
-    width: 100%;
-    max-width: 500px;
-    max-height: 88vh; /* 内容超出视口时面板自身滚动，不裁切 */
-    overflow-y: auto;
-    color: var(--text-primary);
-    box-sizing: border-box;
-    margin: 0 auto;
-}
-
-/* 带固定页脚的设置面板：外框定位锚点，内容区内滚，页脚绝对定位常驻底部 */
-.settings-content--with-footer {
-    /* 页脚高度：padding 14*2 + 按钮 40 + 边框 1 = 69px，留 72 容错 */
-    --footer-h: 72px;
-    position: relative;
-    display: block;
-    overflow: hidden;
-    padding: 0;
-    height: 88vh;
-    max-height: 88vh;
-}
-
-.settings-scroll {
-    position: absolute;
-    inset: 0 0 var(--footer-h, 71px) 0; /* 底部让出页脚高度 */
-    overflow-y: auto;
-    padding: 30px 40px 20px;
-    box-sizing: border-box;
-}
-
-.settings-scroll::-webkit-scrollbar {
-    width: 6px;
-}
-
-.settings-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.settings-scroll::-webkit-scrollbar-thumb {
-    background: rgb(var(--ink) / calc(0.25 * var(--wash-k)));
-    border-radius: 3px;
-}
-
-.settings-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--ink) / calc(0.4 * var(--wash-k)));
-}
-
-/* 常驻页脚（绝对定位于面板底部，不参与滚动） */
-.settings-footer {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 14px 40px;
-    /* 页脚坐在面板玻璃内部：父级已有 blur，这里再叠一层是无效嵌套（实测 glassL 恒 9.9、
-       tex 恒 26.9 —— 那就是父面板的纹理，页脚自己的 blur 完全没生效）。
-       改成零模糊的"薄涂一层 tint + 顶部轮廓光"，边界由 1px 亮线交代。 */
-    border-top: 1px solid var(--glass-rim);
-    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
-    /* 面板本体已统一到 --radius-md(16px)，页脚底部圆角跟着走，否则内圆角比外圆角大一圈 */
-    border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
-    box-sizing: border-box;
-}
-
-.settings-content h2 {
-    font-size: 24px;
-    margin-bottom: 25px;
-    font-weight: 500;
-    text-align: center;
-}
-
-.setting-item {
-    margin-bottom: 20px;
-}
-
-.setting-item label {
-    display: block;
-    margin-bottom: 10px;
-    font-size: 16px;
-}
-
-.input-with-icon {
-    position: relative;
-}
-
-.setting-item input[type='text'],
-.setting-item input[type='password'],
-.setting-item textarea {
-    width: 100%;
-    padding: 12px 15px;
-    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
-    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: 16px;
-    box-sizing: border-box;
-    transition:
-        background-color var(--transition-fast),
-        border-color var(--transition-fast);
-}
-
-.setting-item textarea {
-    resize: vertical;
-    min-height: 80px;
-    font-family: inherit; /* Ensure it uses the same font */
-}
-
-.setting-item input[type='text']:focus,
-.setting-item input[type='password']:focus,
-.setting-item textarea:focus {
-    outline: none;
-    border-color: rgb(var(--blue) / 0.8);
-}
-
-.setting-item input.invalid,
-.setting-item textarea.invalid {
-    border-color: var(--error-text); /* A soft but clear red for errors */
-}
-
-/* 设置页下拉框：原生渲染在深色玻璃上不可读，统一成与输入框同规格 */
-.setting-item select {
-    height: 36px;
-    padding: 0 32px 0 12px;
-    border-radius: var(--radius-control);
-    border: 1px solid var(--surface-border);
-    color: var(--text-primary);
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    outline: none;
-    /* 原生箭头为深色，深色底上需要自绘一个浅色箭头 */
-    appearance: none;
-    -webkit-appearance: none;
-    /* 背景分三层声明：底色 + 自绘箭头，两者不互相覆盖 */
-    background-color: var(--surface-2);
-    background-image: var(--select-arrow);
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 12px 12px;
-    transition:
-        background-color var(--transition-fast),
-        border-color var(--transition-fast);
-}
-
-.setting-item select:hover {
-    background-color: var(--surface-3);
-}
-
-.setting-item select:focus {
-    border-color: var(--surface-border-strong);
-}
-
-.setting-item select option {
-    background: var(--option-bg);
-    color: var(--text-primary);
-}
-
-.icon-input-wrapper {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-}
-
-.icon-input-wrapper textarea {
-    flex-grow: 1;
-}
-
-.icon-preview-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.icon-preview {
-    width: 48px;
-    height: 48px;
-    background-color: rgb(var(--shadow) / 0.1);
-    border-radius: var(--radius-control);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.icon-preview img,
-.icon-preview svg {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.preview-label {
-    font-size: 13px;
-    color: var(--text-tertiary);
-}
-
-.error-message {
-    color: var(--error-text);
-    font-size: 13px;
-    margin-top: 6px;
-    min-height: 1.2em; /* Reserve space to prevent layout shifts */
-}
-
-.error-message.hidden {
-    visibility: hidden;
-}
-
-.setting-item input::placeholder,
-.setting-item textarea::placeholder {
-    color: var(--text-placeholder);
-}
-
-.visibility-toggle {
-    position: absolute;
-    top: 50%;
-    right: 10px;
-    transform: translateY(-50%);
-    border: none;
-    cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.visibility-toggle:hover {
-    color: var(--text-primary);
-}
-
-.api-key-description {
-    font-size: 12px;
-    /* 12px 说明文字压 0.6 alpha 只有 3.0–3.4:1；用 secondary(0.78) 也才 4.47:1，
-       刚过 AA 却在不同壁纸下会掉队，这里直接给满墨。 */
-    color: var(--text-primary);
-    margin-top: 8px;
-}
-
-.api-key-description a {
-    color: var(--text-secondary);
-    text-decoration: underline;
-}
-
-.settings-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 15px;
-    margin-top: 30px;
-}
-
-.settings-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-    padding: 0 18px;
-    border: 1px solid var(--surface-border);
-    border-radius: var(--radius-control);
-    background: var(--surface-2);
-    color: var(--text-primary);
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
-    transition:
-        background-color var(--transition-fast),
-        border-color var(--transition-fast);
-}
-
-/* 无修饰类的按钮不再落到浏览器默认灰底 */
-.settings-btn:not(.primary):not(.secondary):hover {
-    background: var(--surface-3);
-}
-
-/* ---------- 数据备份与恢复 ---------- */
-.backup-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.backup-actions .settings-btn {
-    flex: 0 0 auto;
-}
-
-/* 状态行：默认沿用 .api-key-description 的弱化色，仅覆盖语义色 */
-#backup-status.is-success {
-    color: rgb(var(--mint) / 0.95);
-}
-
-#backup-status.is-error {
-    color: rgb(var(--danger) / 0.95);
-}
-
-.settings-btn.primary {
-    background-color: rgb(var(--btn-blue));
-    color: rgb(var(--on-accent));
-}
-.settings-btn.primary:hover {
-    background-color: rgb(var(--btn-blue-hover));
-}
-
-.settings-btn.secondary {
-    /* 0.2 的墨洗层把自身底压到 125，满墨也只到 4.46:1；降到 0.12 让底亮回来。 */
-    background: rgb(var(--ink) / calc(0.12 * var(--wash-k)));
-    color: var(--text-primary);
-}
-.settings-btn.secondary:hover {
-    background: rgb(var(--ink) / calc(0.3 * var(--wash-k)));
-}
-
-/* 壁纸面板特定样式 */
-.wallpaper-content {
-    max-width: 90vw;
-    width: 1200px;
-    height: 90vh;
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-}
-
-.wallpaper-categories-sidebar {
-    width: 200px;
-    flex-shrink: 0;
-    border-right: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
-    padding-right: 20px;
-    height: 100%;
-    overflow-y: auto;
-}
-
-.wallpaper-categories-sidebar h4 {
-    font-size: 16px;
-    margin-bottom: 15px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    padding-left: 10px;
-}
-
-.wallpaper-categories-sidebar ul {
-    list-style: none;
-}
-
-.wallpaper-categories-sidebar li {
-    padding: 10px 15px;
-    border-radius: var(--radius-control);
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    font-size: 14px;
-}
-
-.wallpaper-categories-sidebar li:hover {
-    background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
-}
-
-.wallpaper-categories-sidebar li.active {
-    background-color: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
-    font-weight: 500;
-}
-
-.wallpaper-main {
-    flex-grow: 1;
-    /* 分栏工作台：允许收缩，避免搜索框把关闭按钮挤出面板 */
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.wallpaper-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    /* 右侧留出关闭按钮(32px)的位置，避免绝对定位的 X 压住搜索框 */
-    padding: 0 48px 20px 0;
-    border-bottom: 1px solid var(--surface-border);
-}
-
-/* 壁纸页是左右分栏工作台，标题跟栏位左对齐，不套用 .settings-content h2 的居中 */
-.wallpaper-header h2 {
-    margin: 0;
-    font-size: 20px;
-    text-align: left;
-}
-
-.wallpaper-search-box {
-    display: flex;
-    gap: 10px;
-}
-
-.wallpaper-search-box input {
-    width: 300px;
-    padding: 10px 15px;
-    border-radius: var(--radius-control);
-    border: 1px solid rgb(var(--ink) / calc(0.3 * var(--line-k)));
-    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
-    color: var(--text-primary);
-    font-size: 14px;
-}
-
-.wallpaper-search-box button {
-    padding: 10px 20px;
-    border-radius: var(--radius-control);
-    border: none;
-    background: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-.wallpaper-grid {
-    flex-grow: 1;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
-    overflow-y: auto;
-    padding: 5px;
-    margin: -5px;
-}
-
-.wallpaper-grid img {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition:
-        transform 0.3s ease,
-        box-shadow 0.3s ease;
-}
-
-.wallpaper-grid img:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px rgb(var(--shadow) / 0.3);
-}
-
-/* 壁纸网格空态/引导文案（未配置 Pexels Key 时的说明） */
-.wallpaper-empty-hint {
-    grid-column: 1 / -1;
-    padding: 40px 20px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.8;
-    color: var(--text-tertiary);
-    background: rgb(var(--ink) / calc(0.06 * var(--wash-k)));
-    border: 1px dashed rgb(var(--ink) / calc(0.25 * var(--line-k)));
-    border-radius: var(--radius-sm);
-}
-
-.wallpaper-pagination {
-    margin-top: auto;
-    padding-top: 15px;
-    border-top: 1px solid rgb(var(--ink) / calc(0.1 * var(--line-k)));
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-}
-
-.pagination-buttons {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.pagination-buttons button,
-.pagination-buttons span {
-    background: transparent;
-    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
-    color: var(--text-secondary);
-    border-radius: var(--radius-control);
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 40px;
-    text-align: center;
-}
-
-.pagination-buttons span {
-    border: none;
-    cursor: default;
-}
-
-.pagination-buttons button:hover {
-    background: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
-    border-color: rgb(var(--ink) / calc(0.3 * var(--line-k)));
-}
-
-.pagination-buttons button.active {
-    background: rgb(var(--blue) / 0.8);
-    border-color: transparent;
-    color: rgb(var(--on-accent));
-    font-weight: bold;
-}
-
-.pagination-buttons button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: transparent;
-}
-
-.pagination-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    font-size: 14px;
-    /* tertiary(0.6) 在浅色壁纸面板上只有 2.9:1，secondary(0.78) 也只到 4.03:1；
-       「跳至 N 页」是操作提示，14px 要用满墨。 */
-    color: var(--text-primary);
-}
-
-.jump-to-page {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#jump-to-page-input {
-    background: rgb(var(--recess-deep) / 0.9);
-    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
-    color: var(--text-primary);
-    border-radius: var(--radius-xs);
-    width: 50px;
-    padding: 6px 8px;
-    text-align: center;
-    font-size: 14px;
-}
-
-#jump-to-page-input:focus {
-    outline: none;
-    border-color: rgb(var(--blue) / 0.8);
-}
-
-#page-info {
-    display: none;
-}
-
-/* 面板关闭按钮：便签/待办弹窗(.widget-close-btn)、壁纸页(.close-panel-btn)、小工具页(.close-btn)
-   统一成同一个圆形玻璃按钮——之前一个是圆玻璃、一个是方灰块，并排看像来自两个项目。 */
-.close-panel-btn,
-.close-btn,
-.widget-close-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid var(--glass-edge);
-    border-radius: 50%;
-    background-color: var(--glass-field-fill);
-    backdrop-filter: var(--glass-field-backdrop);
-    -webkit-backdrop-filter: var(--glass-field-backdrop);
-    color: var(--text-primary);
-    font-size: 15px;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color var(--transition-fast);
-}
-
-.close-panel-btn:hover,
-.close-btn:hover,
-.widget-close-btn:hover {
-    background-color: var(--glass-field-fill-hover);
-}
-
-/* 常规面板关闭按钮：相对 .settings-content 落到右上内角 */
-.close-panel-btn {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    z-index: 2;
-}
-
-
+/* 当搜索框激活时，让图标更明显 */
 .search-submit-btn {
     position: absolute;
     right: 6px;
@@ -1454,7 +858,6 @@ body {
     background: rgb(var(--ink) / calc(0.2 * var(--wash-k)));
 }
 
-/* 当搜索框激活时，让图标更明显 */
 .search-bar:focus-within .search-submit-btn,
 .search-bar:focus-within .clear-search-btn.visible {
     color: var(--text-primary); /* 完全不透明的白色 */
@@ -3123,181 +2526,6 @@ body {
     white-space: nowrap;
 }
 
-/* ---------- 小工具面板 ---------- */
-.tools-content {
-    max-width: 720px;
-    margin: 0 auto;
-}
-
-.tools-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-/* .close-panel-btn 默认绝对定位到面板右上角；在小工具标题栏里让它回到 flex 流内，
-   否则标题变长时会从按钮底下穿过去 */
-.tools-panel-header-actions .close-panel-btn {
-    position: static;
-}
-
-.tools-panel-header h2 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-}
-
-.tools-panel-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-/* 详情页的「返回」是内容区面包屑，不占右上角动作位：右上角只留一个 ✕ */
-.tools-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0 0 10px;
-    padding: 2px 6px 2px 0;
-    border: 0;
-    background: none;
-    color: var(--text-secondary);
-    font-size: 13px;
-    cursor: pointer;
-    transition: color var(--transition-fast);
-}
-
-.tools-back-link:hover {
-    color: var(--text-primary);
-}
-
-.tools-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-top: 12px;
-}
-
-.tool-grid-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 14px;
-    border-radius: var(--radius-sm);
-    border: 1px solid rgb(var(--ink) / calc(0.14 * var(--line-k)));
-    background: rgb(var(--ink) / calc(0.07 * var(--wash-k)));
-    color: var(--text-primary);
-    text-align: left;
-    cursor: pointer;
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease,
-        transform 0.15s ease;
-}
-
-.tool-grid-btn:hover {
-    background: rgb(var(--ink) / calc(0.13 * var(--wash-k)));
-    border-color: rgb(var(--accent) / 0.6);
-    transform: translateY(-1px);
-}
-
-.tool-grid-icon {
-    font-size: 22px;
-    line-height: 1;
-}
-
-.tool-grid-name {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.tool-grid-desc {
-    font-size: 12px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
-.tool-input,
-.tool-output {
-    width: 100%;
-    box-sizing: border-box;
-    margin-top: 10px;
-    padding: 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid rgb(var(--ink) / calc(0.18 * var(--line-k)));
-    background: rgb(var(--ink) / calc(0.28 * var(--wash-k)));
-    color: var(--text-primary);
-    font-size: 13px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    line-height: 1.6;
-    resize: vertical;
-}
-
-.tool-input:focus,
-.tool-output:focus {
-    outline: none;
-    border-color: rgb(var(--accent));
-}
-
-.tool-output {
-    min-height: 96px;
-    white-space: pre-wrap;
-    word-break: break-all;
-    overflow: auto;
-    max-height: 40vh;
-}
-
-.tool-output:empty {
-    display: none;
-}
-
-.tools-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 12px;
-}
-
-.tools-actions button {
-    padding: 8px 16px;
-    border-radius: var(--radius-control);
-    border: 1px solid rgb(var(--ink) / calc(0.2 * var(--line-k)));
-    background: rgb(var(--ink) / calc(0.09 * var(--wash-k)));
-    color: var(--text-primary);
-    font-size: 13px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.tools-actions button:hover {
-    background: rgb(var(--ink) / calc(0.18 * var(--wash-k)));
-}
-
-.tools-actions button.primary {
-    background: rgb(var(--accent));
-    border-color: rgb(var(--accent));
-    color: rgb(var(--accent-ink));
-    font-weight: 600;
-}
-
-.tools-actions button.primary:hover {
-    background: rgb(var(--accent-hover));
-}
-
-@media (max-width: 700px) {
-    .tools-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .tools-mini-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
 /* ---------- 快捷方式文件夹 ---------- */
 .folder-item {
     cursor: pointer;
@@ -3349,6 +2577,13 @@ body {
     object-fit: contain;
 }
 
+/* 内置站点图标是近白单色（fill="#e6e6e6"，见 js/config/default-sites.js），
+   叠在浅色主题的白玻璃上等于隐形——文件夹预览里就是「2×2 空格子」。
+   只对 icon-safe.js 判定为单色近白的图标反相压深，彩色 / 用户自定义图标不受影响。 */
+html[data-theme='light'] .mono-light {
+    filter: invert(1) brightness(0.42) saturate(0);
+}
+
 .folder-cell-fallback {
     font-size: 10px;
     font-weight: 600;
@@ -3379,364 +2614,6 @@ body {
     font-size: 11px;
     font-weight: 600;
 }
-
-/* 文件夹弹层 */
-.folder-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-popover);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* 与便签/待办弹窗、设置页、壁纸页同一遮罩规格（--overlay-bg + --glass-overlay-backdrop） */
-    background: var(--overlay-bg);
-    backdrop-filter: var(--glass-overlay-backdrop);
-    -webkit-backdrop-filter: var(--glass-overlay-backdrop);
-}
-
-.folder-popover {
-    width: min(560px, calc(100vw - 48px));
-    max-height: min(640px, calc(100vh - 96px));
-    overflow: auto;
-    padding: 26px 30px;
-    /* 材质见「面板内容层」共用规则 */
-}
-
-.folder-popover-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-}
-
-.folder-popover-header h3 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 600;
-}
-
-.folder-popover-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.folder-popover-actions button {
-    /* 与统一后的 .close-panel-btn / .close-btn 同规格：30×30 圆形玻璃 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border-radius: 50%;
-    border: 1px solid var(--glass-edge);
-    background-color: var(--glass-field-fill);
-    backdrop-filter: var(--glass-field-backdrop);
-    -webkit-backdrop-filter: var(--glass-field-backdrop);
-    color: var(--text-primary);
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    transition: background-color var(--transition-fast);
-}
-
-.folder-popover-actions button:hover {
-    background-color: var(--glass-field-fill-hover);
-}
-
-.folder-items-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-    gap: 12px;
-}
-
-.folder-items-grid:empty {
-    display: none;
-}
-
-.folder-site {
-    position: relative;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-drag: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 7px;
-    padding: 14px 8px 10px;
-    border-radius: var(--radius-sm);
-    /* 卡片比深色面板底更亮才立得住层级 */
-    border: 1px solid var(--surface-border);
-    background: var(--surface-1);
-    text-decoration: none;
-    color: var(--text-primary);
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease;
-}
-
-.folder-site:hover {
-    background: var(--surface-3);
-    border-color: rgb(var(--accent) / 0.55);
-}
-
-.folder-site-icon {
-    /* 落在 8px 栅格上；DPR2 需 64px、DPR3 需 96px，favicon 已按 sz=128 请求 */
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.folder-site-icon img,
-.folder-site-icon svg {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.folder-site-name {
-    max-width: 100%;
-    font-size: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.folder-site-remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: rgb(var(--ink) / calc(0.22 * var(--wash-k)));
-    color: var(--text-secondary);
-    backdrop-filter: blur(var(--blur-soft));
-    -webkit-backdrop-filter: blur(var(--blur-soft));
-    font-size: 10px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.folder-site:hover .folder-site-remove {
-    opacity: 1;
-}
-
-.folder-empty-hint {
-    margin: 14px 0 2px;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--text-secondary);
-}
-
-/* 拖拽合并：拖到图标上方时的高亮提示（手机式拖拽反馈） */
-.quick-access-item.merge-target {
-    outline: 2px solid rgb(var(--accent));
-    outline-offset: 2px;
-    background: rgb(var(--accent) / 0.28);
-    transform: scale(1.06);
-}
-
-.folder-item.merge-target::after {
-    content: '合并';
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 3px 0;
-    font-size: 11px;
-    text-align: center;
-    color: rgb(var(--accent-ink));
-    background: rgb(var(--accent));
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-}
-
-/* 空文件夹提示 */
-.folder-preview:empty::after {
-    content: '＋';
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-size: 18px;
-    opacity: 0.5;
-}
-
-/* 添加按钮图标：随格子缩放的字号 */
-.add-quick-access-btn .icon-wrapper {
-    font-size: clamp(18px, 26%, 30px);
-    line-height: 1;
-    color: var(--text-primary);
-}
-
-/* 文件夹内拖拽移出提示 */
-.folder-popover.drag-out {
-    border-color: rgba(255, 107, 107, 0.85);
-    box-shadow:
-        var(--glass-shadow),
-        0 0 0 3px rgba(255, 107, 107, 0.25);
-}
-
-.folder-popover.drag-out::after {
-    content: '松手移出文件夹';
-    position: absolute;
-    left: 50%;
-    bottom: 10px;
-    transform: translateX(-50%);
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    font-size: 12px;
-    color: var(--text-primary);
-    background: rgba(255, 107, 107, 0.9);
-    pointer-events: none;
-}
-
-/* 外观统一在 style.css:3366 的 .folder-popover 定义（走 --panel-* token），此处只补定位 */
-.folder-popover {
-    position: relative;
-}
-
-/* 文件夹内的站点卡片可拖动 */
-.folder-site {
-    cursor: grab;
-}
-
-.folder-site:active {
-    cursor: grabbing;
-}
-
-/* 合并候选（指针已在中心区，但悬停时长未达阈值）：弱提示，与确认态区分 */
-.quick-access-item.merge-candidate {
-    box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45);
-}
-
-/* 合并目标确认态（悬停达到阈值）：实心高亮 */
-.quick-access-item.merge-target {
-    outline: 2px solid rgb(var(--accent));
-    outline-offset: 2px;
-    background: rgb(var(--accent) / 0.28);
-    transform: scale(1.06);
-    box-shadow: 0 8px 24px rgb(var(--shadow) / 0.28);
-}
-
-.quick-access-item.merge-target::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: rgb(var(--accent) / 0.14);
-    pointer-events: none;
-}
-
-.note-delete-btn svg {
-    display: block;
-}
-
-/* ---------- 统一确认 / 输入对话框（dsh-dialog） ---------- */
-.dsh-dialog {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-confirm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(8, 11, 14, 0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    animation: dsh-dialog-fade 0.16s ease-out;
-}
-
-.dsh-dialog__panel {
-    width: min(420px, calc(100vw - 48px));
-    background-color: var(--glass-panel-fill);
-    background-image: var(--glass-sheen);
-    border: 1px solid var(--glass-edge);
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-shadow);
-    padding: 22px 24px 18px;
-    box-sizing: border-box;
-    animation: dsh-dialog-rise 0.18s ease-out;
-}
-
-.dsh-dialog__title {
-    margin: 0 0 10px;
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.dsh-dialog__message {
-    margin: 0 0 16px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text-secondary);
-    word-break: break-word;
-}
-
-.dsh-dialog__input {
-    width: 100%;
-    padding: 11px 14px;
-    margin-bottom: 8px;
-    font-size: 15px;
-    color: var(--text-primary);
-    background: var(--surface-2);
-    border: 1px solid var(--surface-border);
-    border-radius: var(--radius-sm);
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color var(--transition-fast);
-}
-
-.dsh-dialog__input:focus {
-    border-color: var(--surface-border-strong);
-}
-
-.dsh-dialog__error {
-    min-height: 18px;
-    margin: 0 0 6px;
-    font-size: 13px;
-    color: var(--color-error);
-}
-
-.dsh-dialog__actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 12px;
-}
-
-.dsh-dialog__actions .is-danger {
-    background-color: var(--color-error);
-    color: #1a1113;
-}
-
-@keyframes dsh-dialog-fade {
-    from {
-        opacity: 0;
-    }
-}
-
-@keyframes dsh-dialog-rise {
-    from {
-        opacity: 0;
-        transform: translateY(8px) scale(0.985);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .dsh-dialog,
-    .dsh-dialog__panel {
-        animation: none;
-    }
-}
-
 
 /* 壁纸分类：图源不支持检索时的可见提示 */
 .wallpaper-category-hint {
@@ -3839,8 +2716,8 @@ html[data-theme='dark'] {
        读起来是「毛玻璃贴纸」而不是「玻璃」。深色的正解是低模糊 + 中性饱和 + 更实的 tint：
        模糊低才看得见背后的形状在动，tint 实才有厚度，saturate 只补回被 tint 吃掉的那点色。 */
     --glass-blur: 22px;
-    --glass-saturate: 145%;
-    --glass-brightness: 0.86;
+    --glass-saturate: 155%;
+    --glass-brightness: 0.92;
     --glass-contrast: 1.05;
     --glass-fill: rgb(8 12 18 / 0.5);
     --glass-fill-hover: rgb(8 12 18 / 0.6);
@@ -3876,14 +2753,14 @@ html[data-theme='dark'] {
         );
     --glass-bevel: linear-gradient(
         154deg,
-        rgb(var(--spec) / 0.72) 0%,
-        rgb(var(--spec) / 0.3) 22%,
+        rgb(var(--spec) / 0.85) 0%,
+        rgb(var(--spec) / 0.34) 22%,
         rgb(var(--spec) / 0.04) 55%,
         rgb(var(--shadow) / 0.35) 80%,
         rgb(var(--shadow) / 0.5) 100%
     );
     --glass-grain: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><\/filter><rect width='140' height='140' filter='url(%23n)'/><\/svg>\");
-    --glass-grain-opacity: 0.07;
+    --glass-grain-opacity: 0.05;
     --glass-rim: rgb(var(--spec) / 0.85);
     --glass-rim-side: rgb(var(--spec) / 0.45);
     --glass-shade: rgb(var(--shadow) / 0.55);
@@ -4152,8 +3029,12 @@ html[data-theme='dark'] {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    padding: 1.5px;
+    padding: 2px;
     background: var(--glass-bevel);
+    /* 断面环同时当透镜用：外圈 1.5px 是 154deg 的受光描边，内圈由 backdrop-filter 提亮，
+       两者叠起来才有「厚玻璃边」的立体感 */
+    -webkit-backdrop-filter: var(--glass-lens);
+    backdrop-filter: var(--glass-lens);
     -webkit-mask:
         linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
@@ -4164,6 +3045,16 @@ html[data-theme='dark'] {
     mask-composite: exclude;
     pointer-events: none;
     z-index: 2;
+}
+
+/* 位移环（js/utils/glass-edge.js 给元素加 .has-glass-edge 并写入 --glass-edge-filter）：
+   断面从「亮度环」升级成「折射环」—— 背景在边缘被真正掰弯，这一圈才有玻璃的厚度。
+   环宽 2px → 5px：位移需要一点面积才读得出来，太宽会啃进内容区。
+   不支持 backdrop-filter: url() 的浏览器拿不到这个类，自动退回上面的亮度环。 */
+.has-glass-edge::after {
+    padding: 3px;
+    -webkit-backdrop-filter: url(#glass-edge) blur(1px);
+    backdrop-filter: url(#glass-edge) blur(1px);
 }
 
 /* 搜索框是 <input>，伪元素在替换元素上不渲染，断面环挂在包一层的 .search-bar 上 */
@@ -4322,6 +3213,80 @@ html[data-theme='dark'] {
     to {
         opacity: 1;
         transform: none;
+    }
+}
+
+
+/* ============================================================
+   首屏入场（只在 html.is-booting 期间生效，app 渲染完 1.2s 后自动撤掉）
+   ------------------------------------------------------------
+   之前是「一帧之内全部出现」，观感就是硬切。这里按信息层级排节奏：
+     时钟先淡入（视觉锚点，最先要稳）→ 搜索框上移落位 →
+     快捷块按 45ms 递进（读起来是「一排排出现」而不是整块闪）→ 两翼小组件最后浮起。
+   只动 opacity / transform，不触发布局；prefers-reduced-motion 下整段跳过。
+   ============================================================ */
+@keyframes boot-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes boot-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+html.is-booting .clock-container {
+    animation: boot-fade 0.45s ease both;
+}
+
+html.is-booting .weather-widget {
+    animation: boot-fade 0.5s ease both;
+    animation-delay: 60ms;
+}
+
+html.is-booting .search-container {
+    animation: boot-rise 0.5s var(--motion-ease) both;
+    animation-delay: 70ms;
+}
+
+html.is-booting .quick-access-item,
+html.is-booting .add-quick-access-btn {
+    animation: boot-rise 0.5s var(--motion-ease) both;
+    animation-delay: 120ms;
+}
+
+html.is-booting .quick-access-item:nth-child(2) { animation-delay: 165ms; }
+html.is-booting .quick-access-item:nth-child(3) { animation-delay: 210ms; }
+html.is-booting .quick-access-item:nth-child(4) { animation-delay: 255ms; }
+html.is-booting .quick-access-item:nth-child(5) { animation-delay: 300ms; }
+html.is-booting .quick-access-item:nth-child(6) { animation-delay: 345ms; }
+html.is-booting .quick-access-item:nth-child(7) { animation-delay: 390ms; }
+html.is-booting .quick-access-item:nth-child(8) { animation-delay: 435ms; }
+html.is-booting .quick-access-item:nth-child(9) { animation-delay: 480ms; }
+
+html.is-booting .side-card {
+    animation: boot-rise 0.55s var(--motion-ease) both;
+    animation-delay: 240ms;
+}
+
+html.is-booting .side-card:nth-of-type(2) {
+    animation-delay: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.is-booting .clock-container,
+    html.is-booting .weather-widget,
+    html.is-booting .search-container,
+    html.is-booting .quick-access-item,
+    html.is-booting .add-quick-access-btn,
+    html.is-booting .side-card {
+        animation: none !important;
     }
 }
 
