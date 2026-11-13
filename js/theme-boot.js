@@ -9,6 +9,8 @@
  * 本文件依赖 theme-manager.js 已先加载（提供 ThemeManager.applyStoredSync）。
  */
 (function () {
+    // 首屏入场动画的开关：必须早于第一帧样式计算，否则会先画好再跳一次（见 style.css 的 boot-* 动画）。
+    document.documentElement.classList.add('is-booting');
     if (!window.ThemeManager || typeof window.ThemeManager.applyStoredSync !== 'function') {
         // 兜底：极端情况下模块未就绪，至少不要留在无 data-theme 的状态
         var prefersLight = false;
