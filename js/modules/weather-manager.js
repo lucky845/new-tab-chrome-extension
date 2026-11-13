@@ -245,61 +245,14 @@ class WeatherManager {
     }
 
     /**
-     * 高德的失败分两类：
-     *   配额/Key/服务不可用 —— 重试与刷新都没有意义，冷却越久越好；
-     *   其它（网络抖动、空数据）—— 短冷却，让用户过几分钟再试。
-     */
-    static isAmapFatal(info) {
-        return /CUQPS|QUERY_OVER_LIMIT|OVER_LIMIT|INVALID_USER_KEY|USERKEY_PLAT_NOMATCH|INVALID_USER_SCODE|SERVICE_NOT_AVAILABLE/i.test(
-            String(info || '')
-        );
-    }
-
-    // 高德返回 HTTP 200 但 status !== '1' 同样算失败；把 info 抬到错误对象上，便于上层分类
-    assertAmapOk(data, label) {
-        if (!data || data.status === '1') return;
-        const info = data.info || data.infocode || '未知错误';
-        const error = new Error(`${label}接口返回失败：${info}`);
-        error.amapInfo = info;
-        error.fatal = WeatherManager.isAmapFatal(info);
-        throw error;
-    }
-
-    // 失败冷却：写一个截止时间戳，冷却期内不再打高德（除非用户手动强制刷新）
-    async inCooldown() {
-        const key = 'weather_cooldown_until';
-        const result = await chrome.storage.local.get([key]);
-        return (result[key] || 0) > Date.now();
-    }
-
-    async setCooldown(ms, reason) {
-        await chrome.storage.local.set({
-            weather_cooldown_until: Date.now() + ms,
-            weather_cooldown_reason: reason || '',
-        });
-    }
-
-    // 上一次成功的数据：刷新失败时继续显示，而不是把卡片打成错误态
-    async readLastOk() {
-        const result = await chrome.storage.local.get(['weather_last_ok']);
-        return result.weather_last_ok || null;
-    }
-
-    /**
      * 更新天气信息
-     * @param {{force?: boolean}} [options] force=true 跳过节流与冷却（用户手动点刷新）
      */
-    async updateWeather({ force = false } = {}) {
+    async updateWeather() {
         if (this.isLoading) return;
         // 限流：避免过于频繁
         const now = Date.now();
         const minInterval = window.WEATHER_CONFIG?.MIN_REQUEST_INTERVAL || 10000;
-        if (!force && this._lastRequestAt && now - this._lastRequestAt < minInterval) {
-            return;
-        }
-        // 上一次失败的冷却期（配额类失败会冷却 30 分钟，避免继续烧配额）
-        if (!force && (await this.inCooldown())) {
-            console.info('[weather] 处于失败冷却期，跳过本次请求');
+        if (this._lastRequestAt && now - this._lastRequestAt < minInterval) {
             return;
         }
         this._lastRequestAt = now;
@@ -325,11 +278,6 @@ class WeatherManager {
             if (weatherData) {
                 this.weatherData = weatherData;
                 this.displayWeather(weatherData);
-                this.clearStale();
-                // 存一份「上次成功」，刷新失败时可以退回去显示
-                chrome.storage.local
-                    .set({ weather_last_ok: { data: weatherData, ts: Date.now() } })
-                    .catch(() => {});
                 // 若当前未指定城市且成功从定位/IP 获取到城市名，持久化保存，避免频繁请求
                 // 注意：「当前位置」是定位路径的显示占位文案，不是真实城市名，
                 // 持久化它会让下次启动误走城市查询（geocoding 查不到）→ 永远失败
@@ -351,57 +299,13 @@ class WeatherManager {
             } else {
                 console.error('获取天气信息失败:', error);
             }
-            // 冷却：配额/Key 异常、以及「要用户改设置才会变」的定位权限问题都冷却 30 分钟；
-            // 其余（网络抖动、空数据）3 分钟，给一次快速恢复的机会。
-            const needsUserAction =
-                error?.fatal ||
-                /权限被拒绝|不支持地理位置|请在浏览器\/系统设置中允许位置访问/.test(msg);
-            const cooldownMs = needsUserAction ? 30 * 60 * 1000 : 3 * 60 * 1000;
-            this.setCooldown(cooldownMs, msg).catch(() => {});
-
-            // 有上次成功的数据就继续显示（并在提示里说明是缓存），不要把卡片打成错误态
-            const lastOk = await this.readLastOk().catch(() => null);
-            if (lastOk && lastOk.data) {
-                const ageMin = Math.max(1, Math.round((Date.now() - (lastOk.ts || 0)) / 60000));
-                this.weatherData = lastOk.data;
-                this.displayWeather(lastOk.data);
-                this.markStale(ageMin);
-                this.showWeatherTip({
-                    type: 'warning',
-                    message: `天气更新失败（${error?.fatal ? '接口配额或 Key 异常' : msg}），当前显示 ${ageMin} 分钟前的数据`,
-                    duration: 5000,
-                    closable: true,
-                });
-            } else {
-                this.showError(msg);
-            }
+            this.showError(msg);
         } finally {
             this.isLoading = false;
             // 加载态必须收敛：weatherData 为空等边界下 displayWeather 不会被调用，
             // .weather-widget.loading 的 pulse 会一直残留成「自己动」的指示。
             this.hideLoading();
         }
-    }
-
-    /**
-     * 标记「当前显示的是缓存数据」。
-     * 失败提示 5 秒后会消失，此后用户没有别的线索判断数据是否新鲜，
-     * 所以在卡片上留一个常驻的「· 缓存」小标记（CSS 渲染，不进 DOM 结构）。
-     */
-    markStale(ageMin) {
-        const widget = document.getElementById('weather-widget');
-        if (!widget) return;
-        widget.classList.add('is-stale');
-        widget.title = ageMin
-            ? `当前显示 ${ageMin} 分钟前的缓存数据（下次自动更新在冷却结束后）`
-            : '当前显示缓存数据';
-    }
-
-    clearStale() {
-        const widget = document.getElementById('weather-widget');
-        if (!widget) return;
-        widget.classList.remove('is-stale');
-        widget.removeAttribute('title');
     }
 
     /**
@@ -428,12 +332,11 @@ class WeatherManager {
         const { fetchJSON } = await import('../utils/request.js');
         const data = await fetchJSON(url, {
             timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-            retries: 1,
+            retries: 2,
             retryDelay: 600,
             backoff: 2,
         });
-        this.assertAmapOk(data, '城市编码');
-        if (!data.geocodes || data.geocodes.length === 0) {
+        if (data.status !== '1' || !data.geocodes || data.geocodes.length === 0) {
             throw new Error('未查询到城市adcode');
         }
         const adcode = data.geocodes[0].adcode || data.geocodes[0].citycode;
@@ -456,12 +359,11 @@ class WeatherManager {
         const { fetchJSON } = await import('../utils/request.js');
         const data = await fetchJSON(url, {
             timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-            retries: 1,
+            retries: 2,
             retryDelay: 600,
             backoff: 2,
         });
-        this.assertAmapOk(data, '天气');
-        if (!data.lives || data.lives.length === 0) {
+        if (data.status !== '1' || !data.lives || data.lives.length === 0) {
             throw new Error('高德天气返回空数据');
         }
         const formatted = this.formatAmapWeatherData(data.lives[0]);
@@ -479,9 +381,6 @@ class WeatherManager {
                 return await this.getWeatherByLocation();
             } catch (error) {
                 console.log(`第${attempt}次尝试失败:`, error.message);
-
-                // 配额/Key 类错误重试只是继续烧配额，直接上抛
-                if (error?.fatal) throw error;
 
                 if (attempt === maxRetries) {
                     // 最后一次尝试失败，抛出错误
@@ -502,30 +401,15 @@ class WeatherManager {
             const position = await this.getCurrentPosition();
             const lng = position.coords.longitude;
             const lat = position.coords.latitude;
-            // 逆地理结果按坐标缓存 24h：定位在同一位置反复刷新时不该每次都问高德。
-            // 坐标取 2 位小数（约 1km），避免 GPS 抖动导致缓存永远不命中。
-            const coordKey = `amap_regeo_${lng.toFixed(2)}_${lat.toFixed(2)}`;
-            const coordCached = await chrome.storage.local.get([coordKey]);
-            const coordTtl = window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000;
-            let regeoData =
-                coordCached &&
-                coordCached[coordKey] &&
-                Date.now() - coordCached[coordKey].ts < coordTtl
-                    ? coordCached[coordKey].data
-                    : null;
-            if (!regeoData) {
-                const regeoUrl = `${this.baseUrl}/geocode/regeo?key=${this.apiKey}&location=${lng},${lat}`;
-                const { fetchJSON } = await import('../utils/request.js');
-                // retries: 1 —— 每次重试都是一次配额消耗，配额类错误重试也没用
-                regeoData = await fetchJSON(regeoUrl, {
-                    timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-                    retries: 1,
-                    retryDelay: 600,
-                    backoff: 2,
-                });
-                this.assertAmapOk(regeoData, '逆地理');
-                await chrome.storage.local.set({ [coordKey]: { data: regeoData, ts: Date.now() } });
-            }
+            // 逆地理，获取adcode
+            const regeoUrl = `${this.baseUrl}/geocode/regeo?key=${this.apiKey}&location=${lng},${lat}`;
+            const { fetchJSON } = await import('../utils/request.js');
+            const regeoData = await fetchJSON(regeoUrl, {
+                timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
+                retries: 2,
+                retryDelay: 600,
+                backoff: 2,
+            });
             const adcode = regeoData?.regeocode?.addressComponent?.adcode;
             const cityCode = adcode || regeoData?.regeocode?.addressComponent?.citycode;
             const detectedCityName =
@@ -533,18 +417,6 @@ class WeatherManager {
                 regeoData?.regeocode?.addressComponent?.province;
             if (!adcode && !cityCode) {
                 throw new Error('逆地理失败，未获取到adcode');
-            }
-            // 顺手把「城市 → adcode」也写进缓存：下次启动若 currentCity 已被持久化成这个城市，
-            // getAdcodeByCity 就能直接命中，省掉一次 geocode 请求（实测第二次打开会多打一发）。
-            if (detectedCityName && (adcode || cityCode)) {
-                chrome.storage.local
-                    .set({
-                        ['amap_adcode_' + detectedCityName]: {
-                            adcode: adcode || cityCode,
-                            ts: Date.now(),
-                        },
-                    })
-                    .catch(() => {});
             }
             // 天气
             const data = await this.getWeatherByAdcode(adcode || cityCode);
@@ -573,9 +445,7 @@ class WeatherManager {
                 return data;
             } catch (ipErr) {
                 console.error('IP 定位回退也失败:', ipErr);
-                // 配额/Key 问题必须以 IP 路径的错误为准，否则上层会当成普通定位失败、只冷却 3 分钟
-                if (ipErr?.fatal) throw ipErr;
-                throw error; // 其余情况抛原始错误，便于上层判断权限/超时
+                throw error; // 抛出原始错误，便于上层判断权限/超时
             }
         }
     }
@@ -593,9 +463,6 @@ class WeatherManager {
             retryDelay: 500,
             backoff: 2,
         });
-        // 配额/Key 类失败要在这里就抛成 fatal 错误：否则会被当成「IP 未返回 adcode」，
-        // 上层会继续整段重试（每次重试都是又一次配额消耗）。
-        this.assertAmapOk(data, 'IP 定位');
         const ipAdcode = data?.adcode || data?.citycode;
         if (!ipAdcode) throw new Error('IP定位未返回adcode');
         const cityName = data?.city || data?.province;

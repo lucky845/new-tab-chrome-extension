@@ -117,29 +117,6 @@
         return el;
     }
 
-    // 近白填充：内置图标统一用 #e6e6e6，纯白/白色关键字一并算进来
-    const LIGHT_FILL_RE =
-        /^(#e6e6e6|#eee|#eeeeee|#fff|#ffffff|white|rgba?\(\s*255\s*,\s*255\s*,\s*255[^)]*\))$/i;
-
-    /**
-     * 这个 SVG 是不是「单色近白」图标（决定浅色主题要不要反相）。
-     * 判定从严：必须至少有一个 fill，且所有 fill 都是近白；任何彩色/var()/currentColor 一律不算。
-     */
-    function isMonoLight(svg) {
-        const nodes = [svg].concat(Array.from(svg.querySelectorAll('[fill], [style]')));
-        let seenFill = 0;
-        for (const node of nodes) {
-            const fill = (node.getAttribute && node.getAttribute('fill')) || '';
-            const style = (node.getAttribute && node.getAttribute('style')) || '';
-            const styleFill = /(?:^|;)\s*fill\s*:\s*([^;]+)/i.exec(style);
-            const value = (fill || (styleFill ? styleFill[1] : '')).trim();
-            if (!value) continue;
-            if (!LIGHT_FILL_RE.test(value)) return false;
-            seenFill++;
-        }
-        return seenFill > 0;
-    }
-
     /**
      * 解析 SVG 字符串 -> 安全 <svg> 元素；失败返回 null
      * @param {string} svgText
@@ -163,10 +140,6 @@
             if (!safe.getAttribute('width')) safe.setAttribute('width', '100%');
             if (!safe.getAttribute('height')) safe.setAttribute('height', '100%');
             safe.classList.add('icon');
-            // 内置站点图标（default-sites.js）全是 fill="#e6e6e6" 的近白单色图；
-            // 浅色主题的白色玻璃上它们会「消失」。这里只给确认是单色浅图的打标记，
-            // 由 CSS 在浅色主题下反相压深——彩色/自定义图标不受影响。
-            if (isMonoLight(safe)) safe.classList.add('mono-light');
         }
         return safe;
     }
