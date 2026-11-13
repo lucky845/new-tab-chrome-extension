@@ -73,6 +73,13 @@ class WeatherManager {
             // 启动优先走缓存渲染，避免刷新即请求
             const usedCache = await this.displayCachedWeatherIfFresh();
             if (!usedCache) {
+                // 缓存过期/缺失：先把旧数据贴上（带「· 缓存」标记），再后台更新，
+                // 网络慢或接口超时也不会让卡片先空成「--°C」
+                const cached = await this.readCachedData().catch(() => null);
+                if (cached && cached.data) {
+                    this.weatherData = cached.data;
+                    this.displayWeather(cached.data);
+                }
                 await this.updateWeather();
             }
 
@@ -89,34 +96,66 @@ class WeatherManager {
     }
 
     /**
+     * 当前城市对应的 adcode 缓存（24h）。
+     * 「当前位置」是定位路径的占位文案，不是城市名，不能拿来当 key 查。
+     */
+    async readAmapAdcodeCache() {
+        const city = this.currentCity;
+        if (!city || city === '当前位置') return null;
+        const adcodeKey = `amap_adcode_${city}`;
+        const stored = await chrome.storage.local.get([adcodeKey]);
+        const entry = stored && stored[adcodeKey];
+        if (!entry || !entry.adcode) return null;
+        const ttl = window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000;
+        if (Date.now() - (entry.ts || 0) >= ttl) return null;
+        return entry;
+    }
+
+    /**
      * 若缓存仍在有效期内，则直接渲染缓存并跳过请求
      */
     async displayCachedWeatherIfFresh() {
         try {
-            const ttl = window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
-            // 若用户设置了城市，尝试通过 city -> adcode 缓存，再读天气缓存
+            const ttl = this.getCacheTtl();
+            const adcoded = await this.readAmapAdcodeCache();
+            // 1) 高德城市缓存（city -> adcode -> weather）
+            if (adcoded) {
+                const wKey = `amap_weather_${adcoded.adcode}`;
+                const cachedW = await this.readWeatherCache(wKey);
+                if (cachedW && cachedW.fresh) {
+                    this.weatherData = cachedW.data;
+                    this.displayWeather(this.weatherData);
+                    this.lastResolvedCacheKey = wKey;
+                    return true;
+                }
+            }
+
+            // 2) Open-Meteo 按城市：上次 geocoding 的坐标 + 该坐标的天气缓存
             if (this.currentCity) {
-                const adcodeKey = `amap_adcode_${this.currentCity}`;
-                const adcodeCached = await chrome.storage.local.get([adcodeKey]);
-                const cachedAd = adcodeCached && adcodeCached[adcodeKey];
-                if (
-                    cachedAd &&
-                    Date.now() - cachedAd.ts <
-                        (window.WEATHER_CONFIG?.ADCODE_CACHE_TTL || 24 * 60 * 60 * 1000)
-                ) {
-                    const wKey = `amap_weather_${cachedAd.adcode}`;
-                    const weatherCached = await chrome.storage.local.get([wKey]);
-                    const cachedW = weatherCached && weatherCached[wKey];
-                    if (cachedW && Date.now() - cachedW.ts < ttl && cachedW.data) {
+                const place = await this.readWeatherCache(`om_geo_${this.currentCity}`);
+                if (place && place.fresh && place.data.latitude !== undefined) {
+                    const key = `om_weather_${place.data.latitude.toFixed(
+                        2
+                    )}_${place.data.longitude.toFixed(2)}`;
+                    const cachedW = await this.readWeatherCache(key);
+                    if (cachedW && cachedW.fresh) {
                         this.weatherData = cachedW.data;
                         this.displayWeather(this.weatherData);
+                        this.lastResolvedCacheKey = key;
                         return true;
                     }
                 }
             }
 
-            // 若没有用户设置城市，但之前已持久化（上一轮自动识别已保存），loadSettings 已同步
-            // 如果 currentCity 为空，则无法确定 adcode，这种情况直接返回 false 走正常流程
+            // 3) 兜底：上次成功的整体快照（无论走的是哪条链路）
+            const lastOk = await this.readLastOk();
+            if (lastOk && lastOk.data && Date.now() - (lastOk.ts || 0) < ttl) {
+                this.weatherData = lastOk.data;
+                this.displayWeather(this.weatherData);
+                return true; // key 未知：成功回写只更新 weather_last_ok
+            }
+
+            // 都过期了，返回 false 走正常流程（上层会先贴旧值再后台更新）
             return false;
         } catch (e) {
             console.warn('读取缓存天气失败，将走网络请求:', e?.message || e);
@@ -246,22 +285,44 @@ class WeatherManager {
 
     /**
      * 更新天气信息
+     * @param {{force?: boolean}} [options] force=true 跳过节流与冷却（用户手动刷新/换城市）
      */
-    async updateWeather() {
+    async updateWeather({ force = false } = {}) {
         if (this.isLoading) return;
         // 限流：避免过于频繁
         const now = Date.now();
         const minInterval = window.WEATHER_CONFIG?.MIN_REQUEST_INTERVAL || 10000;
-        if (this._lastRequestAt && now - this._lastRequestAt < minInterval) {
+        if (!force && this._lastRequestAt && now - this._lastRequestAt < minInterval) {
+            return;
+        }
+        // 上一次失败的冷却期（配额类失败冷却 30 分钟，避免继续烧配额）
+        if (!force && (await this.inCooldown())) {
+            console.info('[weather] 处于失败冷却期，跳过本次请求');
+            // 冷却期内至少把上次成功的数据显示出来，别让卡片停在「--°C」
+            const cached = await this.readCachedData().catch(() => null);
+            if (cached && cached.data && !this.weatherData) {
+                this.weatherData = cached.data;
+                this.displayWeather(cached.data);
+                this.markStale(Math.max(1, Math.round((Date.now() - (cached.ts || 0)) / 60000)));
+            }
             return;
         }
         this._lastRequestAt = now;
 
-        this.isLoading = true;
-        this.showLoading();
+        // 缓存先行：已有数据时不再进 loading 态（避免每 30 分钟图标脉冲闪一下），
+        // 只有空白卡片才需要 loading 提示
+        const preCached = this.weatherData ? null : await this.readCachedData().catch(() => null);
+        if (preCached && preCached.data) {
+            this.weatherData = preCached.data;
+            this.displayWeather(preCached.data);
+        } else {
+            this.isLoading = true;
+            this.showLoading();
+        }
 
         try {
             let weatherData;
+            this.lastResolvedCacheKey = null;
 
             if (!this.apiKey) {
                 // 未配置高德Key：使用 Open-Meteo 免费天气接口（无需任何密钥）
@@ -275,9 +336,17 @@ class WeatherManager {
                 weatherData = await this.getWeatherByLocationWithRetry();
             }
 
-            if (weatherData) {
+            if (weatherData && Number.isFinite(weatherData.temperature)) {
+                // 命中缓存返回的旧数据不能把「· 缓存」标记抹掉（时间戳还是旧的）
+                if (!weatherData.__fromCache) {
+                    this.clearStale();
+                    // 成功即清零连续失败计数：下次再失败重新从基础冷却开始
+                    this.clearFailCount().catch(() => {});
+                }
                 this.weatherData = weatherData;
                 this.displayWeather(weatherData);
+                // 统一落缓存：weather_last_ok（失败回退用）+ 本次链路自己的 key
+                this.writeWeatherCache(this.lastResolvedCacheKey, weatherData).catch(() => {});
                 // 若当前未指定城市且成功从定位/IP 获取到城市名，持久化保存，避免频繁请求
                 // 注意：「当前位置」是定位路径的显示占位文案，不是真实城市名，
                 // 持久化它会让下次启动误走城市查询（geocoding 查不到）→ 永远失败
@@ -299,13 +368,215 @@ class WeatherManager {
             } else {
                 console.error('获取天气信息失败:', error);
             }
-            this.showError(msg);
+            // 冷却：配额/Key 异常、以及「要用户改设置才会变」的定位权限问题都冷却 30 分钟；
+            // 其余（网络抖动、空数据）3 分钟，给一次快速恢复的机会。
+            const needsUserAction =
+                error?.fatal ||
+                /权限被拒绝|不支持地理位置|请在浏览器\/系统设置中允许位置访问/.test(msg);
+            const cooldownMs = needsUserAction ? 30 * 60 * 1000 : 3 * 60 * 1000;
+            this.setCooldown(cooldownMs, msg).catch(() => {});
+
+            // 有上次成功的数据就继续显示（并在提示里说明是缓存），不要把卡片打成错误态；
+            // 但超过 WEATHER_CACHE_MAX_AGE 的陈旧数据不再顶替错误态，否则用户永远看不到「该修了」
+            const lastOk = await this.readLastOk().catch(() => null);
+            if (lastOk && lastOk.data && this.isCacheUsable(lastOk.ts)) {
+                const ageMin = Math.max(1, Math.round((Date.now() - (lastOk.ts || 0)) / 60000));
+                this.weatherData = lastOk.data;
+                // displayWeather 内部会按数据年龄挂上「· 缓存」
+                this.displayWeather(lastOk.data);
+                this.showWeatherTip({
+                    type: 'warning',
+                    message: `天气更新失败（${error?.fatal ? '接口配额或 Key 异常' : msg}），当前显示 ${ageMin} 分钟前的数据`,
+                    duration: 5000,
+                    closable: true,
+                });
+            } else {
+                this.showError(msg);
+            }
         } finally {
             this.isLoading = false;
             // 加载态必须收敛：weatherData 为空等边界下 displayWeather 不会被调用，
             // .weather-widget.loading 的 pulse 会一直残留成「自己动」的指示。
             this.hideLoading();
         }
+    }
+
+    /**
+     * 高德的失败分两类：
+     *   配额/Key/服务不可用 —— 重试与刷新都没有意义，冷却越久越好；
+     *   其它（网络抖动、空数据）—— 短冷却，让用户过几分钟再试。
+     */
+    static isAmapFatal(info) {
+        return /CUQPS|QUERY_OVER_LIMIT|OVER_LIMIT|INVALID_USER_KEY|USERKEY_PLAT_NOMATCH|INVALID_USER_SCODE|SERVICE_NOT_AVAILABLE/i.test(
+            String(info || '')
+        );
+    }
+
+    // 高德返回 HTTP 200 但 status !== '1' 同样算失败；把 info 抬到错误对象上，便于上层分类
+    assertAmapOk(data, label) {
+        if (!data || data.status === '1') return;
+        const info = data.info || data.infocode || '未知错误';
+        const error = new Error(`${label}接口返回失败：${info}`);
+        error.amapInfo = info;
+        error.fatal = WeatherManager.isAmapFatal(info);
+        throw error;
+    }
+
+    // 失败冷却：写一个截止时间戳，冷却期内不再打接口（用户手动刷新除外）
+    async inCooldown() {
+        const key = 'weather_cooldown_until';
+        const result = await chrome.storage.local.get([key]);
+        return (result[key] || 0) > Date.now();
+    }
+
+    /**
+     * 记一次失败冷却，并按连续失败次数指数退避。
+     *
+     * 为什么不是固定时长：底层失败绝大多数是「本机到该域名不通」（open-meteo
+     * 在国内长期不稳），固定 3 分钟冷却意味着用户每 3 分钟就被动再打一轮
+     * 注定失败的网络请求，DevTools 里就是永不停歇的飘红。连续失败第 1 次
+     * 冷却 3 分钟，之后每失败一次翻倍，封顶 30 分钟 —— 网络恢复后最多
+     * 半小时就会被重新探测到，而网络一直不通时不再骚扰。
+     *
+     * @param {number} ms 基础冷却时长（首次失败用）
+     * @param {string} reason 失败原因，展示用
+     */
+    async setCooldown(ms, reason) {
+        const key = 'weather_fail_count';
+        const stored = await chrome.storage.local.get([key]).catch(() => ({}));
+        const fails = ((stored && stored[key]) || 0) + 1;
+        // 首次用传入的基础时长，之后按 2^(n-1) 翻倍
+        const backoff = ms * Math.pow(2, Math.min(fails - 1, 4));
+        await chrome.storage.local.set({
+            [key]: fails,
+            weather_cooldown_until: Date.now() + backoff,
+            weather_cooldown_reason: reason || '',
+        });
+        if (fails > 1) {
+            console.info(
+                `[weather] 连续失败 ${fails} 次，冷却 ${Math.round(backoff / 60000)} 分钟`
+            );
+        }
+    }
+
+    /** 请求成功时清零失败计数，让下次失败重新从基础冷却开始。 */
+    async clearFailCount() {
+        const stored = await chrome.storage.local.get(['weather_fail_count']).catch(() => ({}));
+        if (stored && stored.weather_fail_count) {
+            await chrome.storage.local.remove(['weather_fail_count']).catch(() => {});
+        }
+    }
+
+    /* ==================== 缓存 ==================== */
+
+    getCacheTtl() {
+        return window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
+    }
+
+    // 过期缓存的兜底上限：超过这个年龄就不再拿来显示（宁可显示错误提示）
+    getMaxCacheAge() {
+        return window.WEATHER_CONFIG?.WEATHER_CACHE_MAX_AGE || 24 * 60 * 60 * 1000;
+    }
+
+    isCacheUsable(ts) {
+        return !!ts && Date.now() - ts <= this.getMaxCacheAge();
+    }
+
+    // 数据年龄（分钟）；数据里带 timestamp，缺失则视为未知
+    getDataAgeMinutes(data) {
+        if (!data) return null;
+        const ts = Number(data.timestamp);
+        if (!Number.isFinite(ts) || ts <= 0) return null;
+        const age = Date.now() - ts;
+        if (age < 0) return null;
+        return age / 60000;
+    }
+
+    /**
+     * 带缓存读取天气：命中即返回，不回源。
+     * @returns {Promise<{data: object, ts: number|null, fresh: boolean}|null>}
+     */
+    async readWeatherCache(key) {
+        if (!key) return null;
+        try {
+            const stored = await chrome.storage.local.get([key]);
+            const entry = stored && stored[key];
+            if (!entry || !entry.data) return null;
+            return {
+                data: entry.data,
+                ts: entry.ts || null,
+                fresh: Date.now() - (entry.ts || 0) < this.getCacheTtl(),
+            };
+        } catch (e) {
+            console.warn('[weather] 读取天气缓存失败:', e?.message || e);
+            return null;
+        }
+    }
+
+    /**
+     * 写天气缓存（同时留一份上次成功，供失败回退）
+     */
+    async writeWeatherCache(key, data) {
+        const entry = { data, ts: Date.now() };
+        const payload = { weather_last_ok: entry };
+        if (key) payload[key] = entry;
+        try {
+            await chrome.storage.local.set(payload);
+        } catch (e) {
+            console.warn('[weather] 写入天气缓存失败:', e?.message || e);
+        }
+    }
+
+    /**
+     * 缓存先行：内存里的 weatherData / 持久化的 weather_last_ok 中取一份立即可显示的数据。
+     * 过期数据也返回（由调用方决定是否回源），这样卡片一开就有内容，网络慢也不会先闪「--°C」。
+     * @returns {Promise<{data: object, ts: number|null, fresh: boolean}|null>}
+     */
+    async readCachedData() {
+        if (this.weatherData) {
+            const ts = this.weatherData.timestamp || null;
+            return {
+                data: this.weatherData,
+                ts,
+                fresh: ts ? Date.now() - ts < this.getCacheTtl() : false,
+            };
+        }
+        const lastOk = await this.readLastOk();
+        if (!lastOk || !lastOk.data) return null;
+        // 太久以前的缓存（默认 24h 上限）不再显示，否则「缓存」会变成错误数据的保护伞
+        if (!this.isCacheUsable(lastOk.ts)) return null;
+        return {
+            data: lastOk.data,
+            ts: lastOk.ts,
+            fresh: Date.now() - lastOk.ts < this.getCacheTtl(),
+        };
+    }
+
+    // 上一次成功的数据：刷新失败时继续显示，而不是把卡片打成错误态
+    async readLastOk() {
+        const result = await chrome.storage.local.get(['weather_last_ok']);
+        return result.weather_last_ok || null;
+    }
+
+    /**
+     * 标记「当前显示的是缓存数据」。
+     * 失败提示几秒后就消失，此后用户没有别的线索判断数据是否新鲜，
+     * 所以在卡片上留一个常驻的「· 缓存」小标记（CSS 渲染，不改 DOM 结构）。
+     */
+    markStale(ageMin) {
+        const widget = document.getElementById('weather-widget');
+        if (!widget) return;
+        widget.classList.add('is-stale');
+        widget.title = ageMin
+            ? `当前显示 ${ageMin} 分钟前的缓存数据（下次自动更新在冷却结束后）`
+            : '当前显示缓存数据';
+    }
+
+    clearStale() {
+        const widget = document.getElementById('weather-widget');
+        if (!widget) return;
+        widget.classList.remove('is-stale');
+        widget.removeAttribute('title');
     }
 
     /**
@@ -332,11 +603,13 @@ class WeatherManager {
         const { fetchJSON } = await import('../utils/request.js');
         const data = await fetchJSON(url, {
             timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-            retries: 2,
+            // retries: 1 —— 每次重试都是一次配额消耗，配额类/Key 类错误重试也没用
+            retries: 1,
             retryDelay: 600,
             backoff: 2,
         });
-        if (data.status !== '1' || !data.geocodes || data.geocodes.length === 0) {
+        this.assertAmapOk(data, '城市编码');
+        if (!data.geocodes || data.geocodes.length === 0) {
             throw new Error('未查询到城市adcode');
         }
         const adcode = data.geocodes[0].adcode || data.geocodes[0].citycode;
@@ -353,28 +626,37 @@ class WeatherManager {
         const cached = await chrome.storage.local.get([cacheKey]);
         const ttl = window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
         if (cached && cached[cacheKey] && Date.now() - cached[cacheKey].ts < ttl) {
-            return cached[cacheKey].data;
+            this.lastResolvedCacheKey = cacheKey;
+            return { ...cached[cacheKey].data, __fromCache: true };
         }
         const url = `${this.baseUrl}/weather/weatherInfo?key=${this.apiKey}&city=${adcode}&extensions=base`;
         const { fetchJSON } = await import('../utils/request.js');
         const data = await fetchJSON(url, {
             timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-            retries: 2,
+            retries: 1,
             retryDelay: 600,
             backoff: 2,
         });
-        if (data.status !== '1' || !data.lives || data.lives.length === 0) {
+        this.assertAmapOk(data, '天气');
+        if (!data.lives || data.lives.length === 0) {
             throw new Error('高德天气返回空数据');
         }
         const formatted = this.formatAmapWeatherData(data.lives[0]);
+        this.lastResolvedCacheKey = cacheKey;
+        delete formatted.__fromCache;
         await chrome.storage.local.set({ [cacheKey]: { data: formatted, ts: Date.now() } });
         return formatted;
     }
 
     /**
      * 带重试机制的位置天气获取
+     *
+     * maxRetries 默认 1 = 不重试。内层 fetchOpenMeteoCurrent / getAdcodeByCity
+     * 各自已经有降级兜底，外层再叠 2 次重试就是乘法：2 × 2 = 4 轮完整链路，
+     * 每轮 5 秒超时时用户要干等 20 秒以上，DevTools 里一串飘红的 forecast。
+     * 真要重试交给 30 分钟定时器和用户手动刷新。
      */
-    async getWeatherByLocationWithRetry(maxRetries = 2) {
+    async getWeatherByLocationWithRetry(maxRetries = 1) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 console.log(`尝试获取位置天气 (第${attempt}次)...`);
@@ -406,10 +688,11 @@ class WeatherManager {
             const { fetchJSON } = await import('../utils/request.js');
             const regeoData = await fetchJSON(regeoUrl, {
                 timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-                retries: 2,
+                retries: 1,
                 retryDelay: 600,
                 backoff: 2,
             });
+            this.assertAmapOk(regeoData, '逆地理');
             const adcode = regeoData?.regeocode?.addressComponent?.adcode;
             const cityCode = adcode || regeoData?.regeocode?.addressComponent?.citycode;
             const detectedCityName =
@@ -417,6 +700,18 @@ class WeatherManager {
                 regeoData?.regeocode?.addressComponent?.province;
             if (!adcode && !cityCode) {
                 throw new Error('逆地理失败，未获取到adcode');
+            }
+            // 顺手把「城市 → adcode」也写进缓存：下次启动若 currentCity 已被持久化成这个城市，
+            // getAdcodeByCity 就能直接命中，省掉一次 geocode 请求
+            if (detectedCityName && (adcode || cityCode)) {
+                chrome.storage.local
+                    .set({
+                        ['amap_adcode_' + detectedCityName]: {
+                            adcode: adcode || cityCode,
+                            ts: Date.now(),
+                        },
+                    })
+                    .catch(() => {});
             }
             // 天气
             const data = await this.getWeatherByAdcode(adcode || cityCode);
@@ -445,7 +740,9 @@ class WeatherManager {
                 return data;
             } catch (ipErr) {
                 console.error('IP 定位回退也失败:', ipErr);
-                throw error; // 抛出原始错误，便于上层判断权限/超时
+                // 配额/Key 问题必须以 IP 路径的错误为准，否则上层会当成普通定位失败、只冷却 3 分钟
+                if (ipErr?.fatal) throw ipErr;
+                throw error; // 其余情况抛原始错误，便于上层判断权限/超时
             }
         }
     }
@@ -463,6 +760,7 @@ class WeatherManager {
             retryDelay: 500,
             backoff: 2,
         });
+        this.assertAmapOk(data, 'IP 定位');
         const ipAdcode = data?.adcode || data?.citycode;
         if (!ipAdcode) throw new Error('IP定位未返回adcode');
         const cityName = data?.city || data?.province;
@@ -610,6 +908,7 @@ class WeatherManager {
      * 优先使用设置的城市名（走 geocoding），否则使用浏览器定位坐标
      */
     async getOpenMeteoWeather() {
+        this.lastResolvedCacheKey = null;
         if (this.currentCity) {
             return this.getOpenMeteoByCity(this.currentCity);
         }
@@ -696,22 +995,54 @@ class WeatherManager {
         const cached = await chrome.storage.local.get([cacheKey]);
         const ttl = window.WEATHER_CONFIG?.WEATHER_CACHE_TTL || 20 * 60 * 1000;
         if (cached && cached[cacheKey] && Date.now() - cached[cacheKey].ts < ttl) {
-            return cached[cacheKey].data;
+            this.lastResolvedCacheKey = cacheKey;
+            return { ...cached[cacheKey].data, __fromCache: true };
         }
-        const url =
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-            '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,' +
-            'wind_speed_10m,wind_direction_10m,pressure_msl&timezone=auto';
-        const data = await fetchJSON(url, {
-            timeout: window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000,
-            retries: 2,
-            retryDelay: 600,
-            backoff: 2,
-        });
-        if (!data.current) {
-            throw new Error('Open-Meteo 返回空数据');
+        const base = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}`;
+        const timeout = window.WEATHER_CONFIG?.GEOLOCATION_TIMEOUT || 10000;
+        // retries: 0 —— 这里刻意不重试。
+        //
+        // 以前是 retries: 1，加上下面的 legacy 兜底接口（各 1 次重试）和
+        // getWeatherByLocationWithRetry 外层的 2 次重试，最坏情况是
+        // 2 × (2 + 2) = 8 次 5 秒超时 = 40 秒 —— 用户打开新标签页能看见
+        // 满屏飘红的 forecast 请求，就是这个乘法爆炸造成的。
+        //
+        // 这些失败绝大多数是「本机到 api.open-meteo.com 不通」（国内网络对这域名
+        // 长期不稳定），不是接口抖动。对不可达的下游重试没有任何收益，只会
+        // 把等待时间叠成 N 倍并把 DevTools 刷满。失败就交给上层冷却。
+        const opts = { timeout, retries: 0 };
+
+        let current;
+        try {
+            const data = await fetchJSON(
+                `${base}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,` +
+                    'weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&timezone=auto',
+                opts
+            );
+            if (!data || !data.current) throw new Error('Open-Meteo 返回空数据');
+            current = data.current;
+        } catch (primaryErr) {
+            // 降级：旧版 current_weather 接口字段少（无湿度/气压），但可用性更高，
+            // 实测新接口偶发整段超时（HTTP 000）而它照常返回，所以留作兜底。
+            console.warn(
+                '[weather] Open-Meteo current 接口失败，改用 current_weather 兜底:',
+                primaryErr?.message || primaryErr
+            );
+            const legacy = await fetchJSON(`${base}&current_weather=true&timezone=auto`, opts);
+            if (!legacy || !legacy.current_weather) throw primaryErr;
+            const cw = legacy.current_weather;
+            current = {
+                temperature_2m: cw.temperature,
+                apparent_temperature: cw.temperature,
+                is_day: cw.is_day,
+                weather_code: cw.weathercode,
+                wind_speed_10m: cw.windspeed,
+                wind_direction_10m: cw.winddirection,
+            };
         }
-        const formatted = this.formatOpenMeteoData(data.current, cityName, country);
+
+        const formatted = this.formatOpenMeteoData(current, cityName, country);
+        this.lastResolvedCacheKey = cacheKey;
         await chrome.storage.local.set({ [cacheKey]: { data: formatted, ts: Date.now() } });
         return formatted;
     }
@@ -845,6 +1176,15 @@ class WeatherManager {
         // 选择合适的图标（适配高德天气描述）
         const iconType = this.getIconTypeForAmap(weatherData.description);
         this.updateWeatherIcon(weatherSvgEl, iconType);
+
+        // 缓存态由数据年龄决定：过期数据无论来自 cache-first 还是失败回退，
+        // 都统一挂上「· 缓存」标记，避免「看着是实时数据其实是旧值」
+        const ageMin = this.getDataAgeMinutes(weatherData);
+        if (ageMin !== null && ageMin * 60000 > this.getCacheTtl()) {
+            this.markStale(ageMin);
+        } else {
+            this.clearStale();
+        }
 
         // 移除加载状态
         this.hideLoading();
@@ -1192,7 +1532,8 @@ class WeatherManager {
     async setCity(cityName) {
         this.currentCity = cityName;
         await this.saveSettings();
-        await this.updateWeather();
+        // 换城市是明确意图，跳过冷却与节流
+        await this.updateWeather({ force: true });
     }
 
     /**
@@ -1201,7 +1542,7 @@ class WeatherManager {
     async useCurrentLocation() {
         this.currentCity = '';
         await this.saveSettings();
-        await this.updateWeather();
+        await this.updateWeather({ force: true });
     }
 
     /**
@@ -1229,7 +1570,8 @@ class WeatherManager {
      */
     async refresh() {
         try {
-            await this.updateWeather();
+            // 用户手动点刷新 = 明确的「现在就再试一次」，绕过冷却
+            await this.updateWeather({ force: true });
         } finally {
             // updateWeather 内部限流会提前 return；无论成功/失败/被限流都要收掉 loading
             this.settleRefreshTip();

@@ -17,7 +17,9 @@
 - Picsum 免 Key 图库（Unsplash 精选）：按页浏览 + 翻页 + 随机换壁纸（默认）；**不支持分类/关键词筛选**（实测服务端忽略 `?q=`），分类需求自动改走 Wallhaven
 - Wallhaven 图源可选：设置中切换，**唯一支持分类/关键词真正筛选**的免 Key 图源，需能访问境外网络
 - Pexels（可选 Key）：填写后切换为 Pexels 图源
-- 缓存优先加载，刷新无闪烁
+- **切换即落盘，下次读本地**：选中壁纸后立刻 fetch -> blob -> readAsDataURL 存进 chrome.storage.local（与来源 URL 一起存，URL 对不上即视为失效），下次新建标签页直接读缓存，**不再请求图床**。实测二次打开图片请求 0 次、DCL 后 112ms 出图
+- 用 fetch 而不是 canvas 烤制：图床普遍 302 重定向到 CDN，canvas 链路上任一跳缺 CORS 头就会烤出雪花噪点；字节级读取才保真
+- 写入时机在「用户切换壁纸」那一刻，不在启动路径上——不新增首屏开销
 - 亮度 30%–100%、模糊 0–20px 实时调节
 
 **🔍 搜索**
@@ -66,6 +68,22 @@
 - **文字对比度**：按字形扫——把文字渲染透明后差分出字形像素，再取该处的真实背景（矩形均值会把文字本身算进背景，细笔画和大字号全测歪）。主页 52 个节点 + 设置面板滚动 3 屏 44 个节点 + 壁纸/天气/工具/添加/引擎下拉/文件夹浮层，浅深两套主题全部 0 失败
 - **不用 `opacity` 压文字**：它会把字形连同托底光晕一起按比例溶进背景，越淡越糊；一律改显式色阶 `--text-primary/secondary` 与语义色 `--accent-ink` / `--on-accent`（深色主题的 accent 是亮档实色，必须配深字）
 - `prefers-reduced-transparency: reduce` 下三档一起降级为 `blur(20px) saturate(140%)`
+
+**🧪 液态玻璃的 WebGL 实现（v1.8.1）**
+
+上面的折射原来走 SVG 滤镜；v1.8.1 起主体换成 WebGL2 实时渲染（`js/utils/liquid-glass.js`，无 WebGL2 时整条回退 SVG）。这一版修掉了四个「玻璃看起来不对」的真根因：
+
+| 症状 | 真根因 | 修法 |
+| --- | --- | --- |
+| 深色主题下玻璃像蒙了一层白雾 | 采样纹理用「窗口坐标 ÷ 视口尺寸」当 uv，等于假设 `background-size: 100% 100%`；实际是 `cover`，1920×1080 塞进 1440×900 要横向裁 160px，采样点整体偏 192px | 新增 `uSceneOrigin`（绘制矩形相对视口的偏移）+ `uSceneRect.zw` 改存绘制尺寸，按 `scale = max(vw/iw, vh/ih)` 反算；窗口缩放时重算 |
+| 高饱和壁纸被压成灰 | 深色压暗走 `mix(色, 中性深灰, m)`，三通道一起被拉向灰（纯红 `[255,0,0]` → `[206,58,65]`，饱和度 1.0→0.718） | 深色档改走「保色相压暗」：直接乘系数不动色相 |
+| 白色/雪地壁纸下图标文字看不见 | 保色相压暗不再有压暗作用，浅色壁纸透上来直接顶到白 | 最终输出前按亮度封顶（线性 1.0 → 0.182 → sRGB 118），白字稳定过 AA；8 种壁纸实测 4.81–19.09:1 |
+| 缩放窗口后玻璃整片消失 | 共享 ping-pong FBO 尺寸切换时整套重建；池化后命中分支不重置累积、也不维护导出 canvas 尺寸，`drawImage` 从 1×1 缓冲取像素 | 按尺寸池化 + 导出 canvas 只增不减、按左下角取子矩形 |
+
+- **按尺寸池化 FBO**：21 块玻璃只有 8 种唯一尺寸，原来每次尺寸切换都要 `deleteTexture` + `deleteFramebuffer` 全套重建。池化后 12 帧 252 次 render 的 FBO 分配次数降到 **0**，耗时 **414.4ms → 4.1ms**
+- **默认帧缓冲只增不减**：给 `canvas.width` 赋值等于重新分配整个绘图缓冲，比建 FBO 更贵；固定取「见过的最大尺寸」，导出时按左下角取子矩形（WebGL 原点在左下）
+- **累积帧的意义**：多帧累积用来压噪声，所以「尺寸 / 场景 / 几何变了」必须把 `frame` 归零，否则旧位置的历史会混进新画面
+- **scene 加载的跨域要求**：扩展页 origin 是 `chrome-extension://`，图床跨域；`new Image()` 不设 `crossOrigin = 'anonymous'` 时 `onload` 照样触发，但 `texImage2D` 抛错 → 场景永久无效 → 整页玻璃不出墨
 
 **⏱️ 小组件与主页两翼（v1.3.0）**
 - 时钟 / 日期 / 时段问候
@@ -148,7 +166,7 @@ git clone https://github.com/lucky845/new-tab-chrome-extension.git
 | --- | --- |
 | `storage` | 保存设置、壁纸缓存、待办、便签；导出备份时全量读取 |
 | `geolocation` | 天气自动定位（可拒绝，改用城市名） |
-| `host_permissions` | 仅 `picsum.photos`、`wallhaven.cc`（可选图源）、`pexels.com`、`amap.com`、`open-meteo.com` |
+| `host_permissions` | 仅 `picsum.photos`、`wallhaven.cc`（可选图源）、`pexels.com`、`amap.com`、`open-meteo.com`；图床 CDN（`images.picsum.photos` / `images.pexels.com` / `th.wallhaven.cc` / `w.wallhaven.cc`）用于壁纸落盘缓存时的字节读取 |
 
 ---
 
@@ -174,7 +192,11 @@ newtab.html                 单页结构
     ├── components/         advanced-pagination / weather-icons / visibility-toggle
     ├── config/             weather-config / default-sites / tools（小工具定义）
     ├── constants/          selectors.js（window.SELECTORS 单一来源）
-    └── utils/              request（超时/重试/退避）、toast、dsh-tip、dsh-dialog
+    ├── utils/              request（超时/重试/退避）、toast、dsh-tip、dsh-dialog
+    │   ├── liquid-glass.js      液态玻璃：WebGL2 折射渲染（FBO 池化 / 累积降噪 / 场景采样）
+    │   ├── icon-safe.js         站点图标清洗与近白图标反相
+    │   └── url-safe.js          链接协议校验
+    └── theme-boot.js     主题同步预置（CSS 解析前执行，首屏零闪烁）
 ```
 
 **设计原则**
@@ -214,12 +236,14 @@ npm run format     # Prettier
 - [x] 主题切换：浅色（原样）/ 深色（压暗壁纸）/ 跟随系统 / 日出日落（v1.7.0）
 - [x] 液态玻璃三层材质（模糊 + SVG 折射 + 边缘光）、玻璃色度与文字对比度双量化验收（v1.7.1）
 - [x] 主题体系与液态玻璃重做、面板材质统一、弹窗进出场动效、链接协议与导入字段清洗（v1.8.0）
+- [x] 液态玻璃改 WebGL2 实时折射、壁纸切换即落盘缓存、天气退避与 FBO 池化（v1.8.1）
 
 ## 🗓️ 更新日志
 
 | 版本 | 主要内容 |
 | --- | --- |
-| **v1.8.0** | 液态玻璃按角色分档重做、主题体系与首屏零闪烁、六类面板材质统一、文件夹预览与角标重做、弹窗进出场动效、备份导入的链接协议与字段类型清洗、插件安全检查项修复 |
+| **v1.8.1** | 液态玻璃改 WebGL2 实时折射并修掉采样错位 / 去饱和 / 缩放失效三个真根因、FBO 按尺寸池化（渲染耗时 414ms→4.1ms）、壁纸切换即落盘缓存（二次打开零图片请求）、天气请求退避（最坏 40s→单轮 2 次）、移除右下角换壁纸按钮 |
+| v1.8.0 | 液态玻璃按角色分档重做、主题体系与首屏零闪烁、六类面板材质统一、文件夹预览与角标重做、弹窗进出场动效、备份导入的链接协议与字段类型清洗、插件安全检查项修复 |
 | v1.7.1 | 液态玻璃三层材质（模糊 + SVG 折射 + 边缘光），玻璃色度与文字对比度双量化验收 |
 | v1.7.0 | 主题切换：浅色（壁纸原样）/ 深色（压暗壁纸）/ 跟随系统 / 日出日落 |
 | v1.6.0 | 统一确认/输入对话框、备份与恢复前向兼容、壁纸分类筛选修复 |

@@ -52,7 +52,14 @@ class WallpaperManager {
     }
 
     // 从集中 settings 同步密钥（app.js 在 settings 变更后调用）
-    async syncApiKey() {
+    // fetchAndSetWallpaper 每次刷新/新建都会走一遍，而 settings 在一次会话里
+    // 不会自己变 —— 加 30s TTL，避免每次调用都多一次 storage 往返（真实扩展里
+    // 每次 IPC 约 2-5ms，加上序列化并不白给）。force=true 可强制重读。
+    async syncApiKey(force = false) {
+        const now = Date.now();
+        if (!force && this._apiKeySyncedAt && now - this._apiKeySyncedAt < 30000) {
+            return this.pexelsApiKey;
+        }
         try {
             const data = await chrome.storage.local.get(['settings']);
             this.pexelsApiKey = (data.settings && data.settings.pexelsApiKey) || '';
@@ -63,6 +70,7 @@ class WallpaperManager {
         } catch (error) {
             console.error('同步壁纸密钥失败:', error);
         }
+        this._apiKeySyncedAt = Date.now();
         return this.pexelsApiKey;
     }
 
@@ -84,7 +92,21 @@ class WallpaperManager {
             'savedWallpaperId',
             'savedWallpaperUrl',
             'savedWallpaperData',
+            'savedWallpaperBlob',
+            'savedWallpaperBlobUrl',
         ]);
+
+        // 1a. 有本地烤好的 dataURL → 零网络请求直接出图（最快路径）
+        //     校验 savedWallpaperBlobUrl 与当前壁纸 URL 一致：不一致说明缓存是
+        //     上一张的（比如用户在别处换了壁纸但没走 setWallpaper），宁可用 URL。
+        if (
+            result.savedWallpaperBlob &&
+            result.savedWallpaperBlobUrl === result.savedWallpaperUrl
+        ) {
+            this.setWallpaper(result.savedWallpaperBlob);
+            console.log('[壁纸] 命中本地缓存，零请求');
+            return;
+        }
 
         if (result.savedWallpaperUrl) {
             // 优先使用缓存的URL，避免网络请求
@@ -228,16 +250,12 @@ class WallpaperManager {
             const part1 = Math.floor(Math.random() * 1084);
             const part2 = Math.floor(Math.random() * 1084);
             let wallpaperUrl = `https://picsum.photos/seed/${randomSeed}/1920/1080`;
-            // 尝试用真实图 id 生成更稳定的 URL（失败则用 seed 方案）
-            const probe = await fetch(`https://picsum.photos/id/${part1}/1200/675`, {
-                method: 'HEAD',
-                signal: AbortSignal.timeout(8000),
-            }).catch(() => null);
-            if (probe && probe.ok) {
-                wallpaperUrl = `https://picsum.photos/id/${part1}/1920/1080`;
-            } else {
-                void part2;
-            }
+            // 这里原本有一次 HEAD 探测（id/${part1}/1200/675，8s 超时），
+            // 目的是拿更"稳定"的 id URL，但它排在设背景之前 —— 图床不可达时
+            // 用户要干等 8 秒才看到壁纸开始加载。实测 seed URL 与 id URL
+            // 可用性一样（都是同一个图床），探测纯属负收益，直接删掉。
+            void part1;
+            void part2;
             this.setWallpaper(wallpaperUrl);
             if (shouldSave) {
                 await this.cacheWallpaper(
@@ -499,6 +517,110 @@ class WallpaperManager {
             return;
         }
         container.style.backgroundImage = `url('${imageUrl}')`;
+        // 液态玻璃光学层要采样壁纸做折射，换壁纸时同步刷新场景纹理
+        if (this.liquidGlass && imageUrl) this.liquidGlass.setScene(imageUrl);
+
+        // 壁纸是否真的解码出来了 —— background-image 赋了值不代表图下载成功。
+        // 预热一次并记录，UI 可据此提示"壁纸加载失败"，而不是让用户对着
+        // 一片 --canvas-loading 渐变猜。不阻塞调用方。
+        this._trackImageLoad(imageUrl);
+    }
+
+    /**
+     * 预热并追踪壁纸是否加载成功。
+     * 用 Image 走浏览器缓存：这里成功的话，background-image 那边命中缓存直接出图，
+     * 不会产生第二次网络请求。
+     *
+     * 加载成功后顺带把这张图烤成 dataURL 存进 storage（见 _storeWallpaperBlob）——
+     * 用户切壁纸的那一刻就是唯一一次真正需要下载的时刻，之后每次刷新/新建标签页
+     * 都直接读本地数据，零网络请求。图床连不上（picsum 在国内就是常态）时
+     * 也不再是一片渐变兜底。
+     */
+    _trackImageLoad(imageUrl) {
+        if (!imageUrl || typeof Image === 'undefined') return;
+        // dataURL 已经在本地了，没必要再转存一遍
+        if (imageUrl.startsWith('data:')) {
+            this.lastImageState = 'ok';
+            return;
+        }
+        const img = new Image();
+        img.decoding = 'async';
+        // 图床跨域，不设 crossOrigin 时 canvas 读像素会被污染（toDataURL 抛 SecurityError）
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            this.lastImageState = 'ok';
+            // 烤缓存不再依赖这张 img（canvas 方案会被 302 跨域污染烧出噪点），
+            // 单独开 fetch 拿原始字节。img 仍要加载，因为它预热了浏览器 HTTP 缓存。
+            this._storeWallpaperBlob(imageUrl);
+        };
+        img.onerror = () => {
+            this.lastImageState = 'error';
+            console.warn('[壁纸] 图片加载失败:', imageUrl);
+        };
+        img.src = imageUrl;
+    }
+
+    /**
+     * 把已加载的壁纸转成 dataURL 存入 storage.local，供下次直接使用。
+     *
+     * 为什么用 dataURL 而不是原 URL：storage.local 只存 JSON 值，存不了 Blob；
+     * dataURL 是字符串，读出来直接能赋给 background-image，不需要再走网络，
+     * 也不需要 blob: 协议（manifest 的 img-src 里没有 blob:）。
+     *
+     * 体积：base64 比原图大约 1.33 倍。storage.local 默认配额 10MB，
+     * 所以超过 BLOB_MAX_BYTES 的图直接跳过（宁可不缓存，也不能写失败把
+     * 整个 storage 搞挂）。只保留最新的这一张，写入前不带旧键 —— 天然覆盖。
+     */
+    _storeWallpaperBlob(imageUrl) {
+        // 用 fetch 拿原始字节再转 base64，**不走 canvas**。
+        //
+        // 为什么不用 canvas：图床普遍 302 跳 CDN（picsum → images.picsum.photos /
+        // fastly，pexels → images.pexels.com），重定向链里只要有一跳没回
+        // Access-Control-Allow-Origin，浏览器就把这张图当「污染画布」处理 ——
+        // drawImage 不报错，toDataURL 却拿到一张雪花噪点的坏图，写进缓存后
+        // 每次刷新都拿它当壁纸。用户看到的就是「壁纸变成一团噪点」。
+        //
+        // fetch 走的是扩展的 host_permissions（manifest 里已补 *.picsum.photos、
+        // images.pexels.com 等 CDN 域），不需要图床回 ACAO，拿到的是原样字节。
+        // 顺带也不做重编码：JPEG 原图直接存，体积和画质都是原厂的。
+        const MAX = WallpaperManager.BLOB_MAX_BYTES;
+
+        fetch(imageUrl, { credentials: 'omit', cache: 'force-cache' })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const type = response.headers.get('content-type') || '';
+                if (!/^image\//i.test(type)) throw new Error(`非图片响应: ${type}`);
+                return response.blob();
+            })
+            .then(blob => {
+                if (blob.size > MAX) {
+                    console.log(`[壁纸] 原图 ${Math.round(blob.size / 1024)}KB 超过缓存上限，跳过`);
+                    return null;
+                }
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(reader.error || new Error('读取失败'));
+                    reader.readAsDataURL(blob);
+                });
+            })
+            .then(dataUrl => {
+                if (!dataUrl) return;
+                return chrome.storage.local
+                    .set({
+                        savedWallpaperBlob: dataUrl,
+                        savedWallpaperBlobUrl: imageUrl, // 记录来源，用于判断缓存是否还对应当前壁纸
+                    })
+                    .then(() => {
+                        console.log(
+                            `[壁纸] 已缓存到本地（${Math.round(dataUrl.length / 1024)}KB，原样字节），下次零请求`
+                        );
+                    });
+            })
+            .catch(error => {
+                // 无 host_permissions / 网络失败 / 超配额 —— 放弃缓存，壁纸照常显示
+                console.warn('[壁纸] 本地缓存生成失败:', error && error.message);
+            });
     }
 
     // 获取分类列表
@@ -525,6 +647,11 @@ class WallpaperManager {
 
 // 导出模块（含常量，供 UI 层分页计算引用）
 WallpaperManager.WALLPAPERS_PER_PAGE = WALLPAPERS_PER_PAGE;
+// 本地壁纸缓存上限：storage.local 默认配额 10MB，留足余量给其他键。
+// base64 比原图大 33%，所以 3.6MB 的 dataURL ≈ 2.7MB 原图。
+WallpaperManager.BLOB_MAX_BYTES = 3.6 * 1024 * 1024;
+// 缓存前把图缩到这个宽度：1920 已能铺满常见屏幕，且大幅压小体积。
+WallpaperManager.BLOB_MAX_WIDTH = 1920;
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = WallpaperManager;

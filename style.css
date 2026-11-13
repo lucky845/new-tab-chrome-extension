@@ -752,23 +752,14 @@ body {
     background-color: rgb(var(--ink) / calc(0.1 * var(--wash-k)));
 }
 
-.top-right-controls,
-.bottom-controls {
+.top-right-controls {
     position: fixed;
     padding: 20px;
     z-index: 10;
-}
-
-.top-right-controls {
     top: 0;
     right: 0;
     display: flex;
     gap: 15px;
-}
-
-.bottom-controls {
-    bottom: 0;
-    right: 0;
 }
 
 .control-btn {
@@ -1574,12 +1565,31 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* 图标必须自带一层「底托」，不能直接画在玻璃上。
+       玻璃现在真的能透出壁纸了（v1.8.2 之前是采样坐标错位 + tint 混色，
+       底下其实是一层与内容无关的灰雾，反而"帮忙"压住了对比度）。
+       一旦透出的是亮色壁纸（雪地、白云、浅色桌面），彩色 favicon 的轮廓
+       与背景同色系，读起来就是"糊掉了"。
+       这里给的是一个 36% 的径向暗底 —— 圆心最实、到边缘就散光，
+       视觉上像图标浮在玻璃的一个浅浅凹坑里，不会读成一个灰色圆盘。
+       用径向而不是实心圆：实心圆会在方形玻璃里再切出一个方块感。 */
+    border-radius: 50%;
+    background: radial-gradient(
+        circle at 50% 46%,
+        rgb(var(--shadow) / 0.36) 0%,
+        rgb(var(--shadow) / 0.2) 58%,
+        rgb(var(--shadow) / 0) 78%
+    );
 }
 
 .quick-access-item .icon {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    /* 图标外沿补一道极淡的暗边：浅色 logo（Google 的白底、Bilibili 的粉）
+       压在亮壁纸上时，靠这 1px 把轮廓从背景里"抠"出来。
+       0.28 是不让 logo 显脏的上限，再重彩色图标开始发浑。 */
+    filter: drop-shadow(0 1px 2px rgb(var(--shadow) / 0.28));
 }
 
 .quick-access-item .fallback-icon {
@@ -1604,7 +1614,14 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
-    font-weight: 500;
+    /* 500 → 400：500 是玻璃还带白膜、文字需要"抬出来"时的配置。
+       玻璃通透之后 500 读起来偏重，和页脚/副标题的常规档对不齐。 */
+    font-weight: 400;
+    /* 字重降到 400 之后，亮壁纸上的白字反而更"飘"了（笔画细、没有轮廓）。
+       0 → 一条 1px 暗边：只在笔画外缘加 18% 的暗，字形本身不变粗
+       （之前那版三层近白光晕是把笔画外扩一圈，读起来粗一档，方向相反）。
+       这条暗边的职责是"勾边"，不是"加粗"。 */
+    text-shadow: 0 1px 2px rgb(var(--shadow) / 0.22);
 }
 
 .add-quick-access-btn {
@@ -1665,7 +1682,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
-    font-weight: 500;
+    /* 与 .quick-access-item .name 同档 */
+    font-weight: 400;
 }
 
 .add-quick-access-btn:hover {
@@ -1749,14 +1767,6 @@ body {
     backdrop-filter: blur(var(--overlay-blur));
     -webkit-backdrop-filter: blur(var(--overlay-blur));
     border: 2px solid rgb(var(--green) / 0.5);
-}
-
-/* 拖拽时的网格样式 */
-.quick-access-grid.sortable-drag-active {
-    background: rgb(var(--ink) / calc(0.02 * var(--wash-k)));
-    border-radius: var(--radius-lg);
-    padding: 10px;
-    transition: background 0.3s ease;
 }
 
 .page-btn {
@@ -1892,8 +1902,11 @@ body {
 
 .clock-time {
     font-size: 64px;
-    font-weight: 300;
-    letter-spacing: 4px;
+    /* 300 → 600：极细字在玻璃质感里显得单薄，和卡片的实心边框不在一个重量级上。
+       600 让时钟成为页面真正的视觉锚点，同时保持等宽数字（不会因为 1 比 8 窄而跳动）。 */
+    font-weight: 600;
+    /* 字距 4px → 1px：600 字重下 4px 会把数字拆得太散，读起来像四个独立字符。 */
+    letter-spacing: 1px;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
 }
@@ -3306,7 +3319,8 @@ body {
 .folder-item .name {
     color: var(--text-primary);
     font-size: 14px;
-    font-weight: 500;
+    /* 与 .quick-access-item .name 同档：玻璃通透后 500 偏重 */
+    font-weight: 400;
     text-align: center;
     max-width: 100%;
     overflow: hidden;
@@ -4143,11 +4157,17 @@ html[data-theme='dark'] {
     z-index: -1;
 }
 
-.quick-access-item::after,
-.add-quick-access-btn::after,
-.side-card::after,
-.weather-widget::after,
-.search-bar::after {
+/* 断层面（1.5px 渐变环）现在只在「没有光学层」时保留。
+ *
+ * 为什么：光学层已经在着色器里画了一条随位置衰减的窄描边（对齐参考库的
+ * innerStroke）。这圈 CSS 环叠在同一位置，两者相加就是肉眼看到的「硬白边」——
+ * 实测把 CSS 环关掉后，边缘立刻从一条白线变成渐隐的柔边。
+ * 有 WebGL 时让着色器独占边缘；WebGL 不可用时这里仍是唯一的光学线索。 */
+.quick-access-item:not(:has(> .liquid-glass-canvas))::after,
+.add-quick-access-btn:not(:has(> .liquid-glass-canvas))::after,
+.side-card:not(:has(> .liquid-glass-canvas))::after,
+.weather-widget:not(:has(> .liquid-glass-canvas))::after,
+.search-bar:not(:has(> .liquid-glass-canvas))::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -4325,3 +4345,190 @@ html[data-theme='dark'] {
     }
 }
 
+/* ============================================================
+   液态玻璃第 3 层：WebGL2 光学层（js/utils/liquid-glass.js）
+   ------------------------------------------------------------
+   前两层是 CSS 能做的部分：tint + sheen + rim + 模糊。真正的「液体感」来自
+   路径追踪折射 —— 边缘弧面把背后像素卷进去、R/G/B 三个折射率拉开色散、
+   斜向高光扫过 —— 这些 backdrop-filter 做不到，所以每块玻璃内部挂一个
+   canvas 单独渲染（光学模型逐字取自 ybouane/liquidglass 的着色器）。
+
+   canvas 是元素子节点、尺寸等于元素、pointer-events: none，只负责叠加；
+   壁纸未加载时 canvas 输出全透明，自动回落到纯 CSS 玻璃。
+   ============================================================ */
+.has-liquid-glass {
+    /* 光学层按元素圆角裁切，避免折射像素溢出到相邻元素 */
+    overflow: hidden;
+}
+
+/* 定位上下文必须分档给，不能一刀切 position:relative：
+   .weather-widget 是 position:fixed（贴在右上角），.side-widgets 是 fixed 列，
+   套上 relative 会把它们拽回文档流 —— 天气卡瞬间变成占位的块级元素，
+   整列主内容被下推一张卡的高度。所以有自己定位的元素保持原值。 */
+.quick-access-item.has-liquid-glass,
+.add-quick-access-btn.has-liquid-glass,
+.side-card.has-liquid-glass,
+.control-btn.has-liquid-glass,
+.search-history-dropdown.has-liquid-glass,
+.search-input.has-liquid-glass {
+    position: relative;
+}
+
+/* 有 WebGL 层时去掉 CSS 的白色 tint：颜色由着色器从壁纸采样得出，
+   再叠一层 36% 的白膜玻璃就成奶油块，折射再准也被洗掉。
+   背景色必须一起置透明 —— --glass-fill 本身是 rgb(var(--spec) / 0.36)，
+   只清 background-image 这层白膜照样在。模糊保留：它是 canvas 未就绪时的下界兜底。 */
+/* 另外两种选择器形式：fixed 定位的天气卡与两翼小组件不能加 .has-liquid-glass
+   （类里带 position:relative，套上去会掉回文档流），但它们同样要把 tint 让给着色器。
+   所以用 :has() 按「里面有没有光学 canvas」匹配，与类无关。 */
+/* 凡是挂了光学 canvas 的玻璃都要把 tint 让给着色器，**与有没有 .has-liquid-glass 无关**。
+   .quick-access-item / .add-quick-access-btn 天生 position:relative（要挂删除按钮），
+   拿不到那个类 —— 只写 .has-liquid-glass 的话它们会保留 0.36 白膜。
+   整页里只有快捷方格是一块实心奶油砖，跟旁边能透出壁纸的卡片对不上。
+   深色主题下同样的病灶表现为「深墨色不透明块」，所以这里按 :has 全量匹配。 */
+:where(
+        .weather-widget,
+        .side-card,
+        .control-btn,
+        .search-history-dropdown,
+        .quick-access-item,
+        .add-quick-access-btn
+    ):has(> .liquid-glass-canvas),
+.has-liquid-glass {
+    background-color: transparent;
+    background-image: none;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* 有光学层时不要 CSS 实线边框：着色器已经画了渐变窄边，
+   两条叠在一起就是「白边 + 白线」的双层硬边，且实线边框没有上下渐变，
+   和参考站那种「顶部迎光、底部背光」的厚边完全不是一回事。
+   border-color 置透明而不是 border:none —— 保留 1px 盒模型尺寸，避免元素尺寸跳动。 */
+:where(
+        .quick-access-item,
+        .add-quick-access-btn,
+        .side-card,
+        .weather-widget,
+        .control-btn,
+        .search-history-dropdown
+    ):has(> .liquid-glass-canvas) {
+    border-color: transparent;
+}
+
+.liquid-glass-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* 与元素同圆角：折射的高光/色散不能跑到圆角外面 */
+    border-radius: inherit;
+    /* z-index:-1：canvas 必须待在内容「下面」。之前是 1，只有 .has-liquid-glass
+       的子元素被抬到 2 才盖得住；天气卡与两翼小组件不允许加那个类，
+       结果 canvas 把它们的文字整块糊掉（截图里所有卡片都变成空玻璃片）。
+       负 z-index 又依赖父级不是新的层叠上下文，所以下面把父级隔离打开。 */
+    z-index: -1;
+}
+
+/* 光学层的父级要建立层叠上下文，否则 z-index:-1 的 canvas 会掉到页面背景后面 */
+.weather-widget,
+.side-card,
+.control-btn,
+.quick-access-item,
+.add-quick-access-btn,
+.search-input,
+.search-history-dropdown {
+    isolation: isolate;
+}
+
+/* 但 isolation 有个副作用：它让每个方格成为独立的层叠上下文根，
+   于是 SortableJS 拖动时给元素打的 z-index:1000 只在这个格子内部排序，
+   盖不住旁边的格子 —— 拖动中的图标被邻居压住，看起来像"拖不动"。
+   拖动期间解除隔离：此时 canvas 的 z-index:-1 仍被元素自身的定位上下文兜住
+   （position:relative + overflow:hidden），不会掉到页面背景后面。 */
+.quick-access-item.sortable-chosen,
+.quick-access-item.sortable-drag,
+.quick-access-item.sortable-ghost,
+.add-quick-access-btn.sortable-chosen,
+.add-quick-access-btn.sortable-drag {
+    isolation: auto;
+    /* 拖动层要真正浮起来：z-index 只有配上非 static 定位才生效，
+       而这些格子本来就是 relative，所以这里只需要给一个足够高的值。 */
+    z-index: 1000;
+}
+
+/* 光学层之上的内容保持可读、可点：canvas 不接收事件，但同层兄弟需要抬升 */
+.has-liquid-glass > :not(.liquid-glass-canvas) {
+    position: relative;
+    z-index: 2;
+}
+/* --- 液态玻璃第 3 层：字段档（搜索框等） ---
+   搜索框用的是 --glass-field-backdrop，之前没接 WebGL 层：整页玻璃里只有它是
+   纯模糊 + 白底，旁边全是折射玻璃，视觉上像贴了一张塑料片。接入后把 tint 让给
+   着色器采样，但字段档不能像装饰档那样全透 —— 18px 的字要有亮度地板，
+   所以这里保留一层薄 tint（0.2）当兜底，模糊交给 CSS 继续做。 */
+.has-liquid-glass.search-input,
+.has-liquid-glass.search-input:focus {
+    background-color: rgb(var(--spec) / 0.2);
+    background-image: none;
+    backdrop-filter: var(--glass-field-backdrop);
+    -webkit-backdrop-filter: var(--glass-field-backdrop);
+}
+
+/* --- 内置单色图标在浅色主题下的可读性 ---
+   默认站点图标（js/config/default-sites.js）全是 fill="#e6e6e6" 的近白单色图，
+   深色主题正合适；但浅色主题的玻璃偏亮、壁纸又多是浅色，近白图标压上去就消失了
+   （文件夹 2×2 预览直接变空格子）。
+   icon-safe.js 只对「确认是单色近白」的 SVG 打 .mono-light，彩色/自定义图标不碰；
+   这里用 filter 把它压成深墨，而不是覆盖 fill —— fill 可能是 SVG 内部的渐变/多重路径，
+   覆盖会破坏原图形，filter 只做整体亮度映射。
+   反相公式（grayscale + invert）保证任意近白灰阶都映射到深灰区间，不会出现「反相后还是浅」。 */
+html[data-theme='light'] .icon.mono-light,
+html[data-theme='light'] .folder-preview .folder-cell .icon.mono-light {
+    filter: brightness(0) saturate(100%) invert(11%) sepia(9%) saturate(1200%) hue-rotate(170deg) brightness(94%) contrast(96%);
+    opacity: 0.86;
+}
+
+/* --- 玻璃透明后，浅色主题的文字托底 ---
+   先说结论：**不要给文字加白雾光晕**。上一版用三层 text-shadow 托底，实测有两个坏处：
+     1) 6px/12px 的模糊白边把笔画整体外扩一圈，14px 的字读起来粗了一档（用户直接反馈
+        "字体不需要粗体和这么强的对比度"）；
+     2) 光晕是不透明的白，压在本已通透的玻璃上，把周边像素又洗白了 —— 等于把刚拿到的
+        通透度从文字周围赔回去。
+   真正需要托底的只有"深壁纸 + 深墨文字"这一种组合，而它可以用更省事的方式解决：
+   文字阴影只留一条 1px 的极窄暗边（下沉阴影，不是白雾），在浅底上几乎不可见，
+   在深底上给笔画一条边界；再叠加一层很淡的 0.12 白雾，只够把局部拉开 3–4 级灰阶。
+
+   字号/字重也回退：14px/500 是加光晕时的配置，去掉光晕后 500 显得偏重，
+   统一到 400（与页脚、副标题的常规字重同一档）。 */
+html[data-theme='light'] .quick-access-item .name,
+html[data-theme='light'] .folder-item .name {
+    /* 只压一条极窄的暗边：白底看不见，深底给出笔画边界 */
+    text-shadow: 0 1px 1px rgb(var(--ink) / 0.18);
+}
+
+/* 图标：不再加 drop-shadow。单色图标已经用 filter 压成深墨，
+   drop-shadow 会把同一条 filter 链再拉长一倍，边缘反而毛；
+   需要托底的场景（深壁纸）留给上面那条 1px 暗边不做，图标靠自身对比度即可。 */
+
+
+/* --- 加载期的背景底色 ---
+   之前 --canvas 是纯白/纯黑。在「壁纸还没加载」的那一段时间里，用户看到的就是
+   一整块刺眼的纯白（浅色）或纯黑（深色），和最终山林照片的观感完全脱节 ——
+   这也是"白屏卡顿"体感的一部分：不是没内容，而是底色先给了个下马威。
+   改成同主题的柔和渐变：浅色偏冷灰，深色偏墨蓝，两端都不刺眼，
+   并且和玻璃卡片的色温一致，壁纸到位后过渡自然。 */
+/* 只补 --canvas-loading，不改 --canvas 本身（它已被各处引用，动它会影响面板配色） */
+:root,
+html[data-theme='light'] {
+    --canvas-loading: linear-gradient(155deg, #f4f6f8 0%, #e4e9ee 52%, #dde3ea 100%);
+}
+
+html[data-theme='dark'] {
+    --canvas-loading: linear-gradient(155deg, #232c36 0%, #1b242c 55%, #141a21 100%);
+}
+
+.wallpaper-container:not([style*='background-image']) {
+    background-image: var(--canvas-loading);
+}

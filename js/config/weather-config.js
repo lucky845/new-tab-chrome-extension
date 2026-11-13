@@ -22,7 +22,8 @@ const WEATHER_CONFIG = {
     GEOLOCATION_MAX_AGE: 5 * 60 * 1000, // 5分钟缓存
 
     // 本地缓存与限流
-    WEATHER_CACHE_TTL: 20 * 60 * 1000, // 天气缓存20分钟
+    WEATHER_CACHE_TTL: 20 * 60 * 1000, // 天气缓存有效期20分钟（有效期内直接复用，不发请求）
+    WEATHER_CACHE_MAX_AGE: 24 * 60 * 60 * 1000, // 过期缓存最多还能顶多久（超过则不再显示、改为报错）
     ADCODE_CACHE_TTL: 24 * 60 * 60 * 1000, // 行政区编码缓存1天
     MIN_REQUEST_INTERVAL: 10 * 1000, // 最短请求间隔，防抖
 

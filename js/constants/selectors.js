@@ -25,7 +25,6 @@ export const SELECTORS = {
 
     // 壁纸
     wallpaperContainer: 'wallpaper',
-    changeWallpaperBtn: 'change-wallpaper-btn',
     wallpaperSettingsBtn: 'wallpaper-settings-btn',
     wallpaperPanel: 'wallpaper-panel',
     wallpaperSearchInput: 'wallpaper-search-input',
